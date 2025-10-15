@@ -182,17 +182,18 @@ export function useZaps(
         lud16 = developerLud16;
       } else {
         // Check both lud16 and lud06 for lightning address
-        lud16 = author?.metadata?.lud16 || author?.metadata?.lud06;
+        // Access metadata through author.data.metadata as that's the structure from useAuthor
+        lud16 = author.data?.metadata?.lud16 || author.data?.metadata?.lud06;
       }
 
       console.log('Lightning address check:', {
         isDeveloper,
         lud16,
         developerLud16,
-        authorLud16: author?.metadata?.lud16,
-        authorLud06: author?.metadata?.lud06,
+        authorLud16: author.data?.metadata?.lud16,
+        authorLud06: author.data?.metadata?.lud06,
         authorData: author.data,
-        authorMetadata: author?.metadata
+        authorMetadata: author.data?.metadata
       });
 
       if (!lud16) {
@@ -201,7 +202,8 @@ export function useZaps(
           hasAuthorData: !!author.data,
           hasMetadata: !!author.data?.metadata,
           authorLud16: author.data?.metadata?.lud16,
-          authorLud06: author.data?.metadata?.lud06
+          authorLud06: author.data?.metadata?.lud06,
+          lud16Value: lud16
         });
         toast({
           title: 'Lightning address not configured',
