@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useUploadFile } from '@/hooks/useUploadFile';
+import { useToast } from '@/hooks/useToast';
 import { Ghost, Send, Upload, Image, Video, Music, X } from 'lucide-react';
 
 const PARANORMAL_TAGS = [
@@ -30,6 +31,7 @@ export function CreateParanormalPost() {
   const { user } = useCurrentUser();
   const { mutate: createEvent, isPending } = useNostrPublish();
   const { mutate: uploadFile, isPending: isUploading } = useUploadFile();
+  const { toast } = useToast();
   const [content, setContent] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<Array<{tags: string[]; file: File}>>([]);
@@ -49,13 +51,25 @@ export function CreateParanormalPost() {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       try {
+        console.log('Uploading file:', file.name, file.type, file.size);
         const tags = await uploadFile(file);
+        console.log('Upload completed for:', file.name, 'Tags:', tags);
+        
         // Ensure tags is an array before storing
         const fileTags = Array.isArray(tags) ? tags : [];
         setUploadedFiles(prev => [...prev, { tags: fileTags, file }]);
+        
+        toast({
+          title: 'File uploaded',
+          description: `${file.name} uploaded successfully`,
+        });
       } catch (error) {
         console.error('Failed to upload file:', error);
-        // You could add a toast notification here if desired
+        toast({
+          title: 'Upload failed',
+          description: `Failed to upload ${file.name}. Please try again.`,
+          variant: 'destructive',
+        });
       }
     }
     // Reset file input
@@ -72,9 +86,13 @@ export function CreateParanormalPost() {
     const tags = selectedTags.map(tag => ['t', tag]);
 
     // Add uploaded file tags (NIP-94)
+    console.log('Adding uploaded files to post:', uploadedFiles);
     uploadedFiles.forEach(uploadedFile => {
+      console.log('Adding file tags:', uploadedFile.tags);
       tags.push(...uploadedFile.tags);
     });
+
+    console.log('Final event tags:', tags);
 
     createEvent({
       kind: 1,
