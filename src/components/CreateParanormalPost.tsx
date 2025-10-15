@@ -61,12 +61,34 @@ export function CreateParanormalPost() {
         console.log('📋 File tags after validation:', fileTags);
         console.log('📋 File tags length:', fileTags.length);
 
-        setUploadedFiles(prev => [...prev, { tags: fileTags, file }]);
+        // Extract URL from tags for inserting into content
+        const urlTag = fileTags.find(tag => tag[0] === 'url');
+        const fileUrl = urlTag ? urlTag[1] : '';
 
-        toast({
-          title: 'File uploaded',
-          description: `${file.name} uploaded successfully`,
-        });
+        if (fileUrl) {
+          console.log('🔗 Found file URL:', fileUrl);
+
+          // Insert URL into content textarea
+          const newContent = content.trim() ?
+            `${content}\n\n${fileUrl}` :
+            fileUrl;
+
+          setContent(newContent);
+
+          toast({
+            title: 'File uploaded',
+            description: `${file.name} uploaded successfully and added to post`,
+          });
+        } else {
+          console.warn('⚠️ No URL found in file tags');
+          toast({
+            title: 'Upload warning',
+            description: `${file.name} uploaded but URL not found`,
+            variant: 'destructive',
+          });
+        }
+
+        setUploadedFiles(prev => [...prev, { tags: fileTags, file }]);
       } catch (error) {
         console.error('❌ Failed to upload file:', error);
         toast({
