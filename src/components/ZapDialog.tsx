@@ -355,6 +355,18 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
   // For developer zaps, we don't need author metadata
   const hasLightningAddress = isDeveloper ? !!developerLud16 : !!(author?.metadata?.lud06 || author?.metadata?.lud16);
 
+  console.log('ZapDialog render check:', {
+    user: !!user,
+    userPubkey: user?.pubkey,
+    targetPubkey: target.pubkey,
+    isDeveloper,
+    hasLightningAddress,
+    developerLud16,
+    authorLud16: author?.metadata?.lud16,
+    authorLud06: author?.metadata?.lud06,
+    shouldRender: !!(user && user.pubkey !== target.pubkey && hasLightningAddress)
+  });
+
   if (!user || user.pubkey === target.pubkey || !hasLightningAddress) {
     return null;
   }

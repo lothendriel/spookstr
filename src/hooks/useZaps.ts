@@ -139,6 +139,7 @@ export function useZaps(
       return;
     }
 
+    console.log('Starting zap process:', { amount, comment, isDeveloper, target: actualTarget });
     setIsZapping(true);
     setInvoice(null); // Clear any previous invoice at the start
 
@@ -165,6 +166,7 @@ export function useZaps(
     try {
       // For developer zaps, we don't need author metadata
       if (!isDeveloper && (!author.data || !author.data?.metadata || !author.data?.event)) {
+        console.error('Author not found for regular zap');
         toast({
           title: 'Author not found',
           description: 'Could not find the author of this item.',
@@ -177,7 +179,10 @@ export function useZaps(
       // Get lightning address - use developer's for developer zaps, otherwise use author's
       const lud16 = isDeveloper ? developerLud16 : author?.metadata?.lud16 || author?.metadata?.lud06;
 
+      console.log('Lightning address check:', { isDeveloper, lud16, developerLud16 });
+
       if (!lud16) {
+        console.error('No lightning address found');
         toast({
           title: 'Lightning address not found',
           description: 'The author does not have a lightning address configured.',
@@ -192,7 +197,8 @@ export function useZaps(
       if (isDeveloper) {
         // For developer, construct zap endpoint from lightning address
         const [username, domain] = lud16.split('@');
-        zapEndpoint = `https://${domain}/.well-known/lnurlp/${username}/callback`;
+        // Try direct LNURL endpoint first (more reliable)
+        zapEndpoint = `https://${domain}/.well-known/lnurlp/${username}`;
         console.log('Developer zap endpoint constructed:', zapEndpoint);
       } else {
         // Get zap endpoint using nostr-tools for regular users
