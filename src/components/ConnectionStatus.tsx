@@ -23,10 +23,35 @@ export function ConnectionStatus() {
   const { config, presetRelays } = useAppContext();
   const { toast } = useToast();
   const [isChecking, setIsChecking] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   const currentRelay = config.relayUrl;
   const relayStatus = relayHealth.get(currentRelay);
   const bestRelay = getBestRelay();
+
+  // Initialize relay health checking on component mount
+  useEffect(() => {
+    if (!hasInitialized && presetRelays.length > 0) {
+      const initializeRelays = async () => {
+        setIsChecking(true);
+        try {
+          const allRelays = [
+            { url: currentRelay, name: 'Current' },
+            ...presetRelays.slice(0, 3)
+          ];
+
+          await checkAllRelays(allRelays);
+          setHasInitialized(true);
+        } catch (error) {
+          console.error('Failed to initialize relay health:', error);
+        } finally {
+          setIsChecking(false);
+        }
+      };
+
+      initializeRelays();
+    }
+  }, [hasInitialized, currentRelay, presetRelays, checkAllRelays]);
 
   const handleRefreshConnections = async () => {
     setIsChecking(true);
@@ -59,16 +84,17 @@ export function ConnectionStatus() {
     }
   };
 
-  const getRelayStatusIcon = (isConnected: boolean, latency: number | null) => {
+  const getRelayStatusIcon = (isConnected?: boolean, latency?: number | null) => {
+    if (isConnected === undefined) return <AlertTriangle className="h-4 w-4 text-gray-500" />;
     if (!isConnected) return <WifiOff className="h-4 w-4 text-red-500" />;
-    if (latency === null) return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+    if (latency === null || latency === undefined) return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
     if (latency < 500) return <CheckCircle className="h-4 w-4 text-green-500" />;
     if (latency < 1000) return <CheckCircle className="h-4 w-4 text-yellow-500" />;
     return <CheckCircle className="h-4 w-4 text-red-500" />;
   };
 
-  const getLatencyColor = (latency: number | null) => {
-    if (!latency) return 'text-gray-500';
+  const getLatencyColor = (latency?: number | null) => {
+    if (latency === undefined || latency === null) return 'text-gray-500';
     if (latency < 500) return 'text-green-500';
     if (latency < 1000) return 'text-yellow-500';
     return 'text-red-500';
@@ -107,7 +133,7 @@ export function ConnectionStatus() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                {getRelayStatusIcon(!!relayStatus?.isConnected, relayStatus?.latency)}
+                {getRelayStatusIcon(relayStatus?.isConnected, relayStatus?.latency)}
                 <span className="text-sm text-lime-100 font-medium">
                   {currentRelay.replace('wss://', '').replace('ws://', '')}
                 </span>
@@ -118,7 +144,7 @@ export function ConnectionStatus() {
                 )}
               </div>
               <div className="text-xs">
-                {relayStatus?.latency !== null && (
+                {relayStatus?.latency !== null && relayStatus?.latency !== undefined && (
                   <span className={getLatencyColor(relayStatus.latency)}>
                     {relayStatus.latency}ms
                   </span>
@@ -141,7 +167,7 @@ export function ConnectionStatus() {
               return (
                 <div key={relay.url} className="flex items-center justify-between text-xs">
                   <div className="flex items-center space-x-2">
-                    {getRelayStatusIcon(!!status?.isConnected, status?.latency)}
+                    {getRelayStatusIcon(status?.isConnected, status?.latency)}
                     <span className="text-lime-500/80">
                       {relay.name}
                     </span>
@@ -151,7 +177,7 @@ export function ConnectionStatus() {
                       </Badge>
                     )}
                   </div>
-                  {status?.latency !== null && (
+                  {status?.latency !== null && status?.latency !== undefined && (
                     <span className={getLatencyColor(status.latency)}>
                       {status.latency}ms
                     </span>
