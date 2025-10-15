@@ -8,6 +8,9 @@ import { DeveloperTip } from '@/components/DeveloperTip';
 import { PostDetailView } from '@/components/PostDetailView';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { NostrEvent } from '@nostrify/nostrify';
+import { Button } from '@/components/ui/button';
+import { RotateCcw } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 const Index = () => {
   useSeoMeta({
@@ -15,8 +18,14 @@ const Index = () => {
     description: 'Discover and share paranormal experiences, UFO sightings, cryptid encounters, and supernatural stories on the Nostr network.',
   });
 
-  const { data: posts, isLoading, error } = useParanormalFeed();
+  const queryClient = useQueryClient();
+  const { data: posts, isLoading, error, refetch } = useParanormalFeed();
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
+
+  const handleRefresh = () => {
+    // Refetch paranormal feed
+    refetch();
+  };
 
   if (selectedPost) {
     return (
@@ -46,9 +55,21 @@ const Index = () => {
           {/* Main Feed */}
           <div className="lg:col-span-2 space-y-4">
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-lime-400 mb-2">
-                Paranormal Activity Feed
-              </h2>
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-2xl font-bold text-lime-400">
+                  Paranormal Activity Feed
+                </h2>
+                <Button
+                  onClick={handleRefresh}
+                  variant="outline"
+                  size="sm"
+                  className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10"
+                  disabled={isLoading}
+                >
+                  <RotateCcw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
               <p className="text-lime-500/60">
                 Real-time experiences from the unknown
               </p>
