@@ -265,6 +265,27 @@ export function useZaps(
             zapAmount
           });
 
+          // Handle specific error messages
+          if (responseData.message === "Recipient wallet error. Please contact recipient.") {
+            toast({
+              title: 'Zap unavailable',
+              description: 'This recipient\'s lightning wallet is currently unavailable or misconfigured. Please try again later or contact the recipient.',
+              variant: 'destructive',
+            });
+            setIsZapping(false);
+            return;
+          }
+
+          if (responseData.error === true && typeof responseData.message === 'string') {
+            toast({
+              title: 'Zap failed',
+              description: responseData.message || 'The recipient\'s lightning service returned an error.',
+              variant: 'destructive',
+            });
+            setIsZapping(false);
+            return;
+          }
+
           // Try fallback to direct lightning address
           if (lud16) {
             try {

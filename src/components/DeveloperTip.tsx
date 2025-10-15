@@ -16,6 +16,22 @@ export function DeveloperTip() {
       // You could add a toast notification here
     } catch (err) {
       console.error('Failed to copy address:', err);
+      // Fallback for when clipboard API is blocked
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = 'studio314@getalby.com';
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      } catch (fallbackErr) {
+        console.error('Fallback copy also failed:', fallbackErr);
+        alert('Lightning address: studio314@getalby.com');
+      }
     }
   };
 
