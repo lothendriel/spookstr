@@ -29,6 +29,14 @@ export function ConnectionStatus() {
   const relayStatus = relayHealth.get(currentRelay);
   const bestRelay = getBestRelay();
 
+  // Ensure we have valid relay status data
+  const safeRelayStatus = relayStatus || {
+    isConnected: undefined,
+    latency: undefined,
+    lastChecked: null,
+    error: null,
+  };
+
   // Initialize relay health checking on component mount
   useEffect(() => {
     if (!hasInitialized && presetRelays.length > 0) {
@@ -85,7 +93,7 @@ export function ConnectionStatus() {
   };
 
   const getRelayStatusIcon = (isConnected?: boolean, latency?: number | null) => {
-    if (isConnected === undefined) return <AlertTriangle className="h-4 w-4 text-gray-500" />;
+    if (isConnected === undefined || isConnected === null) return <AlertTriangle className="h-4 w-4 text-gray-500" />;
     if (!isConnected) return <WifiOff className="h-4 w-4 text-red-500" />;
     if (latency === null || latency === undefined) return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
     if (latency < 500) return <CheckCircle className="h-4 w-4 text-green-500" />;
@@ -133,7 +141,7 @@ export function ConnectionStatus() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                {getRelayStatusIcon(relayStatus?.isConnected, relayStatus?.latency)}
+                {getRelayStatusIcon(safeRelayStatus.isConnected, safeRelayStatus.latency)}
                 <span className="text-sm text-lime-100 font-medium">
                   {currentRelay.replace('wss://', '').replace('ws://', '')}
                 </span>
@@ -144,18 +152,18 @@ export function ConnectionStatus() {
                 )}
               </div>
               <div className="text-xs">
-                {relayStatus?.latency !== null && relayStatus?.latency !== undefined && (
-                  <span className={getLatencyColor(relayStatus.latency)}>
-                    {relayStatus.latency}ms
+                {safeRelayStatus.latency !== null && safeRelayStatus.latency !== undefined && (
+                  <span className={getLatencyColor(safeRelayStatus.latency)}>
+                    {safeRelayStatus.latency}ms
                   </span>
                 )}
               </div>
             </div>
 
-            {relayStatus?.error && (
+            {safeRelayStatus.error && (
               <div className="text-xs text-red-400 flex items-center space-x-1">
                 <XCircle className="h-3 w-3" />
-                <span>{relayStatus.error}</span>
+                <span>{safeRelayStatus.error}</span>
               </div>
             )}
           </div>
