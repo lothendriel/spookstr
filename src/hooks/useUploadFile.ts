@@ -20,6 +20,7 @@ export function useUploadFile() {
       });
 
       const tags = await uploader.upload(file);
+      console.log('Upload response tags:', tags); // Debug log
       return tags;
     },
   });

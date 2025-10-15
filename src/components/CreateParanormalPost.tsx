@@ -50,7 +50,9 @@ export function CreateParanormalPost() {
       const file = files[i];
       try {
         const tags = await uploadFile(file);
-        setUploadedFiles(prev => [...prev, { tags, file }]);
+        // Ensure tags is an array before storing
+        const fileTags = Array.isArray(tags) ? tags : [];
+        setUploadedFiles(prev => [...prev, { tags: fileTags, file }]);
       } catch (error) {
         console.error('Failed to upload file:', error);
         // You could add a toast notification here if desired
@@ -158,7 +160,7 @@ export function CreateParanormalPost() {
                   const isAudio = file.type.startsWith('audio/');
 
                   // Extract URL from tags (NIP-94 format)
-                  const urlTag = tags.find(tag => tag[0] === 'url');
+                  const urlTag = tags && Array.isArray(tags) ? tags.find(tag => tag[0] === 'url') : undefined;
                   const url = urlTag ? urlTag[1] : '';
 
                   return (
