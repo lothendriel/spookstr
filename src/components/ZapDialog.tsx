@@ -142,19 +142,19 @@ const ZapContent = forwardRef<HTMLDivElement, ZapContentProps>(({
             {webln && (
               <Button
                 onClick={async () => {
-                  if (!isWebLNEnabled) {
+                  if (!safeIsWebLNEnabled) {
                     const success = await enableWebLN();
                     if (!success) return;
                   }
                   const finalAmount = typeof amount === 'string' ? parseInt(amount, 10) : amount;
                   zap(finalAmount, comment);
                 }}
-                disabled={isZapping || !isWebLNEnabled}
+                disabled={isZapping || !safeIsWebLNEnabled}
                 className="w-full"
                 size="lg"
               >
                 <Zap className="h-4 w-4 mr-2" />
-                {isZapping ? "Processing..." : isWebLNEnabled ? "Pay with WebLN" : "Enable WebLN"}
+                {isZapping ? "Processing..." : safeIsWebLNEnabled ? "Pay with WebLN" : "Enable WebLN"}
               </Button>
             )}
 
@@ -247,7 +247,8 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
   const { user } = useCurrentUser();
   const authorQuery = useAuthor(target.pubkey);
   const { toast } = useToast();
-  const { webln, activeNWC, isWebLNEnabled, enableWebLN, walletError, clearWalletError } = useWallet();
+  const walletStatus = useWallet();
+  const { webln, activeNWC, isWebLNEnabled: safeIsWebLNEnabled = false, enableWebLN, walletError, clearWalletError } = walletStatus;
   const { zap, isZapping, invoice, setInvoice } = useZaps(target, webln, activeNWC, () => setOpen(false));
   const [amount, setAmount] = useState<number | string>(100);
   const [comment, setComment] = useState<string>('');
