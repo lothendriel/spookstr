@@ -9,7 +9,7 @@ import { Ghost, Send } from 'lucide-react';
 
 const PARANORMAL_TAGS = [
   'paranormal',
-  'cryptids', 
+  'cryptids',
   'bigfoot',
   'ufo',
   'ufos',
@@ -32,8 +32,8 @@ export function CreateParanormalPost() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const handleTagToggle = (tag: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tag) 
+    setSelectedTags(prev =>
+      prev.includes(tag)
         ? prev.filter(t => t !== tag)
         : [...prev, tag]
     );
@@ -43,7 +43,7 @@ export function CreateParanormalPost() {
     if (!user || !content.trim() || selectedTags.length === 0) return;
 
     const tags = selectedTags.map(tag => ['t', tag]);
-    
+
     createEvent({
       kind: 1,
       content: content.trim(),
@@ -73,7 +73,7 @@ export function CreateParanormalPost() {
           <span>Share Your Paranormal Experience</span>
         </CardTitle>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         <Textarea
           placeholder="Tell us about your encounter with the unknown..."
@@ -82,7 +82,7 @@ export function CreateParanormalPost() {
           className="bg-black/20 border-lime-500/30 text-lime-100 placeholder:text-lime-500/50 resize-none"
           rows={4}
         />
-        
+
         <div>
           <p className="text-sm text-lime-500/80 mb-2">
             Select at least one paranormal category (required):
@@ -93,8 +93,8 @@ export function CreateParanormalPost() {
                 key={tag}
                 variant={selectedTags.includes(tag) ? "default" : "outline"}
                 className={`cursor-pointer transition-all ${
-                  selectedTags.includes(tag) 
-                    ? "bg-lime-500 text-black border-lime-500" 
+                  selectedTags.includes(tag)
+                    ? "bg-lime-500 text-black border-lime-500"
                     : "border-lime-500/50 text-lime-400 hover:border-lime-400 hover:text-lime-300"
                 }`}
                 onClick={() => handleTagToggle(tag)}
@@ -103,24 +103,24 @@ export function CreateParanormalPost() {
               </Badge>
             ))}
           </div>
-        </div>
-        
-        <div className="flex justify-between items-center">
-          <p className="text-xs text-lime-500/60">
-            {selectedTags.length > 0 
-              ? `${selectedTags.length} categor${selectedTags.length === 1 ? 'y' : 'ies'} selected`
-              : 'Select at least one category'
-            }
-          </p>
-          
-          <Button
-            onClick={handleSubmit}
-            disabled={!content.trim() || selectedTags.length === 0 || isPending}
-            className="bg-lime-500 hover:bg-lime-400 text-black font-semibold"
-          >
-            <Send className="h-4 w-4 mr-2" />
-            {isPending ? 'Sharing...' : 'Share Experience'}
-          </Button>
+
+          <div className="mt-3">
+            <p className="text-xs text-lime-500/60 text-center">
+              {selectedTags.length > 0
+                ? `${selectedTags.length} categor${selectedTags.length === 1 ? 'y' : 'ies'} selected`
+                : 'Select at least one category'
+              }
+            </p>
+
+            <Button
+              onClick={handleSubmit}
+              disabled={!content.trim() || selectedTags.length === 0 || isPending}
+              className="bg-lime-500 hover:bg-lime-400 text-black font-semibold w-full mt-2"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {isPending ? 'Sharing...' : 'Share Experience'}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
