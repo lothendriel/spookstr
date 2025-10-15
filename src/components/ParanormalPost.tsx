@@ -7,9 +7,10 @@ import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { NoteContent } from '@/components/NoteContent';
 import { ZapButton } from '@/components/ZapButton';
+import { ZapDialog } from '@/components/ZapDialog';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { Heart, Repeat, MessageCircle, Share2 } from 'lucide-react';
+import { Heart, Repeat, MessageCircle, Share2, Zap } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface ParanormalPostProps {
@@ -28,6 +29,9 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(event.pubkey);
   const timeAgo = formatDistanceToNow(new Date(event.created_at * 1000), { addSuffix: true });
+
+  // Check if author has lightning address for zapping
+  const hasLightningAddress = metadata?.lud16 || metadata?.lud06;
 
   const handleLike = () => {
     if (!user) return;
@@ -59,7 +63,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   };
 
   return (
-    <Card 
+    <Card
       className="border-lime-500/20 hover:border-lime-500/40 transition-all duration-200 cursor-pointer bg-black/40 backdrop-blur-sm"
       onClick={onClick}
     >
@@ -82,12 +86,12 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className="pt-0">
         <div className="whitespace-pre-wrap break-words text-lime-100">
           <NoteContent event={event} className="text-sm" />
         </div>
-        
+
         {showActions && (
           <div className="flex items-center justify-between mt-4 pt-3 border-t border-lime-500/20">
             <div className="flex items-center space-x-1">
@@ -102,7 +106,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
               >
                 <Heart className={`h-4 w-4 ${liked ? 'fill-lime-500 text-lime-500' : ''}`} />
               </Button>
-              
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -114,7 +118,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
               >
                 <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
               </Button>
-              
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -126,7 +130,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
               >
                 <Share2 className="h-4 w-4" />
               </Button>
-              
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -139,13 +143,24 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                 <MessageCircle className="h-4 w-4" />
               </Button>
             </div>
-            
+
             <div className="flex items-center space-x-2">
-              <ZapButton
-                event={event}
-                size="sm"
-                className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
-              />
+              {hasLightningAddress ? (
+                <ZapButton
+                  target={event}
+                  className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
+                />
+              ) : (
+                <ZapDialog target={event}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
+                  >
+                    <Zap className="h-4 w-4" />
+                  </Button>
+                </ZapDialog>
+              )}
             </div>
           </div>
         )}
