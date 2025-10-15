@@ -2,23 +2,23 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useRelayHealth } from '@/hooks/useRelayHealth';
+import { useRelayHealthSimple } from '@/hooks/useRelayHealthSimple';
 import { useWallet } from '@/hooks/useWallet';
 import { useAppContext } from '@/hooks/useAppContext';
 import { useToast } from '@/hooks/useToast';
-import { 
-  Wifi, 
-  WifiOff, 
-  Zap, 
-  ZapOff, 
-  RefreshCw, 
-  CheckCircle, 
+import {
+  Wifi,
+  WifiOff,
+  Zap,
+  ZapOff,
+  RefreshCw,
+  CheckCircle,
   XCircle,
   AlertTriangle
 } from 'lucide-react';
 
 export function ConnectionStatus() {
-  const { relayHealth, checkAllRelays, getBestRelay } = useRelayHealth();
+  const { relayHealth, checkAllRelays, getBestRelay } = useRelayHealthSimple();
   const { hasNWC, webln, isWebLNEnabled, walletError, enableWebLN } = useWallet();
   const { config, presetRelays } = useAppContext();
   const { toast } = useToast();
@@ -35,14 +35,14 @@ export function ConnectionStatus() {
         { url: currentRelay, name: 'Current' },
         ...presetRelays.slice(0, 3)
       ];
-      
+
       await checkAllRelays(allRelays);
-      
+
       // Check WebLN status
       if (webln && !isWebLNEnabled) {
         await enableWebLN();
       }
-      
+
       toast({
         title: 'Connections refreshed',
         description: 'Connection status has been updated.',
@@ -94,7 +94,7 @@ export function ConnectionStatus() {
           </Button>
         </CardTitle>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         {/* Nostr Relay Status */}
         <div className="space-y-3">
@@ -102,7 +102,7 @@ export function ConnectionStatus() {
             <Wifi className="h-4 w-4 mr-2" />
             Nostr Relay
           </h3>
-          
+
           {/* Current Relay */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -125,7 +125,7 @@ export function ConnectionStatus() {
                 )}
               </div>
             </div>
-            
+
             {relayStatus?.error && (
               <div className="text-xs text-red-400 flex items-center space-x-1">
                 <XCircle className="h-3 w-3" />
@@ -168,7 +168,7 @@ export function ConnectionStatus() {
             <Zap className="h-4 w-4 mr-2" />
             Lightning Wallet
           </h3>
-          
+
           {/* NWC Status */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
@@ -196,13 +196,13 @@ export function ConnectionStatus() {
               )}
               <span className="text-sm text-lime-100">WebLN Extension</span>
             </div>
-            <Badge 
-              variant={webln && isWebLNEnabled ? "default" : "secondary"} 
+            <Badge
+              variant={webln && isWebLNEnabled ? "default" : "secondary"}
               className={
-                webln && isWebLNEnabled 
-                  ? "bg-green-500/20 text-green-400" 
-                  : webln 
-                  ? "bg-yellow-500/20 text-yellow-400" 
+                webln && isWebLNEnabled
+                  ? "bg-green-500/20 text-green-400"
+                  : webln
+                  ? "bg-yellow-500/20 text-yellow-400"
                   : ""
               }
             >
@@ -223,10 +223,10 @@ export function ConnectionStatus() {
         <div className="pt-2 border-t border-lime-500/20">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-lime-300">Overall Status</span>
-            <Badge 
+            <Badge
               variant={
                 (relayStatus?.isConnected && (hasNWC || (webln && isWebLNEnabled)))
-                  ? "default" 
+                  ? "default"
                   : "secondary"
               }
               className={

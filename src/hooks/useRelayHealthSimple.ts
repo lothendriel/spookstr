@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNostr } from '@nostrify/react';
+import { NRelay1 } from '@nostrify/nostrify';
 import { useToast } from '@/hooks/useToast';
 
 interface RelayHealth {
@@ -11,8 +11,7 @@ interface RelayHealth {
   error: string | null;
 }
 
-export function useRelayHealth() {
-  const { nostr } = useNostr();
+export function useRelayHealthSimple() {
   const { toast } = useToast();
   const [relayHealth, setRelayHealth] = useState<Map<string, RelayHealth>>(new Map());
 
@@ -20,18 +19,11 @@ export function useRelayHealth() {
     const startTime = Date.now();
     
     try {
-      // Create a test event to check connectivity
-      const testEvent = {
-        kind: 1,
-        content: 'health check',
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [],
-      };
-
-      // Try to connect and send a simple query
-      const relay = nostr.relay(relayUrl);
+      // Create a direct relay connection for health checking
+      const relay = new NRelay1(relayUrl);
       const signal = AbortSignal.timeout(5000); // 5 second timeout
       
+      // Try to connect and send a simple query
       await relay.query([{ kinds: [1], limit: 1 }], { signal });
       
       const latency = Date.now() - startTime;
@@ -56,7 +48,7 @@ export function useRelayHealth() {
         error: errorMessage,
       };
     }
-  }, [nostr]);
+  }, []);
 
   const checkAllRelays = useCallback(async (relays: Array<{ url: string; name: string }>) => {
     const healthChecks = relays.map(async (relay) => {
