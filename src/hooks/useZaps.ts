@@ -332,6 +332,17 @@ export function useZaps(
               console.log('Fallback endpoint found:', fallbackEndpoint);
 
               // Create a minimal zap request for developer
+              console.log('Creating developer zap request:', {
+                profile: actualTarget.pubkey,
+                event: actualTarget.id,
+                amount: zapAmount,
+                relays: [config.relayUrl],
+                comment,
+                targetId: actualTarget.id,
+                targetPubkey: actualTarget.pubkey,
+                targetKind: actualTarget.kind,
+                currentUserPubkey: user?.pubkey
+              });
               const zapRequest = nip57.makeZapRequest({
                 profile: actualTarget.pubkey,
                 event: actualTarget.id,
@@ -339,11 +350,41 @@ export function useZaps(
                 relays: [config.relayUrl],
                 comment
               });
+              console.log('Developer zap request created:', {
+                pubkey: zapRequest.pubkey,
+                created_at: zapRequest.created_at,
+                kind: zapRequest.kind,
+                tags: zapRequest.tags,
+                content: zapRequest.content
+              });
 
               if (!user.signer) {
                 throw new Error('No signer available');
               }
               const signedZapRequest = await user.signer.signEvent(zapRequest);
+
+              console.log('Signed developer zap request details:', {
+                pubkey: signedZapRequest.pubkey,
+                created_at: signedZapRequest.created_at,
+                kind: signedZapRequest.kind,
+                tags: signedZapRequest.tags,
+                content: signedZapRequest.content,
+                sig: signedZapRequest.sig
+              });
+
+              // Extract p tag from signed request to verify recipient
+              const pTag = signedZapRequest.tags.find(tag => tag[0] === 'p');
+              const eTag = signedZapRequest.tags.find(tag => tag[0] === 'e');
+
+              console.log('Developer zap request recipient verification:', {
+                pTag: pTag,
+                eTag: eTag,
+                recipientPubkey: pTag ? pTag[1] : 'NOT FOUND',
+                targetEventId: eTag ? eTag[1] : 'NOT FOUND',
+                currentUserPubkey: user?.pubkey,
+                targetAuthorPubkey: actualTarget.pubkey,
+                match: pTag && pTag[1] === actualTarget.pubkey ? '✅ MATCH' : '❌ MISMATCH'
+              });
 
               const fallbackUrl = `${fallbackEndpoint}?amount=${zapAmount}&nostr=${encodeURIComponent(JSON.stringify(signedZapRequest))}`;
               console.log('Trying fallback URL:', fallbackUrl);
@@ -396,6 +437,18 @@ export function useZaps(
           ? actualTarget
           : actualTarget.id;
 
+        console.log('Creating regular zap request:', {
+          profile: actualTarget.pubkey,
+          event: event,
+          amount: zapAmount,
+          relays: [config.relayUrl],
+          comment,
+          targetId: actualTarget.id,
+          targetPubkey: actualTarget.pubkey,
+          targetKind: actualTarget.kind,
+          currentUserPubkey: user?.pubkey,
+          authorPubkey: author.data?.pubkey
+        });
         const zapRequest = nip57.makeZapRequest({
           profile: actualTarget.pubkey,
           event: event,
@@ -403,12 +456,45 @@ export function useZaps(
           relays: [config.relayUrl],
           comment
         });
+        console.log('Regular zap request created:', {
+          pubkey: zapRequest.pubkey,
+          created_at: zapRequest.created_at,
+          kind: zapRequest.kind,
+          tags: zapRequest.tags,
+          content: zapRequest.content
+        });
 
         // Sign the zap request (but don't publish to relays - only send to LNURL endpoint)
         if (!user.signer) {
           throw new Error('No signer available');
         }
         const signedZapRequest = await user.signer.signEvent(zapRequest);
+
+        console.log('Signed zap request details:', {
+          pubkey: signedZapRequest.pubkey,
+          created_at: signedZapRequest.created_at,
+          kind: signedZapRequest.kind,
+          tags: signedZapRequest.tags,
+          content: signedZapRequest.content,
+          sig: signedZapRequest.sig
+        });
+
+        // Extract p tag from signed request to verify recipient
+        const pTag = signedZapRequest.tags.find(tag => tag[0] === 'p');
+        const eTag = signedZapRequest.tags.find(tag => tag[0] === 'e');
+        const aTag = signedZapRequest.tags.find(tag => tag[0] === 'a');
+
+        console.log('Zap request recipient verification:', {
+          pTag: pTag,
+          eTag: eTag,
+          aTag: aTag,
+          recipientPubkey: pTag ? pTag[1] : 'NOT FOUND',
+          targetEventId: eTag ? eTag[1] : 'NOT FOUND',
+          targetAddress: aTag ? aTag[1] : 'NOT FOUND',
+          currentUserPubkey: user?.pubkey,
+          targetAuthorPubkey: actualTarget.pubkey,
+          match: pTag && pTag[1] === actualTarget.pubkey ? '✅ MATCH' : '❌ MISMATCH'
+        });
 
         zapUrl = `${zapEndpoint}?amount=${zapAmount}&nostr=${encodeURIComponent(JSON.stringify(signedZapRequest))}`;
 
