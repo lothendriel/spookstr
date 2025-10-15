@@ -30,7 +30,7 @@ const PARANORMAL_TAGS = [
 export function CreateParanormalPost() {
   const { user } = useCurrentUser();
   const { mutate: createEvent, isPending } = useNostrPublish();
-  const { mutate: uploadFile, isPending: isUploading } = useUploadFile();
+  const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
   const { toast } = useToast();
   const [content, setContent] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -55,14 +55,14 @@ export function CreateParanormalPost() {
         const tags = await uploadFile(file);
         console.log('✅ Upload completed for:', file.name, 'Tags:', tags);
         console.log('📋 Tags type:', typeof tags, 'Is array:', Array.isArray(tags));
-        
+
         // Ensure tags is an array before storing
         const fileTags = Array.isArray(tags) ? tags : [];
         console.log('📋 File tags after validation:', fileTags);
         console.log('📋 File tags length:', fileTags.length);
-        
+
         setUploadedFiles(prev => [...prev, { tags: fileTags, file }]);
-        
+
         toast({
           title: 'File uploaded',
           description: `${file.name} uploaded successfully`,
@@ -112,14 +112,14 @@ export function CreateParanormalPost() {
       });
       console.log('Adding file tags:', uploadedFile.tags);
       console.log('File tags expanded:', JSON.stringify(uploadedFile.tags, null, 2));
-      
+
       // Check each individual tag
       if (Array.isArray(uploadedFile.tags)) {
         uploadedFile.tags.forEach((tag, tagIndex) => {
           console.log(`File ${index + 1}, Tag ${tagIndex + 1}:`, tag);
         });
       }
-      
+
       tags.push(...uploadedFile.tags);
     });
 
