@@ -182,10 +182,12 @@ export function useZaps(
 
       // Get zap endpoint using the old reliable method
       const zapEndpoint = await nip57.getZapEndpoint(author.data.event);
+      console.log('Zap endpoint found:', zapEndpoint);
+
       if (!zapEndpoint) {
         toast({
           title: 'Zap endpoint not found',
-          description: 'Could not find a zap endpoint for the author.',
+          description: 'This author does not have a zap endpoint configured. They may need to set up a lightning address with zap support.',
           variant: 'destructive',
         });
         setIsZapping(false);
@@ -216,17 +218,48 @@ export function useZaps(
       const signedZapRequest = await user.signer.signEvent(zapRequest);
 
       try {
-        const res = await fetch(`${zapEndpoint}?amount=${zapAmount}&nostr=${encodeURI(JSON.stringify(signedZapRequest))}`);
-            const responseData = await res.json();
+        const zapUrl = `${zapEndpoint}?amount=${zapAmount}&nostr=${encodeURIComponent(JSON.stringify(signedZapRequest))}`;
+        console.log('Attempting to fetch invoice from:', zapUrl);
 
-            if (!res.ok) {
-              throw new Error(`HTTP ${res.status}: ${responseData.reason || 'Unknown error'}`);
-            }
+        const res = await fetch(zapUrl);
+        const responseData = await res.json();
 
-            const newInvoice = responseData.pr;
-            if (!newInvoice || typeof newInvoice !== 'string') {
-              throw new Error('Lightning service did not return a valid invoice');
+        console.log('Zap endpoint response:', { status: res.status, data: responseData });
+
+        if (!res.ok) {
+          const errorMessage = responseData.reason || responseData.error || 'Unknown error';
+          console.error('Zap endpoint failed:', errorMessage);
+
+          // Try fallback to direct lightning address
+          if (lud16) {
+            try {
+              const fallbackUrl = `https://lnurl.fiatjaf.com/.well-known/lnurlp/${lud16.split('@')[0]}?amount=${zapAmount}`;
+              console.log('Trying fallback to:', fallbackUrl);
+
+              const fallbackRes = await fetch(fallbackUrl);
+              const fallbackData = await fallbackRes.json();
+
+              if (fallbackRes.ok && fallbackData.pr) {
+                const newInvoice = fallbackData.pr;
+                console.log('Fallback invoice generated successfully');
+
+                // Set the invoice and return to payment flow
+                setInvoice(newInvoice);
+                setIsZapping(false);
+                return;
+              }
+            } catch (fallbackError) {
+              console.error('Fallback also failed:', fallbackError);
             }
+          }
+
+          throw new Error(`Zap endpoint failed: ${errorMessage}. The author may not have a properly configured zap service.`);
+        }
+
+        const newInvoice = responseData.pr;
+        if (!newInvoice || typeof newInvoice !== 'string') {
+          throw new Error('Lightning service did not return a valid invoice');
+        }
 
             // Get the current active NWC connection dynamically
             const currentNWCConnection = getActiveConnection();
