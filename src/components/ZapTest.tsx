@@ -27,15 +27,28 @@ export function ZapTest() {
       const lightningAddress = 'fiatjaf@getalby.com'; // Known working address
       const [username, domain] = lightningAddress.split('@');
       const url = `https://${domain}/.well-known/lnurlp/${username}?amount=1000`;
-      
-      addResult(`Trying: ${url}`);
+
+      addResult(`Step 1 - Initial request: ${url}`);
       const response = await fetch(url);
       const data = await response.json();
-      
-      if (response.ok && data.pr) {
-        addResult(`✅ SUCCESS: Direct LNURL works! Invoice: ${data.pr.substring(0, 50)}...`);
+
+      if (response.ok && data.callback) {
+        addResult(`✅ Step 1 SUCCESS: Got callback URL`);
+
+        // Step 2: Make callback request for actual invoice
+        const callbackUrl = `${data.callback}?amount=1000`;
+        addResult(`Step 2 - Callback request: ${callbackUrl}`);
+
+        const callbackResponse = await fetch(callbackUrl);
+        const callbackData = await callbackResponse.json();
+
+        if (callbackResponse.ok && callbackData.pr) {
+          addResult(`✅ SUCCESS: Direct LNURL works! Invoice: ${callbackData.pr.substring(0, 50)}...`);
+        } else {
+          addResult(`❌ Step 2 FAILED: ${JSON.stringify(callbackData)}`);
+        }
       } else {
-        addResult(`❌ FAILED: ${JSON.stringify(data)}`);
+        addResult(`❌ Step 1 FAILED: ${JSON.stringify(data)}`);
       }
     } catch (error) {
       addResult(`❌ ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -48,15 +61,28 @@ export function ZapTest() {
       const lightningAddress = 'cryptoshi2k21@getalby.com'; // The failing address from logs
       const [username, domain] = lightningAddress.split('@');
       const url = `https://${domain}/.well-known/lnurlp/${username}?amount=1000`;
-      
-      addResult(`Trying: ${url}`);
+
+      addResult(`Step 1 - Initial request: ${url}`);
       const response = await fetch(url);
       const data = await response.json();
-      
-      if (response.ok && data.pr) {
-        addResult(`✅ SUCCESS: GetAlby works! Invoice: ${data.pr.substring(0, 50)}...`);
+
+      if (response.ok && data.callback) {
+        addResult(`✅ Step 1 SUCCESS: Got callback URL`);
+
+        // Step 2: Make callback request for actual invoice
+        const callbackUrl = `${data.callback}?amount=1000`;
+        addResult(`Step 2 - Callback request: ${callbackUrl}`);
+
+        const callbackResponse = await fetch(callbackUrl);
+        const callbackData = await callbackResponse.json();
+
+        if (callbackResponse.ok && callbackData.pr) {
+          addResult(`✅ SUCCESS: GetAlby works! Invoice: ${callbackData.pr.substring(0, 50)}...`);
+        } else {
+          addResult(`❌ Step 2 FAILED: ${JSON.stringify(callbackData)}`);
+        }
       } else {
-        addResult(`❌ FAILED: ${JSON.stringify(data)}`);
+        addResult(`❌ Step 1 FAILED: ${JSON.stringify(data)}`);
       }
     } catch (error) {
       addResult(`❌ ERROR: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -75,36 +101,36 @@ export function ZapTest() {
           <span>Zap Functionality Test</span>
         </CardTitle>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         <div className="text-sm text-lime-100/80">
           Test different lightning address configurations to verify zap functionality works correctly.
         </div>
-        
+
         <div className="flex flex-wrap gap-2">
           <Button onClick={testDirectLNURL} variant="outline" size="sm">
             Test Direct LNURL
           </Button>
-          
+
           <Button onClick={testGetAlbyEndpoint} variant="outline" size="sm">
             Test GetAlby (failing case)
           </Button>
-          
+
           <Button onClick={clearResults} variant="outline" size="sm">
             Clear Results
           </Button>
         </div>
-        
+
         {testResults.length > 0 && (
           <div className="bg-black/20 border border-lime-500/20 rounded-lg p-3">
             <h4 className="text-xs font-semibold text-lime-400 mb-2">Test Results:</h4>
             <div className="space-y-1">
               {testResults.map((result, index) => (
-                <div 
-                  key={index} 
+                <div
+                  key={index}
                   className={`text-xs font-mono ${
-                    result.includes('✅') ? 'text-green-400' : 
-                    result.includes('❌') ? 'text-red-400' : 
+                    result.includes('✅') ? 'text-green-400' :
+                    result.includes('❌') ? 'text-red-400' :
                     'text-lime-300'
                   }`}
                 >
