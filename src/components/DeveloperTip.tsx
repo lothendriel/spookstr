@@ -67,15 +67,15 @@ export function DeveloperTip() {
     try {
       const [username, domain] = 'studio314@getalby.com'.split('@');
       const url = `https://${domain}/.well-known/lnurlp/${username}?amount=${parseInt(amount) * 1000}`;
-
+      
       const response = await fetch(url);
       const data = await response.json();
-
+      
       if (response.ok && data.callback) {
         const callbackUrl = `${data.callback}?amount=${parseInt(amount) * 1000}`;
         const callbackResponse = await fetch(callbackUrl);
         const callbackData = await callbackResponse.json();
-
+        
         if (callbackResponse.ok && callbackData.pr) {
           setInvoice(callbackData.pr);
         } else {
@@ -98,6 +98,52 @@ export function DeveloperTip() {
         description: 'An error occurred while generating invoice.',
         variant: 'destructive',
       });
+    }
+  };
+
+  const openInWallet = () => {
+    if (invoice) {
+      const lightningUrl = `lightning:${invoice}`;
+      console.log('Attempting to open wallet with URL:', lightningUrl);
+      
+      // Try multiple approaches to open lightning wallet
+      try {
+        // Method 1: Try window.open (for extensions)
+        const newWindow = window.open(lightningUrl, '_blank');
+        console.log('Window opened:', newWindow);
+        
+        // Method 2: If window.open fails or is blocked, try location.href
+        setTimeout(() => {
+          if (!newWindow || newWindow.closed) {
+            console.log('Window.open failed, trying location.href');
+            window.location.href = lightningUrl;
+          }
+        }, 100);
+        
+        // Method 3: Also copy to clipboard as backup
+        navigator.clipboard.writeText(invoice).then(() => {
+          toast({
+            title: 'Invoice copied to clipboard',
+            description: 'You can also paste this invoice into your wallet.',
+          });
+        }).catch(() => {
+          // If clipboard fails, show invoice for manual copy
+          alert(`Lightning Invoice:\n\n${invoice}`);
+        });
+      } catch (error) {
+        console.error('Failed to open lightning URL:', error);
+        
+        // Fallback: copy to clipboard and show instructions
+        navigator.clipboard.writeText(invoice).then(() => {
+          toast({
+            title: 'Invoice copied to clipboard',
+            description: 'Please paste this invoice into your lightning wallet.',
+          });
+        }).catch(() => {
+          // If clipboard fails, show invoice for manual copy
+          alert(`Lightning Invoice (copy this):\n\n${invoice}`);
+        });
+      }
     }
   };
 
@@ -129,7 +175,7 @@ export function DeveloperTip() {
                     Send a lightning tip to support continued development of Spookstr
                   </DialogDescription>
                 </DialogHeader>
-
+                
                 {!invoice ? (
                   <div className="space-y-4">
                     <div>
@@ -143,8 +189,8 @@ export function DeveloperTip() {
                         className="bg-black/20 border-lime-500/30 text-lime-100"
                       />
                     </div>
-
-                    <Button
+                    
+                    <Button 
                       onClick={handleGenerateInvoice}
                       className="w-full bg-lime-500 hover:bg-lime-400 text-black"
                     >
@@ -177,47 +223,16 @@ export function DeveloperTip() {
                         </Button>
                       </div>
                     </div>
-
-                    <Button
+                    
+                    <Button 
                       variant="outline"
-                      onClick={() => {
-                        const lightningUrl = `lightning:${invoice}`;
-
-                        // Try to open the lightning URL
-                        try {
-                          window.open(lightningUrl, '_blank');
-
-                          // Also try to copy to clipboard as fallback
-                          navigator.clipboard.writeText(invoice).then(() => {
-                            toast({
-                              title: 'Invoice copied to clipboard',
-                              description: 'You can also paste this invoice into your wallet.',
-                            });
-                          }).catch(() => {
-                            // If clipboard fails, show the invoice for manual copy
-                            alert(`Lightning Invoice:\n\n${invoice}`);
-                          });
-                        } catch (error) {
-                          console.error('Failed to open lightning URL:', error);
-
-                          // Fallback: copy to clipboard and show instructions
-                          navigator.clipboard.writeText(invoice).then(() => {
-                            toast({
-                              title: 'Invoice copied to clipboard',
-                              description: 'Please paste this invoice into your lightning wallet.',
-                            });
-                          }).catch(() => {
-                            // If clipboard fails, show the invoice for manual copy
-                            alert(`Lightning Invoice (copy this):\n\n${invoice}`);
-                          });
-                        }
-                      }}
+                      onClick={openInWallet}
                       className="w-full border-lime-500/50 text-lime-400 hover:border-lime-400 hover:text-lime-300"
                     >
                       Open in Wallet
                     </Button>
-
-                    <Button
+                    
+                    <Button 
                       variant="ghost"
                       onClick={() => {
                         setInvoice(null);
