@@ -165,11 +165,11 @@ export function useZaps(
 
     try {
       // For developer zaps, we don't need author metadata
-      if (!isDeveloper && (!author.data || !author.data?.metadata || !author.data?.event)) {
-        console.error('Author not found for regular zap');
+      if (!isDeveloper && (!author.data || !author.data?.metadata)) {
+        console.error('Author metadata not found for regular zap');
         toast({
-          title: 'Author not found',
-          description: 'Could not find the author of this item.',
+          title: 'Author profile not found',
+          description: 'The author has not set up their profile metadata yet. Without profile information, we cannot verify their lightning address for zapping.',
           variant: 'destructive',
         });
         setIsZapping(false);
@@ -197,8 +197,8 @@ export function useZaps(
           authorLud06: author.data?.metadata?.lud06
         });
         toast({
-          title: 'Lightning address not found',
-          description: 'The author does not have a lightning address configured.',
+          title: 'Lightning address not configured',
+          description: 'The author has not set up a lightning address (lud16/lud06) in their profile. They need to configure this to receive zaps.',
           variant: 'destructive',
         });
         setIsZapping(false);

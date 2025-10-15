@@ -18,13 +18,16 @@ export function useAuthor(pubkey: string | undefined) {
       );
 
       if (!event) {
-        throw new Error('No event found');
+        // Return empty object instead of throwing error when no metadata event is found
+        // This allows components to handle missing metadata gracefully
+        return {};
       }
 
       try {
         const metadata = n.json().pipe(n.metadata()).parse(event.content);
         return { metadata, event };
       } catch {
+        // Return event without metadata if parsing fails
         return { event };
       }
     },
