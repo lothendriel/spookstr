@@ -370,7 +370,7 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
 
   // Don't render if user is not logged in, is the author, or no lightning address
   // For regular posts, also wait for author data to load
-  if (!user || user.pubkey === target.pubkey || (!isDeveloper && author.isLoading) || !hasLightningAddress) {
+  if (!user || user.pubkey === target.pubkey || (!isDeveloper && (!author || author.isLoading)) || !hasLightningAddress) {
     return null;
   }
 
