@@ -348,7 +348,14 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
     zap,
   };
 
-  if (!user || user.pubkey === target.pubkey || !author?.metadata?.lud06 && !author?.metadata?.lud16) {
+  // Special case for developer zap - check if it's the developer mock event
+  const isDeveloper = target.id === 'developer-tip';
+  const developerLud16 = isDeveloper ? 'studio314@getalby.com' : null;
+
+  // For developer zaps, we don't need author metadata
+  const hasLightningAddress = isDeveloper ? !!developerLud16 : !!(author?.metadata?.lud06 || author?.metadata?.lud16);
+
+  if (!user || user.pubkey === target.pubkey || !hasLightningAddress) {
     return null;
   }
 
