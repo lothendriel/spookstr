@@ -12,46 +12,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import type { NostrEvent } from '@nostrify/nostrify';
 
-// Enhanced zap error handling with user-friendly messages
-const ZAP_ERROR_MESSAGES = {
-  NETWORK_ERROR: 'Network error. Please check your connection and try again.',
-  TIMEOUT: 'Request timed out. Please try again.',
-  INVALID_INVOICE: 'Invalid lightning invoice. Please contact the recipient.',
-  INSUFFICIENT_FUNDS: 'Insufficient funds. Please add funds to your wallet.',
-  WALLET_ERROR: 'Wallet error. Please check your wallet connection.',
-  SERVICE_UNAVAILABLE: 'Lightning service temporarily unavailable. Please try again later.',
-  RECIPIENT_ERROR: 'Recipient wallet not configured properly for zaps.',
-  UNKNOWN_ERROR: 'Zap failed. Please try again.',
-};
-
-function getZapErrorMessage(error: Error): string {
-  const message = error.message.toLowerCase();
-
-  if (message.includes('network') || message.includes('fetch')) {
-    return ZAP_ERROR_MESSAGES.NETWORK_ERROR;
-  }
-  if (message.includes('timeout')) {
-    return ZAP_ERROR_MESSAGES.TIMEOUT;
-  }
-  if (message.includes('invalid') && message.includes('invoice')) {
-    return ZAP_ERROR_MESSAGES.INVALID_INVOICE;
-  }
-  if (message.includes('insufficient') || message.includes('balance')) {
-    return ZAP_ERROR_MESSAGES.INSUFFICIENT_FUNDS;
-  }
-  if (message.includes('wallet') || message.includes('webln') || message.includes('nwc')) {
-    return ZAP_ERROR_MESSAGES.WALLET_ERROR;
-  }
-  if (message.includes('service') || message.includes('unavailable')) {
-    return ZAP_ERROR_MESSAGES.SERVICE_UNAVAILABLE;
-  }
-  if (message.includes('recipient') || message.includes('configure')) {
-    return ZAP_ERROR_MESSAGES.RECIPIENT_ERROR;
-  }
-
-  return ZAP_ERROR_MESSAGES.UNKNOWN_ERROR;
-}
-
 export function useZaps(
   target: Event | Event[],
   webln: WebLNProvider | null,
@@ -183,7 +143,6 @@ export function useZaps(
     setIsZapping(true);
     setInvoice(null); // Clear any previous invoice at the start
 
-    // Enhanced validation
     if (!user) {
       toast({
         title: 'Login required',
@@ -204,19 +163,8 @@ export function useZaps(
       return;
     }
 
-    // Validate amount
-    if (amount < 1 || amount > 1000000) { // Reasonable limits
-      toast({
-        title: 'Invalid amount',
-        description: 'Zap amount must be between 1 and 1,000,000 sats.',
-        variant: 'destructive',
-      });
-      setIsZapping(false);
-      return;
-    }
-
     try {
-      // Enhanced metadata validation
+      // For developer zaps, we don't need author metadata
       if (!isDeveloper && (!author.data || !author.data?.metadata)) {
         console.error('Author metadata not found for regular zap');
         toast({
@@ -228,11 +176,13 @@ export function useZaps(
         return;
       }
 
-      // Get lightning address with enhanced validation
+      // Get lightning address - use developer's for developer zaps, otherwise use author's
       let lud16: string | undefined;
       if (isDeveloper) {
         lud16 = developerLud16;
       } else {
+        // Check both lud16 and lud06 for lightning address
+        // Access metadata through author.data.metadata as that's the structure from useAuthor
         lud16 = author.data?.metadata?.lud16 || author.data?.metadata?.lud06;
       }
 
@@ -246,7 +196,6 @@ export function useZaps(
         authorMetadata: author.data?.metadata
       });
 
-      // Enhanced lightning address validation
       if (!lud16) {
         console.error('No lightning address found:', {
           isDeveloper,
@@ -265,45 +214,18 @@ export function useZaps(
         return;
       }
 
-      // Validate lightning address format
-      const lightningAddressRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-      if (!lightningAddressRegex.test(lud16)) {
-        toast({
-          title: 'Invalid lightning address',
-          description: 'The author\'s lightning address format is invalid.',
-          variant: 'destructive',
-        });
-        setIsZapping(false);
-        return;
-      }
-
       let zapEndpoint;
 
       if (isDeveloper) {
-        // Enhanced developer zap endpoint construction
+        // For developer, construct zap endpoint from lightning address
         const [username, domain] = lud16.split('@');
-        if (!username || !domain) {
-          throw new Error('Invalid lightning address format');
-        }
-
-        // Try multiple endpoints in order of preference
-        const endpoints = [
-          `https://${domain}/.well-known/lnurlp/${username}`,
-          `https://${domain}/.well-known/lnurlp/${username.toLowerCase()}`,
-          `https://lnurl.fiatjaf.com/.well-known/lnurlp/${username}`,
-        ];
-
-        zapEndpoint = endpoints[0]; // Start with primary endpoint
+        // Try direct LNURL endpoint first (more reliable)
+        zapEndpoint = `https://${domain}/.well-known/lnurlp/${username}`;
         console.log('Developer zap endpoint constructed:', zapEndpoint);
       } else {
-        // Enhanced zap endpoint discovery with error handling
-        try {
-          zapEndpoint = await nip57.getZapEndpoint(author.data!.event);
-          console.log('Zap endpoint found:', zapEndpoint);
-        } catch (endpointError) {
-          console.error('Failed to get zap endpoint:', endpointError);
-          throw new Error('Could not find zap endpoint for this author');
-        }
+        // Get zap endpoint using nostr-tools for regular users
+        zapEndpoint = await nip57.getZapEndpoint(author.data!.event);
+        console.log('Zap endpoint found:', zapEndpoint);
       }
 
       if (!zapEndpoint) {
@@ -317,11 +239,6 @@ export function useZaps(
       }
 
       const zapAmount = amount * 1000; // convert to millisats
-
-      // Validate zap amount
-      if (zapAmount < 1000) { // Minimum 1 sat
-        throw new Error('Minimum zap amount is 1 sat');
-      }
 
       if (isDeveloper) {
         // For developer zaps, use proper LNURL discovery flow
@@ -806,12 +723,9 @@ export function useZaps(
           }
     } catch (err) {
       console.error('Zap error:', err);
-      const error = err instanceof Error ? err : new Error('Unknown error occurred');
-      const userMessage = getZapErrorMessage(error);
-
       toast({
         title: 'Zap failed',
-        description: userMessage,
+        description: (err as Error).message,
         variant: 'destructive',
       });
       setIsZapping(false);

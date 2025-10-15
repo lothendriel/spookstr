@@ -141,20 +141,16 @@ const ZapContent = forwardRef<HTMLDivElement, ZapContentProps>(({
           <div className="space-y-3 mt-4">
             {webln && (
               <Button
-                onClick={async () => {
-                  if (!safeIsWebLNEnabled) {
-                    const success = await enableWebLN();
-                    if (!success) return;
-                  }
+                onClick={() => {
                   const finalAmount = typeof amount === 'string' ? parseInt(amount, 10) : amount;
                   zap(finalAmount, comment);
                 }}
-                disabled={isZapping || !safeIsWebLNEnabled}
+                disabled={isZapping}
                 className="w-full"
                 size="lg"
               >
                 <Zap className="h-4 w-4 mr-2" />
-                {isZapping ? "Processing..." : safeIsWebLNEnabled ? "Pay with WebLN" : "Enable WebLN"}
+                {isZapping ? "Processing..." : "Pay with WebLN"}
               </Button>
             )}
 
@@ -247,15 +243,8 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
   const { user } = useCurrentUser();
   const authorQuery = useAuthor(target.pubkey);
   const { toast } = useToast();
-  const walletStatus = useWallet();
-  const { webln, activeNWC, isWebLNEnabled, enableWebLN, walletError, clearWalletError } = walletStatus;
-  const [safeIsWebLNEnabled, setSafeIsWebLNEnabled] = useState(false);
+  const { webln, activeNWC } = useWallet();
   const { zap, isZapping, invoice, setInvoice } = useZaps(target, webln, activeNWC, () => setOpen(false));
-
-  // Sync WebLN enabled state
-  useEffect(() => {
-    setSafeIsWebLNEnabled(isWebLNEnabled ?? false);
-  }, [isWebLNEnabled]);
   const [amount, setAmount] = useState<number | string>(100);
   const [comment, setComment] = useState<string>('');
   const [copied, setCopied] = useState(false);
@@ -382,17 +371,6 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
     authorLoading: authorQuery?.isLoading,
     shouldRender: !!(user && user.pubkey !== target.pubkey && hasLightningAddress)
   });
-
-  // Show wallet error if any
-  if (walletError) {
-    return (
-      <div className={`cursor-pointer ${className || ''}`} onClick={clearWalletError}>
-        <div className="text-red-400 text-sm">
-          Wallet Error: {walletError}
-        </div>
-      </div>
-    );
-  }
 
   // Don't render if user is not logged in, is the author, or no lightning address
   // For regular posts, also wait for author data to load

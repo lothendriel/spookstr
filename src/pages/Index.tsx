@@ -5,7 +5,6 @@ import { useParanormalFeed } from '@/hooks/useParanormalFeed';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { CreateParanormalPost } from '@/components/CreateParanormalPost';
 import { DeveloperTip } from '@/components/DeveloperTip';
-import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { PostDetailView } from '@/components/PostDetailView';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { NostrEvent } from '@nostrify/nostrify';
@@ -131,8 +130,6 @@ const Index = () => {
 
           {/* Right Sidebar */}
           <div className="lg:col-span-1 space-y-6">
-            <ConnectionStatus />
-
             <div className="border border-lime-500/20 rounded-lg p-6 bg-black/40 backdrop-blur-sm">
               <h3 className="text-lg font-semibold text-lime-400 mb-4">
                 Paranormal Categories
