@@ -177,7 +177,13 @@ export function useZaps(
       }
 
       // Get lightning address - use developer's for developer zaps, otherwise use author's
-      const lud16 = isDeveloper ? developerLud16 : author?.metadata?.lud16 || author?.metadata?.lud06;
+      let lud16: string | undefined;
+      if (isDeveloper) {
+        lud16 = developerLud16;
+      } else {
+        // Check both lud16 and lud06 for lightning address
+        lud16 = author?.metadata?.lud16 || author?.metadata?.lud06;
+      }
 
       console.log('Lightning address check:', {
         isDeveloper,
@@ -185,7 +191,8 @@ export function useZaps(
         developerLud16,
         authorLud16: author?.metadata?.lud16,
         authorLud06: author?.metadata?.lud06,
-        authorData: author.data
+        authorData: author.data,
+        authorMetadata: author?.metadata
       });
 
       if (!lud16) {
