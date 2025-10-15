@@ -1,26 +1,24 @@
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ZapDialog } from '@/components/ZapDialog';
 import { Coffee, Zap } from 'lucide-react';
 
-// Create a mock event for the developer profile
-const DEVELOPER_MOCK_EVENT = {
-  id: 'developer-tip',
-  pubkey: '0155373ac79b7ffb0f586c3e68396f9e82d46f7afe7016d46ed9ca46ba3e1bed',
-  created_at: Math.floor(Date.now() / 1000),
-  kind: 0,
-  tags: [],
-  content: JSON.stringify({
-    name: 'Spookstr Developer',
-    lud16: 'studio314@getalby.com',
-    about: 'Creator of Spookstr - Paranormal Nostr Network',
-    picture: 'https://nostr.build/i/111e07f4a3332bfdcd719396a3427d740717f48bdc7df1e45a2ff47fed40b2ba.jpg'
-  }),
-  sig: ''
-};
-
 export function DeveloperTip() {
+  const handleZap = () => {
+    // Create a lightning payment URL
+    const lightningUrl = `lightning:studio314@getalby.com`;
+    window.open(lightningUrl, '_blank');
+  };
+
+  const handleCopyAddress = async () => {
+    try {
+      await navigator.clipboard.writeText('studio314@getalby.com');
+      // You could add a toast notification here
+    } catch (err) {
+      console.error('Failed to copy address:', err);
+    }
+  };
+
   return (
     <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm">
       <CardContent className="p-6">
@@ -35,18 +33,17 @@ export function DeveloperTip() {
           </p>
 
           <div className="flex justify-center space-x-3">
-            <ZapDialog target={DEVELOPER_MOCK_EVENT}>
-              <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold">
-                <Zap className="h-4 w-4 mr-2" />
-                Zap Developer
-              </Button>
-            </ZapDialog>
+            <Button
+              onClick={handleZap}
+              className="bg-lime-500 hover:bg-lime-400 text-black font-semibold"
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              Zap Developer
+            </Button>
 
             <Button
               variant="outline"
-              onClick={() => {
-                navigator.clipboard.writeText('studio314@getalby.com');
-              }}
+              onClick={handleCopyAddress}
               className="border-lime-500/50 text-lime-400 hover:border-lime-400 hover:text-lime-300"
             >
               Copy LN Address
