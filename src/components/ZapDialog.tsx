@@ -141,16 +141,20 @@ const ZapContent = forwardRef<HTMLDivElement, ZapContentProps>(({
           <div className="space-y-3 mt-4">
             {webln && (
               <Button
-                onClick={() => {
+                onClick={async () => {
+                  if (!isWebLNEnabled) {
+                    const success = await enableWebLN();
+                    if (!success) return;
+                  }
                   const finalAmount = typeof amount === 'string' ? parseInt(amount, 10) : amount;
                   zap(finalAmount, comment);
                 }}
-                disabled={isZapping}
+                disabled={isZapping || !isWebLNEnabled}
                 className="w-full"
                 size="lg"
               >
                 <Zap className="h-4 w-4 mr-2" />
-                {isZapping ? "Processing..." : "Pay with WebLN"}
+                {isZapping ? "Processing..." : isWebLNEnabled ? "Pay with WebLN" : "Enable WebLN"}
               </Button>
             )}
 
@@ -243,7 +247,7 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
   const { user } = useCurrentUser();
   const authorQuery = useAuthor(target.pubkey);
   const { toast } = useToast();
-  const { webln, activeNWC } = useWallet();
+  const { webln, activeNWC, isWebLNEnabled, enableWebLN, walletError, clearWalletError } = useWallet();
   const { zap, isZapping, invoice, setInvoice } = useZaps(target, webln, activeNWC, () => setOpen(false));
   const [amount, setAmount] = useState<number | string>(100);
   const [comment, setComment] = useState<string>('');
@@ -371,6 +375,17 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
     authorLoading: authorQuery?.isLoading,
     shouldRender: !!(user && user.pubkey !== target.pubkey && hasLightningAddress)
   });
+
+  // Show wallet error if any
+  if (walletError) {
+    return (
+      <div className={`cursor-pointer ${className || ''}`} onClick={clearWalletError}>
+        <div className="text-red-400 text-sm">
+          Wallet Error: {walletError}
+        </div>
+      </div>
+    );
+  }
 
   // Don't render if user is not logged in, is the author, or no lightning address
   // For regular posts, also wait for author data to load
