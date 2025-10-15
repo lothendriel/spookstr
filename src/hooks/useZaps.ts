@@ -240,14 +240,155 @@ export function useZaps(
 
       const zapAmount = amount * 1000; // convert to millisats
 
-      // For developer zaps, we use a simpler approach without zap request
-      let zapUrl: string;
-
       if (isDeveloper) {
-        // For developer zaps, use direct LNURL approach
+        // For developer zaps, use proper LNURL discovery flow
+        console.log('Starting LNURL discovery flow for developer zap');
+
         const [username, domain] = lud16.split('@');
-        zapUrl = `https://${domain}/.well-known/lnurlp/${username}?amount=${zapAmount}`;
-      } else {
+        const discoveryUrl = `https://${domain}/.well-known/lnurlp/${username}`;
+
+        console.log('LNURL discovery URL:', discoveryUrl);
+
+        try {
+          // Step 1: LNURL Discovery
+          const discoveryRes = await fetch(discoveryUrl);
+          const discoveryData = await discoveryRes.json();
+
+          console.log('LNURL discovery response:', { status: discoveryRes.status, data: discoveryData });
+
+          if (!discoveryRes.ok) {
+            const errorMessage = discoveryData.reason || discoveryData.error || discoveryData.message || 'LNURL discovery failed';
+            throw new Error(`LNURL discovery failed: ${errorMessage}`);
+          }
+
+          // Validate LNURL response
+          if (!discoveryData.callback || typeof discoveryData.callback !== 'string') {
+            throw new Error('Invalid LNURL response: missing or invalid callback URL');
+          }
+
+          if (!discoveryData.tag || discoveryData.tag !== 'payRequest') {
+            throw new Error('Invalid LNURL response: not a pay request');
+          }
+
+          // Step 2: Request Invoice from Callback
+          const callbackUrl = new URL(discoveryData.callback);
+          callbackUrl.searchParams.set('amount', zapAmount.toString());
+
+          console.log('Requesting invoice from callback:', {
+            callbackUrl: callbackUrl.toString(),
+            amount: zapAmount,
+            callbackHost: callbackUrl.hostname,
+            callbackPath: callbackUrl.pathname,
+            searchParams: Object.fromEntries(callbackUrl.searchParams)
+          });
+
+          const invoiceRes = await fetch(callbackUrl.toString());
+          const invoiceData = await invoiceRes.json();
+
+          console.log('Invoice response:', { status: invoiceRes.status, data: invoiceData });
+
+          if (!invoiceRes.ok) {
+            const errorMessage = invoiceData.reason || invoiceData.error || invoiceData.message || 'Invoice request failed';
+            throw new Error(`Invoice request failed: ${errorMessage}`);
+          }
+
+          // Validate invoice response
+          console.log('Validating invoice response:', {
+            hasPr: !!invoiceData.pr,
+            prType: typeof invoiceData.pr,
+            prValue: invoiceData.pr,
+            fullResponse: invoiceData,
+            responseKeys: Object.keys(invoiceData),
+            responseString: JSON.stringify(invoiceData, null, 2)
+          });
+
+          if (!invoiceData.pr || typeof invoiceData.pr !== 'string') {
+            console.error('Invalid invoice response:', invoiceData);
+            console.error('Expected format: { pr: "lnbc..." }');
+            console.error('Actual format:', JSON.stringify(invoiceData, null, 2));
+            throw new Error(`Lightning service did not return a valid invoice. Response: ${JSON.stringify(invoiceData)}`);
+          }
+
+          // Success! Set invoice
+          setInvoice(invoiceData.pr);
+          setIsZapping(false);
+          return;
+
+        } catch (lnurlError) {
+          console.error('LNURL flow failed:', lnurlError);
+
+          // Try fallback to nostr-tools zap endpoint for developer
+          try {
+            console.log('Trying fallback to nostr-tools zap endpoint for developer');
+            const fallbackEndpoint = await nip57.getZapEndpoint({
+              pubkey: actualTarget.pubkey,
+              kind: actualTarget.kind,
+              tags: actualTarget.tags,
+              content: actualTarget.content,
+              created_at: actualTarget.created_at,
+            });
+
+            if (fallbackEndpoint) {
+              console.log('Fallback endpoint found:', fallbackEndpoint);
+
+              // Create a minimal zap request for developer
+              const zapRequest = nip57.makeZapRequest({
+                profile: actualTarget.pubkey,
+                event: actualTarget.id,
+                amount: zapAmount,
+                relays: [config.relayUrl],
+                comment
+              });
+
+              if (!user.signer) {
+                throw new Error('No signer available');
+              }
+              const signedZapRequest = await user.signer.signEvent(zapRequest);
+
+              const fallbackUrl = `${fallbackEndpoint}?amount=${zapAmount}&nostr=${encodeURIComponent(JSON.stringify(signedZapRequest))}`;
+              console.log('Trying fallback URL:', fallbackUrl);
+
+              const fallbackRes = await fetch(fallbackUrl);
+              const fallbackData = await fallbackRes.json();
+
+              console.log('Fallback response:', { status: fallbackRes.status, data: fallbackData });
+
+              if (fallbackRes.ok && fallbackData.pr) {
+                setInvoice(fallbackData.pr);
+                setIsZapping(false);
+                return;
+              }
+            }
+          } catch (fallbackError) {
+            console.error('Fallback also failed:', fallbackError);
+          }
+
+          // Try direct lightning address as last resort
+          try {
+            console.log('Trying direct lightning address approach');
+            const directUrl = `https://lnurl.fiatjaf.com/.well-known/lnurlp/${username}?amount=${zapAmount}`;
+            console.log('Direct URL:', directUrl);
+
+            const directRes = await fetch(directUrl);
+            const directData = await directRes.json();
+
+            console.log('Direct response:', { status: directRes.status, data: directData });
+
+            if (directRes.ok && directData.pr) {
+              setInvoice(directData.pr);
+              setIsZapping(false);
+              return;
+            }
+          } catch (directError) {
+            console.error('Direct approach also failed:', directError);
+          }
+
+          throw new Error(`Failed to get invoice from lightning address: ${(lnurlError as Error).message}`);
+        }
+      }
+
+      // Regular user zap flow (existing logic)
+      let zapUrl: string;
         // Create zap request for regular users - use appropriate event format based on kind
         // For addressable events (30000-39999), pass the object to get 'a' tag
         // For all other events, pass the ID string to get 'e' tag
@@ -270,7 +411,6 @@ export function useZaps(
         const signedZapRequest = await user.signer.signEvent(zapRequest);
 
         zapUrl = `${zapEndpoint}?amount=${zapAmount}&nostr=${encodeURIComponent(JSON.stringify(signedZapRequest))}`;
-      }
 
       console.log('Attempting to fetch invoice from:', zapUrl);
 
