@@ -180,14 +180,43 @@ export function useZaps(
         return;
       }
 
-      // Get zap endpoint using the old reliable method
+      // Try direct lightning address first (more reliable)
+      if (lud16) {
+        try {
+          const [username, domain] = lud16.split('@');
+          console.log('Trying direct lightning address:', lud16);
+
+          // First try the domain's LNURL endpoint
+          const directUrl = `https://${domain}/.well-known/lnurlp/${username}?amount=${zapAmount}`;
+          console.log('Direct URL:', directUrl);
+
+          const directRes = await fetch(directUrl);
+          const directData = await directRes.json();
+
+          console.log('Direct response:', { status: directRes.status, data: directData });
+
+          if (directRes.ok && directData.pr) {
+            const newInvoice = directData.pr;
+            console.log('Direct invoice generated successfully');
+
+            // Set the invoice and return to payment flow
+            setInvoice(newInvoice);
+            setIsZapping(false);
+            return;
+          }
+        } catch (directError) {
+          console.log('Direct lightning approach failed, trying zap endpoint:', directError);
+        }
+      }
+
+      // Get zap endpoint using the old reliable method as fallback
       const zapEndpoint = await nip57.getZapEndpoint(author.data.event);
       console.log('Zap endpoint found:', zapEndpoint);
 
       if (!zapEndpoint) {
         toast({
-          title: 'Zap endpoint not found',
-          description: 'This author does not have a zap endpoint configured. They may need to set up a lightning address with zap support.',
+          title: 'Zap not available',
+          description: 'This author does not have a properly configured zap service. They may need to set up a lightning address that supports zaps.',
           variant: 'destructive',
         });
         setIsZapping(false);
@@ -227,17 +256,26 @@ export function useZaps(
         console.log('Zap endpoint response:', { status: res.status, data: responseData });
 
         if (!res.ok) {
-          const errorMessage = responseData.reason || responseData.error || 'Unknown error';
-          console.error('Zap endpoint failed:', errorMessage);
+          const errorMessage = responseData.reason || responseData.error || responseData.message || JSON.stringify(responseData);
+          console.error('Zap endpoint failed:', {
+            status: res.status,
+            statusText: res.statusText,
+            responseData,
+            zapEndpoint,
+            zapAmount
+          });
 
           // Try fallback to direct lightning address
           if (lud16) {
             try {
-              const fallbackUrl = `https://lnurl.fiatjaf.com/.well-known/lnurlp/${lud16.split('@')[0]}?amount=${zapAmount}`;
+              const [username, domain] = lud16.split('@');
+              const fallbackUrl = `https://${domain}/.well-known/lnurlp/${username}?amount=${zapAmount}`;
               console.log('Trying fallback to:', fallbackUrl);
 
               const fallbackRes = await fetch(fallbackUrl);
               const fallbackData = await fallbackRes.json();
+
+              console.log('Fallback response:', { status: fallbackRes.status, data: fallbackData });
 
               if (fallbackRes.ok && fallbackData.pr) {
                 const newInvoice = fallbackData.pr;
@@ -247,13 +285,50 @@ export function useZaps(
                 setInvoice(newInvoice);
                 setIsZapping(false);
                 return;
+              } else if (fallbackRes.ok && fallbackData.callback) {
+                // Handle LNURL-pay flow
+                console.log('LNURL-pay callback flow detected');
+                const callbackUrl = `${fallbackData.callback}?amount=${zapAmount}`;
+                const callbackRes = await fetch(callbackUrl);
+                const callbackData = await callbackRes.json();
+
+                if (callbackRes.ok && callbackData.pr) {
+                  setInvoice(callbackData.pr);
+                  setIsZapping(false);
+                  return;
+                }
               }
             } catch (fallbackError) {
               console.error('Fallback also failed:', fallbackError);
             }
           }
 
-          throw new Error(`Zap endpoint failed: ${errorMessage}. The author may not have a properly configured zap service.`);
+          // Try another fallback service
+          if (lud16) {
+            try {
+              const [username] = lud16.split('@');
+              const fallbackUrl2 = `https://lnurl.fiatjaf.com/.well-known/lnurlp/${username}?amount=${zapAmount}`;
+              console.log('Trying second fallback to:', fallbackUrl2);
+
+              const fallbackRes2 = await fetch(fallbackUrl2);
+              const fallbackData2 = await fallbackRes2.json();
+
+              console.log('Second fallback response:', { status: fallbackRes2.status, data: fallbackData2 });
+
+              if (fallbackRes2.ok && fallbackData2.pr) {
+                const newInvoice = fallbackData2.pr;
+                console.log('Second fallback invoice generated successfully');
+
+                setInvoice(newInvoice);
+                setIsZapping(false);
+                return;
+              }
+            } catch (fallbackError2) {
+              console.error('Second fallback also failed:', fallbackError2);
+            }
+          }
+
+          throw new Error(`Zap failed: ${errorMessage}. The author may need to configure their lightning service properly.`);
         }
 
         const newInvoice = responseData.pr;
