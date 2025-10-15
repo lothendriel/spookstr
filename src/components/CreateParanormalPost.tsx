@@ -51,12 +51,16 @@ export function CreateParanormalPost() {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       try {
-        console.log('Uploading file:', file.name, file.type, file.size);
+        console.log('🚀 Starting upload for file:', file.name, file.type, file.size);
         const tags = await uploadFile(file);
-        console.log('Upload completed for:', file.name, 'Tags:', tags);
+        console.log('✅ Upload completed for:', file.name, 'Tags:', tags);
+        console.log('📋 Tags type:', typeof tags, 'Is array:', Array.isArray(tags));
         
         // Ensure tags is an array before storing
         const fileTags = Array.isArray(tags) ? tags : [];
+        console.log('📋 File tags after validation:', fileTags);
+        console.log('📋 File tags length:', fileTags.length);
+        
         setUploadedFiles(prev => [...prev, { tags: fileTags, file }]);
         
         toast({
@@ -64,7 +68,7 @@ export function CreateParanormalPost() {
           description: `${file.name} uploaded successfully`,
         });
       } catch (error) {
-        console.error('Failed to upload file:', error);
+        console.error('❌ Failed to upload file:', error);
         toast({
           title: 'Upload failed',
           description: `Failed to upload ${file.name}. Please try again.`,
@@ -86,13 +90,35 @@ export function CreateParanormalPost() {
     const tags = selectedTags.map(tag => ['t', tag]);
 
     // Add uploaded file tags (NIP-94)
-    console.log('Adding uploaded files to post:', uploadedFiles);
-    uploadedFiles.forEach(uploadedFile => {
+    console.log('=== POST SUBMISSION ===');
+    console.log('Content:', content.trim());
+    console.log('Selected tags:', selectedTags);
+    console.log('Uploaded files:', uploadedFiles);
+    console.log('Uploaded files count:', uploadedFiles.length);
+
+    if (uploadedFiles.length === 0) {
+      console.log('⚠️  WARNING: No files to attach!');
+    }
+
+    uploadedFiles.forEach((uploadedFile, index) => {
+      console.log(`File ${index + 1}:`, {
+        fileName: uploadedFile.file.name,
+        fileSize: uploadedFile.file.size,
+        fileType: uploadedFile.file.type,
+        tags: uploadedFile.tags,
+        hasUrlTag: uploadedFile.tags.some(tag => tag[0] === 'url'),
+        urlValue: uploadedFile.tags.find(tag => tag[0] === 'url')?.[1]
+      });
       console.log('Adding file tags:', uploadedFile.tags);
       tags.push(...uploadedFile.tags);
     });
 
-    console.log('Final event tags:', tags);
+    console.log('📋 Final event structure:', {
+      kind: 1,
+      content: content.trim(),
+      tags: tags
+    });
+    console.log('📋 Final event tags array:', tags);
 
     createEvent({
       kind: 1,
