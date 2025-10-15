@@ -106,10 +106,20 @@ export function CreateParanormalPost() {
         fileSize: uploadedFile.file.size,
         fileType: uploadedFile.file.type,
         tags: uploadedFile.tags,
+        tagsExpanded: JSON.stringify(uploadedFile.tags, null, 2),
         hasUrlTag: uploadedFile.tags.some(tag => tag[0] === 'url'),
         urlValue: uploadedFile.tags.find(tag => tag[0] === 'url')?.[1]
       });
       console.log('Adding file tags:', uploadedFile.tags);
+      console.log('File tags expanded:', JSON.stringify(uploadedFile.tags, null, 2));
+      
+      // Check each individual tag
+      if (Array.isArray(uploadedFile.tags)) {
+        uploadedFile.tags.forEach((tag, tagIndex) => {
+          console.log(`File ${index + 1}, Tag ${tagIndex + 1}:`, tag);
+        });
+      }
+      
       tags.push(...uploadedFile.tags);
     });
 

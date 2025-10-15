@@ -24,6 +24,15 @@ export function useUploadFile() {
       try {
         const tags = await uploader.upload(file);
         console.log('Upload successful! Tags:', tags);
+        console.log('Tags expanded:', JSON.stringify(tags, null, 2));
+        
+        // Log each tag individually
+        if (Array.isArray(tags)) {
+          tags.forEach((tag, index) => {
+            console.log(`Tag ${index + 1}:`, tag);
+          });
+        }
+        
         return tags;
       } catch (error) {
         console.error('Upload failed:', error);
