@@ -64,9 +64,9 @@ export function DeveloperTip() {
             Enjoying Spookstr? Help keep the paranormal portal open with a lightning tip!
           </p>
 
-          <div className="flex justify-center space-x-3">
+          <div className="flex flex-col space-y-3">
             <ZapDialog target={DEVELOPER_MOCK_EVENT}>
-              <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold">
+              <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold w-full">
                 <Zap className="h-4 w-4 mr-2" />
                 Zap Developer
               </Button>
@@ -75,7 +75,7 @@ export function DeveloperTip() {
             <Button
               variant="outline"
               onClick={handleCopyAddress}
-              className="border-lime-500/50 text-lime-400 hover:border-lime-400 hover:text-lime-300"
+              className="border-lime-500/50 text-lime-400 hover:border-lime-400 hover:text-lime-300 w-full"
             >
               Copy LN Address
             </Button>
