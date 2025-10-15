@@ -379,7 +379,7 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
     return null;
   }
 
-  if (!isDeveloper && (user.pubkey === target.pubkey || authorQuery?.isLoading || !hasLightningAddress)) {
+  if (!isDeveloper && (!user || user.pubkey === target.pubkey || authorQuery?.isLoading || !hasLightningAddress)) {
     return null;
   }
 
