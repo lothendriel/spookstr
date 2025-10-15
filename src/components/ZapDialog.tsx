@@ -248,7 +248,8 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
   const authorQuery = useAuthor(target.pubkey);
   const { toast } = useToast();
   const walletStatus = useWallet();
-  const { webln, activeNWC, isWebLNEnabled: safeIsWebLNEnabled = false, enableWebLN, walletError, clearWalletError } = walletStatus;
+  const { webln, activeNWC, isWebLNEnabled, enableWebLN, walletError, clearWalletError } = walletStatus;
+  const safeIsWebLNEnabled = isWebLNEnabled || false;
   const { zap, isZapping, invoice, setInvoice } = useZaps(target, webln, activeNWC, () => setOpen(false));
   const [amount, setAmount] = useState<number | string>(100);
   const [comment, setComment] = useState<string>('');
