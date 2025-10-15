@@ -236,6 +236,9 @@ const ZapContent = forwardRef<HTMLDivElement, ZapContentProps>(({
 ZapContent.displayName = 'ZapContent';
 
 export function ZapDialog({ target, children, className }: ZapDialogProps) {
+  if (!target) {
+    return null;
+  }
   const [open, setOpen] = useState(false);
   const { user } = useCurrentUser();
   const authorQuery = useAuthor(target.pubkey);
@@ -371,7 +374,12 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
 
   // Don't render if user is not logged in, is the author, or no lightning address
   // For regular posts, also wait for author data to load
-  if (!user || user.pubkey === target.pubkey || (!isDeveloper && authorQuery?.isLoading) || !hasLightningAddress) {
+  if (user === null && !isDeveloper) {
+    // User not logged in for non-developer zaps
+    return null;
+  }
+
+  if (!isDeveloper && (user.pubkey === target.pubkey || authorQuery?.isLoading || !hasLightningAddress)) {
     return null;
   }
 
