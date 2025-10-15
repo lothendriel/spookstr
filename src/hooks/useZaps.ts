@@ -179,10 +179,23 @@ export function useZaps(
       // Get lightning address - use developer's for developer zaps, otherwise use author's
       const lud16 = isDeveloper ? developerLud16 : author?.metadata?.lud16 || author?.metadata?.lud06;
 
-      console.log('Lightning address check:', { isDeveloper, lud16, developerLud16 });
+      console.log('Lightning address check:', {
+        isDeveloper,
+        lud16,
+        developerLud16,
+        authorLud16: author?.metadata?.lud16,
+        authorLud06: author?.metadata?.lud06,
+        authorData: author.data
+      });
 
       if (!lud16) {
-        console.error('No lightning address found');
+        console.error('No lightning address found:', {
+          isDeveloper,
+          hasAuthorData: !!author.data,
+          hasMetadata: !!author.data?.metadata,
+          authorLud16: author.data?.metadata?.lud16,
+          authorLud06: author.data?.metadata?.lud06
+        });
         toast({
           title: 'Lightning address not found',
           description: 'The author does not have a lightning address configured.',
