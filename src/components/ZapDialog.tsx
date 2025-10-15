@@ -238,7 +238,7 @@ ZapContent.displayName = 'ZapContent';
 export function ZapDialog({ target, children, className }: ZapDialogProps) {
   const [open, setOpen] = useState(false);
   const { user } = useCurrentUser();
-  const { data: author } = useAuthor(target.pubkey);
+  const authorQuery = useAuthor(target.pubkey);
   const { toast } = useToast();
   const { webln, activeNWC } = useWallet();
   const { zap, isZapping, invoice, setInvoice } = useZaps(target, webln, activeNWC, () => setOpen(false));
@@ -351,6 +351,7 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
   // Special case for developer zap - check if it's the developer mock event
   const isDeveloper = target.id === 'developer-tip';
   const developerLud16 = isDeveloper ? 'studio314@getalby.com' : null;
+  const author = authorQuery.data;
 
   // For developer zaps, we don't need author metadata
   const hasLightningAddress = isDeveloper ? !!developerLud16 : !!(author?.metadata?.lud06 || author?.metadata?.lud16);
@@ -364,13 +365,13 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
     developerLud16,
     authorLud16: author?.metadata?.lud16,
     authorLud06: author?.metadata?.lud06,
-    authorLoading: author.isLoading,
+    authorLoading: authorQuery.isLoading,
     shouldRender: !!(user && user.pubkey !== target.pubkey && hasLightningAddress)
   });
 
   // Don't render if user is not logged in, is the author, or no lightning address
   // For regular posts, also wait for author data to load
-  if (!user || user.pubkey === target.pubkey || (!isDeveloper && (!author || author.isLoading)) || !hasLightningAddress) {
+  if (!user || user.pubkey === target.pubkey || (!isDeveloper && authorQuery.isLoading) || !hasLightningAddress) {
     return null;
   }
 
