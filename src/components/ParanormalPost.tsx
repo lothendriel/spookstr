@@ -94,7 +94,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
 
         {showActions && (
           <div className="flex items-center justify-between mt-4 pt-3 border-t border-lime-500/20">
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
               <Button
                 variant="ghost"
                 size="sm"
@@ -144,7 +144,11 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
               </Button>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div
+              className="flex items-center space-x-2"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
               {hasLightningAddress ? (
                 <ZapButton
                   target={event}
