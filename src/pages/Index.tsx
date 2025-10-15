@@ -7,6 +7,7 @@ import { CreateParanormalPost } from '@/components/CreateParanormalPost';
 import { DeveloperTip } from '@/components/DeveloperTip';
 import { PostDetailView } from '@/components/PostDetailView';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
+import { ZapTest } from '@/components/ZapTest';
 import { NostrEvent } from '@nostrify/nostrify';
 
 const Index = () => {
@@ -41,6 +42,7 @@ const Index = () => {
           <div className="lg:col-span-1 space-y-6">
             <CreateParanormalPost />
             <DeveloperTip />
+            <ZapTest />
           </div>
 
           {/* Main Feed */}
