@@ -13,7 +13,8 @@ import { AppProvider } from '@/components/AppProvider';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { AppConfig } from '@/contexts/AppContext';
 import AppRouter from './AppRouter';
-import { YouTubeTest } from '@/components/YouTubeTest';
+
+import { ScrollToTop } from '@/components/ScrollToTop';
 
 const head = createHead({
   plugins: [
@@ -54,7 +55,6 @@ export function App() {
                 <TooltipProvider>
                   <Toaster />
                   <Suspense>
-                    <YouTubeTest />
                     <AppRouter />
                   </Suspense>
                 </TooltipProvider>
@@ -63,6 +63,9 @@ export function App() {
           </NostrLoginProvider>
         </QueryClientProvider>
       </AppProvider>
+
+      {/* Scroll to top button */}
+      <ScrollToTop />
     </UnheadProvider>
   );
 }
