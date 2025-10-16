@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MediaItem } from '@/lib/mediaParser';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,8 +15,22 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(media.type === 'youtube');
   const [error, setError] = useState<string | null>(null);
+
+  // Add timeout for YouTube loading
+  useEffect(() => {
+    if (media.type === 'youtube' && isLoading) {
+      const timeout = setTimeout(() => {
+        if (isLoading) {
+          setError('Video is taking too long to load');
+          setIsLoading(false);
+        }
+      }, 10000); // 10 second timeout
+
+      return () => clearTimeout(timeout);
+    }
+  }, [media.type, isLoading]);
 
   const handleMediaError = () => {
     setError('Failed to load media');
@@ -192,29 +206,106 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
         );
 
       case 'youtube':
+        const videoId = extractYouTubeId(media.url);
+        if (!videoId) {
+          return (
+            <Card className="bg-lime-500/5 border-lime-500/20 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-lime-500/20 rounded-lg flex items-center justify-center">
+                      <ExternalLink className="h-6 w-6 text-lime-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-lime-100">
+                      Invalid YouTube URL
+                    </p>
+                    <p className="text-xs text-lime-500/60 truncate max-w-xs">
+                      {media.url}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-lime-500/30 text-lime-400 hover:bg-lime-500/10"
+                  onClick={() => window.open(media.url, '_blank')}
+                >
+                  Open
+                </Button>
+              </div>
+            </Card>
+          );
+        }
+
         return (
-          <div className="relative rounded-lg overflow-hidden bg-black">
+          <div className="relative rounded-lg overflow-hidden bg-black group">
             <div className="relative pb-[56.25%] h-0">
               <iframe
                 className="absolute top-0 left-0 w-full h-full rounded-lg"
-                src={`https://www.youtube.com/embed/${extractYouTubeId(media.url)}?rel=0&modestbranding=1`}
+                src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${window.location.origin}`}
                 title={media.title || 'YouTube Video'}
                 frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
+                loading="lazy"
                 onError={handleMediaError}
+                onLoad={handleMediaLoad}
               />
             </div>
-            <div className="absolute bottom-2 right-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 w-8 p-0 text-white hover:bg-white/20 bg-black/60"
-                onClick={() => window.open(media.url, '_blank')}
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
-            </div>
+
+            {/* Loading overlay */}
+            {isLoading && (
+              <div className="absolute inset-0 bg-black/80 flex items-center justify-center rounded-lg">
+                <div className="text-lime-400">Loading video...</div>
+              </div>
+            )}
+
+            {/* Error overlay */}
+            {error && (
+              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center rounded-lg p-4">
+                <div className="text-red-400 text-center mb-3">Failed to load YouTube video</div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-red-500/30 text-red-400 hover:bg-red-500/10 mb-2"
+                  onClick={() => window.open(media.url, '_blank')}
+                >
+                  Watch on YouTube
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-lime-400 hover:text-lime-300"
+                  onClick={() => {
+                    setError(null);
+                    setIsLoading(true);
+                    // Force reload the iframe by changing the src
+                    const iframe = document.querySelector(`iframe[src*="${videoId}"]`) as HTMLIFrameElement;
+                    if (iframe) {
+                      iframe.src = iframe.src;
+                    }
+                  }}
+                >
+                  Try Again
+                </Button>
+              </div>
+            )}
+
+            {/* External link button */}
+            {!isLoading && !error && (
+              <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0 text-white hover:bg-white/20 bg-black/60"
+                  onClick={() => window.open(media.url, '_blank')}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
         );
 
@@ -293,8 +384,27 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
 
 // Helper functions to extract IDs from URLs
 function extractYouTubeId(url: string): string {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/);
-  return match ? match[1] : '';
+  try {
+    // Handle various YouTube URL formats
+    const patterns = [
+      /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+      /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/live\/([a-zA-Z0-9_-]{11})/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to extract YouTube ID from:', url, error);
+  }
+
+  return '';
 }
 
 function extractVimeoId(url: string): string {
