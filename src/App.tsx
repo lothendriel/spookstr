@@ -13,6 +13,7 @@ import { AppProvider } from '@/components/AppProvider';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { AppConfig } from '@/contexts/AppContext';
 import AppRouter from './AppRouter';
+import { YouTubeTest } from '@/components/YouTubeTest';
 
 const head = createHead({
   plugins: [
@@ -53,6 +54,7 @@ export function App() {
                 <TooltipProvider>
                   <Toaster />
                   <Suspense>
+                    <YouTubeTest />
                     <AppRouter />
                   </Suspense>
                 </TooltipProvider>

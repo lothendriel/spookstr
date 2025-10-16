@@ -34,14 +34,16 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   const mediaItems: MediaItem[] = [];
 
   // Process YouTube URLs first
-  const youtubeMatches = content.match(mediaPatterns.youtube);
-  if (youtubeMatches) {
-    youtubeMatches.forEach(url => {
-      const mediaItem = createMediaItem(url, 'youtube', [url, '', '']);
-      if (mediaItem) {
-        mediaItems.push(mediaItem);
-      }
-    });
+  let youtubeMatch;
+  const youtubeRegex = mediaPatterns.youtube;
+  youtubeRegex.lastIndex = 0; // Reset regex state
+
+  while ((youtubeMatch = youtubeRegex.exec(content)) !== null) {
+    const url = youtubeMatch[0];
+    const mediaItem = createMediaItem(url, 'youtube', youtubeMatch);
+    if (mediaItem) {
+      mediaItems.push(mediaItem);
+    }
   }
 
   // Process other media types
