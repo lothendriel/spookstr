@@ -83,10 +83,16 @@ export function parseMediaFromContent(content: string): MediaItem[] {
 
 function createMediaItem(url: string, type: string, match: RegExpMatchArray): MediaItem | null {
   try {
-    const urlObj = new URL(url);
+    // Add protocol if missing
+    let fullUrl = url;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      fullUrl = 'https://' + url;
+    }
+
+    const urlObj = new URL(fullUrl);
 
     // Validate and normalize URL
-    const cleanUrl = normalizeUrl(url);
+    const cleanUrl = normalizeUrl(fullUrl);
 
     switch (type) {
       case 'directImage':
@@ -180,7 +186,12 @@ function normalizeUrl(url: string): string {
 
 function extractAltText(url: string, match: RegExpMatchArray): string {
   // Try to extract a meaningful alt text from the URL
-  const filename = url.split('/').pop()?.split('?')[0];
+  let cleanUrl = url;
+  if (!url.startsWith('http')) {
+    cleanUrl = 'https://' + url;
+  }
+
+  const filename = cleanUrl.split('/').pop()?.split('?')[0];
   if (filename) {
     const nameWithoutExt = filename.split('.').slice(0, -1).join('.');
     return nameWithoutExt.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -189,7 +200,12 @@ function extractAltText(url: string, match: RegExpMatchArray): string {
 }
 
 function extractImageMetadata(url: string) {
-  const format = url.split('.').pop()?.split('?')[0]?.toLowerCase();
+  let cleanUrl = url;
+  if (!url.startsWith('http')) {
+    cleanUrl = 'https://' + url;
+  }
+
+  const format = cleanUrl.split('.').pop()?.split('?')[0]?.toLowerCase();
   return {
     format: format || 'unknown',
     size: 0, // Would be calculated in real implementation
@@ -203,7 +219,12 @@ function generateVideoThumbnail(url: string): string {
 }
 
 function extractVideoMetadata(url: string) {
-  const format = url.split('.').pop()?.split('?')[0]?.toLowerCase();
+  let cleanUrl = url;
+  if (!url.startsWith('http')) {
+    cleanUrl = 'https://' + url;
+  }
+
+  const format = cleanUrl.split('.').pop()?.split('?')[0]?.toLowerCase();
   return {
     format: format || 'unknown',
     fps: 30, // Default assumption
@@ -212,7 +233,12 @@ function extractVideoMetadata(url: string) {
 }
 
 function extractAudioTitle(url: string, match: RegExpMatchArray): string {
-  const filename = url.split('/').pop()?.split('?')[0];
+  let cleanUrl = url;
+  if (!url.startsWith('http')) {
+    cleanUrl = 'https://' + url;
+  }
+
+  const filename = cleanUrl.split('/').pop()?.split('?')[0];
   if (filename) {
     const nameWithoutExt = filename.split('.').slice(0, -1).join('.');
     return nameWithoutExt.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -221,7 +247,12 @@ function extractAudioTitle(url: string, match: RegExpMatchArray): string {
 }
 
 function extractAudioMetadata(url: string) {
-  const format = url.split('.').pop()?.split('?')[0]?.toLowerCase();
+  let cleanUrl = url;
+  if (!url.startsWith('http')) {
+    cleanUrl = 'https://' + url;
+  }
+
+  const format = cleanUrl.split('.').pop()?.split('?')[0]?.toLowerCase();
   return {
     format: format || 'unknown',
     bitrate: 128, // Default assumption in kbps
@@ -342,7 +373,11 @@ export async function fetchOpenGraphData(url: string): Promise<OpenGraphData> {
 
 function extractDomainName(url: string): string {
   try {
-    const urlObj = new URL(url);
+    let cleanUrl = url;
+    if (!url.startsWith('http')) {
+      cleanUrl = 'https://' + url;
+    }
+    const urlObj = new URL(cleanUrl);
     return urlObj.hostname.replace('www.', '');
   } catch {
     return 'Website';
