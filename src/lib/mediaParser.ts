@@ -27,7 +27,7 @@ const mediaPatterns = {
   vimeo: /vimeo\.com\/(\d+)(?:\/[\w-]+)?/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
-  website: /https?:\/\/(?:www\.)?[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|mp4|webm|mov|avi|mkv|flv|ogv|3gp|mp3|wav|ogg|flac|m4a|aac|opus))(?:\?[^\s]*)?/gi,
+  website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|mp4|webm|mov|avi|mkv|flv|ogv|3gp|mp3|wav|ogg|flac|m4a|aac|opus))(?:\?[^\s]*)?/gi,
 };
 
 export function parseMediaFromContent(content: string): MediaItem[] {

@@ -242,14 +242,27 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
         return (
           <div className="relative rounded-lg overflow-hidden bg-black group">
             <div className="relative pb-[56.25%] h-0">
+              {/* YouTube thumbnail as fallback background */}
+              <img
+                src={`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`}
+                alt={media.title || 'YouTube Video'}
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => {
+                  // Fallback to lower quality thumbnail
+                  e.currentTarget.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                }}
+                style={{ display: error || isLoading ? 'block' : 'none' }}
+              />
+
               <iframe
                 className="absolute top-0 left-0 w-full h-full rounded-lg"
-                src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${window.location.origin}`}
+                src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&widget_referrer=${encodeURIComponent(window.location.href)}`}
                 title={media.title || 'YouTube Video'}
                 frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
                 loading="lazy"
+                style={{ display: isLoading || error ? 'none' : 'block' }}
                 onError={handleMediaError}
                 onLoad={handleMediaLoad}
               />
@@ -257,8 +270,11 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
 
             {/* Loading overlay */}
             {isLoading && (
-              <div className="absolute inset-0 bg-black/80 flex items-center justify-center rounded-lg">
-                <div className="text-lime-400">Loading video...</div>
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-lg">
+                <div className="text-lime-400 text-center">
+                  <div className="mb-2">Loading video...</div>
+                  <div className="w-8 h-8 border-2 border-lime-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                </div>
               </div>
             )}
 
@@ -281,14 +297,39 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
                   onClick={() => {
                     setError(null);
                     setIsLoading(true);
-                    // Force reload the iframe by changing the src
+                    // Force reload by changing the src
+                    setTimeout(() => {
+                      const iframe = document.querySelector(`iframe[src*="${videoId}"]`) as HTMLIFrameElement;
+                      if (iframe) {
+                        const currentSrc = iframe.src;
+                        iframe.src = '';
+                        setTimeout(() => {
+                          iframe.src = currentSrc;
+                        }, 100);
+                      }
+                    }, 100);
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
+
+            {/* Play button overlay when not loading and no error */}
+            {!isLoading && !error && (
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  size="lg"
+                  variant="ghost"
+                  className="h-16 w-16 rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm"
+                  onClick={() => {
                     const iframe = document.querySelector(`iframe[src*="${videoId}"]`) as HTMLIFrameElement;
-                    if (iframe) {
-                      iframe.src = iframe.src;
+                    if (iframe && iframe.contentWindow) {
+                      iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
                     }
                   }}
                 >
-                  Try Again
+                  <Play className="h-8 w-8" />
                 </Button>
               </div>
             )}
