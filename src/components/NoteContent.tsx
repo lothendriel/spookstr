@@ -25,6 +25,13 @@ export function NoteContent({
     // First, extract media items from the content
     const mediaItems = parseMediaFromContent(text);
 
+    // Debug: Log what we found
+    console.log('NoteContent debug:', {
+      text,
+      mediaItems,
+      mediaCount: mediaItems.length
+    });
+
     // If no media found, use the original logic
     if (mediaItems.length === 0) {
       return processTextContent(text);

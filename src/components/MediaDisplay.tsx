@@ -97,7 +97,7 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
                 <div className="text-lime-500">Loading video...</div>
               </div>
             )}
-            
+
             <video
               id={`media-${media.url}`}
               className={cn(
@@ -319,7 +319,7 @@ function extractYouTubeId(url: string): string {
   try {
     // Handle various YouTube URL formats
     const patterns = [
-      /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/watch[?]v=([a-zA-Z0-9_-]{11})/,
       /youtu\.be\/([a-zA-Z0-9_-]{11})/,
       /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
       /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
@@ -335,7 +335,7 @@ function extractYouTubeId(url: string): string {
   } catch (error) {
     console.warn('Failed to extract YouTube ID from:', url, error);
   }
-  
+
   return '';
 }
 

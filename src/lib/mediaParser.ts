@@ -23,7 +23,7 @@ const mediaPatterns = {
   directImage: /https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|svg|bmp)(?:\?[^\s]*)?/gi,
   directVideo: /https?:\/\/[^\s]+\.(mp4|webm|mov|avi|mkv|flv|ogv|3gp)(?:\?[^\s]*)?/gi,
   directAudio: /https?:\/\/[^\s]+\.(mp3|wav|ogg|flac|m4a|aac|opus)(?:\?[^\s]*)?/gi,
-  youtube: /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/gi,
+  youtube: /(?:youtube\.com\/watch[?]v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/gi,
   vimeo: /vimeo\.com\/(\d+)(?:\/[\w-]+)?/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
@@ -32,7 +32,7 @@ const mediaPatterns = {
 
 export function parseMediaFromContent(content: string): MediaItem[] {
   const mediaItems: MediaItem[] = [];
-  
+
   // Process YouTube URLs first
   const youtubeMatches = content.match(mediaPatterns.youtube);
   if (youtubeMatches) {
@@ -43,13 +43,13 @@ export function parseMediaFromContent(content: string): MediaItem[] {
       }
     });
   }
-  
+
   // Process other media types
   const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'vimeo'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
-    
+
     let match;
     while ((match = pattern.exec(content)) !== null) {
       const url = match[0];
@@ -59,7 +59,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
       }
     }
   });
-  
+
   // Process website links last (excluding YouTube)
   const websitePattern = mediaPatterns.website;
   if (websitePattern) {
@@ -68,7 +68,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
       const url = match[0];
       // Skip if this URL was already processed as YouTube
       if (url.includes('youtube.com') || url.includes('youtu.be')) continue;
-      
+
       const mediaItem = createMediaItem(url, 'website', match);
       if (mediaItem) {
         mediaItems.push(mediaItem);

@@ -53,6 +53,7 @@ export function App() {
                 <TooltipProvider>
                   <Toaster />
                   <Suspense>
+                    <YouTubeDebug />
                     <AppRouter />
                   </Suspense>
                 </TooltipProvider>
