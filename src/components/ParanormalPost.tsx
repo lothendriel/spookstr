@@ -142,13 +142,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
               >
                 <MessageCircle className="h-4 w-4" />
               </Button>
-            </div>
 
-            <div
-              className="flex items-center space-x-2"
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
               {hasLightningAddress ? (
                 <ZapButton
                   target={event}
