@@ -32,41 +32,49 @@ const mediaPatterns = {
 
 export function parseMediaFromContent(content: string): MediaItem[] {
   const mediaItems: MediaItem[] = [];
-  const processedUrls = new Set<string>();
-
-  // Process patterns in order of precedence (media first, then websites)
-  const patternOrder = [
-    'directImage',
-    'directVideo',
-    'directAudio',
-    'youtube',
-    'vimeo',
-    'nostrImage',
-    'nostrVideo',
-    'website' // Process websites last to avoid conflicts with media
-  ];
-
-  // Extract and process each match in order of precedence
-  patternOrder.forEach((type) => {
+  
+  // Process YouTube URLs first
+  const youtubeMatches = content.match(mediaPatterns.youtube);
+  if (youtubeMatches) {
+    youtubeMatches.forEach(url => {
+      const mediaItem = createMediaItem(url, 'youtube', [url, '', '']);
+      if (mediaItem) {
+        mediaItems.push(mediaItem);
+      }
+    });
+  }
+  
+  // Process other media types
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'vimeo'];
+  mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
-
+    
     let match;
-    pattern.lastIndex = 0; // Reset regex state
-
     while ((match = pattern.exec(content)) !== null) {
       const url = match[0];
-
-      // Skip if this URL has already been processed
-      if (processedUrls.has(url)) continue;
-
       const mediaItem = createMediaItem(url, type, match);
       if (mediaItem) {
         mediaItems.push(mediaItem);
-        processedUrls.add(url);
       }
     }
   });
+  
+  // Process website links last (excluding YouTube)
+  const websitePattern = mediaPatterns.website;
+  if (websitePattern) {
+    let match;
+    while ((match = websitePattern.exec(content)) !== null) {
+      const url = match[0];
+      // Skip if this URL was already processed as YouTube
+      if (url.includes('youtube.com') || url.includes('youtu.be')) continue;
+      
+      const mediaItem = createMediaItem(url, 'website', match);
+      if (mediaItem) {
+        mediaItems.push(mediaItem);
+      }
+    }
+  }
 
   return mediaItems;
 }
