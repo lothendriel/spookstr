@@ -112,7 +112,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                 <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
               </Button>
 
-              // Share button removed as requested
+              
 
               <Button
                 variant="ghost"
