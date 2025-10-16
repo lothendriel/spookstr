@@ -10,7 +10,7 @@ import { ZapButton } from '@/components/ZapButton';
 import { ZapDialog } from '@/components/ZapDialog';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { Heart, Repeat, MessageCircle, Share2, Zap } from 'lucide-react';
+import { Heart, Repeat, MessageCircle, Zap } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface ParanormalPostProps {
@@ -53,14 +53,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     setReposted(true);
   };
 
-  const handleQuoteRepost = () => {
-    if (!user) return;
-    createEvent({
-      kind: 1,
-      content: `Reposting: nostr:${event.id}`,
-      tags: [['e', event.id], ['p', event.pubkey]]
-    });
-  };
+  // Quote repost functionality removed as share button was deprecated
 
   return (
     <Card
@@ -119,17 +112,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                 <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
               </Button>
 
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleQuoteRepost();
-                }}
-                className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
-              >
-                <Share2 className="h-4 w-4" />
-              </Button>
+              // Share button removed as requested
 
               <Button
                 variant="ghost"
