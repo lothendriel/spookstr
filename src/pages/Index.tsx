@@ -122,6 +122,7 @@ const Index = () => {
                     key={post.id}
                     event={post}
                     onClick={() => setSelectedPost(post)}
+                    showActions={true}
                   />
                 ))}
               </div>
