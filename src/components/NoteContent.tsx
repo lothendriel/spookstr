@@ -35,6 +35,9 @@ export function NoteContent({
     let processedText = text;
     let keyCounter = 0;
 
+    // Create a Set of URLs that are being handled as media or links
+    const skipUrls = new Set(mediaItems.map(item => item.url));
+
     // Sort media items by their position in the text (earlier first)
     const sortedMedia = [...mediaItems].sort((a, b) => {
       const indexA = text.indexOf(a.url);
@@ -49,7 +52,7 @@ export function NoteContent({
       if (mediaIndex > 0) {
         // Add text before the media URL
         const beforeText = processedText.substring(0, mediaIndex);
-        parts.push(...processTextContent(beforeText, keyCounter));
+        parts.push(...processTextContent(beforeText, keyCounter, skipUrls));
         keyCounter += beforeText.split(/\s+/).length; // Rough estimate for key increment
       }
 
@@ -67,7 +70,7 @@ export function NoteContent({
 
     // Add any remaining text
     if (processedText.trim()) {
-      parts.push(...processTextContent(processedText, keyCounter));
+      parts.push(...processTextContent(processedText, keyCounter, skipUrls));
     }
 
     return parts;
@@ -81,12 +84,11 @@ export function NoteContent({
 }
 
 // Helper function to process text content (URLs, mentions, hashtags)
-function processTextContent(text: string, keyOffset = 0): React.ReactNode[] {
+function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> = new Set()): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
 
   // Regex to find URLs, Nostr references, and hashtags
-  // Exclude URLs that are already handled as media
-  const regex = /(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|svg|bmp|mp4|webm|mov|avi|mkv|flv|mp3|wav|ogg|flac|m4a|aac)(?:\?[^\s]*)?)|(https?:\/\/[^\s]+)|nostr:(npub1|note1|nprofile1|nevent1)([023456789acdefghjklmnpqrstuvwxyz]+)|(#\w+)/g;
+  const regex = /(https?:\/\/[^\s]+)|nostr:(npub1|note1|nprofile1|nevent1)([023456789acdefghjklmnpqrstuvwxyz]+)|(#\w+)/g;
 
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -102,32 +104,42 @@ function processTextContent(text: string, keyOffset = 0): React.ReactNode[] {
     }
 
     if (mediaUrl) {
-      // This is a media URL, but it wasn't caught by the media parser
-      // Treat it as a regular URL
-      parts.push(
-        <a
-          key={`url-${keyCounter++}`}
-          href={mediaUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-500 hover:underline"
-        >
-          {mediaUrl}
-        </a>
-      );
+      // Skip URLs that are already handled as media or links
+      if (skipUrls.has(mediaUrl)) {
+        parts.push(mediaUrl);
+      } else {
+        // This is a media URL, but it wasn't caught by the media parser
+        // Treat it as a regular URL
+        parts.push(
+          <a
+            key={`url-${keyCounter++}`}
+            href={mediaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:underline"
+          >
+            {mediaUrl}
+          </a>
+        );
+      }
     } else if (regularUrl) {
-      // Handle regular URLs
-      parts.push(
-        <a
-          key={`url-${keyCounter++}`}
-          href={regularUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-500 hover:underline"
-        >
-          {regularUrl}
-        </a>
-      );
+      // Skip URLs that are already handled as media or links
+      if (skipUrls.has(regularUrl)) {
+        parts.push(regularUrl);
+      } else {
+        // Handle regular URLs
+        parts.push(
+          <a
+            key={`url-${keyCounter++}`}
+            href={regularUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:underline"
+          >
+            {regularUrl}
+          </a>
+        );
+      }
     } else if (nostrPrefix && nostrData) {
       // Handle Nostr references
       try {

@@ -1,13 +1,15 @@
 import { type NostrEvent } from '@nostrify/nostrify';
 
 export interface MediaItem {
-  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'external';
+  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'external' | 'link';
   url: string;
   alt?: string;
   title?: string;
   thumbnail?: string;
   duration?: number;
   dimensions?: { width: number; height: number };
+  description?: string;
+  siteName?: string;
   metadata?: {
     size?: number;
     format?: string;
@@ -25,19 +27,43 @@ const mediaPatterns = {
   vimeo: /vimeo\.com\/(\d+)(?:\/[\w-]+)?/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
+  website: /https?:\/\/(?:www\.)?[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|mp4|webm|mov|avi|mkv|flv|ogv|3gp|mp3|wav|ogg|flac|m4a|aac|opus))(?:\?[^\s]*)?/gi,
 };
 
 export function parseMediaFromContent(content: string): MediaItem[] {
   const mediaItems: MediaItem[] = [];
+  const processedUrls = new Set<string>();
 
-  // Extract and process each match
-  Object.entries(mediaPatterns).forEach(([type, pattern]) => {
+  // Process patterns in order of precedence (media first, then websites)
+  const patternOrder = [
+    'directImage',
+    'directVideo',
+    'directAudio',
+    'youtube',
+    'vimeo',
+    'nostrImage',
+    'nostrVideo',
+    'website' // Process websites last to avoid conflicts with media
+  ];
+
+  // Extract and process each match in order of precedence
+  patternOrder.forEach((type) => {
+    const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
+    if (!pattern) return;
+
     let match;
+    pattern.lastIndex = 0; // Reset regex state
+
     while ((match = pattern.exec(content)) !== null) {
       const url = match[0];
+
+      // Skip if this URL has already been processed
+      if (processedUrls.has(url)) continue;
+
       const mediaItem = createMediaItem(url, type, match);
       if (mediaItem) {
         mediaItems.push(mediaItem);
+        processedUrls.add(url);
       }
     }
   });
@@ -111,6 +137,15 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
           url: cleanUrl.replace('stream://', 'https://'),
           thumbnail: generateVideoThumbnail(cleanUrl),
           metadata: { format: 'unknown' }
+        };
+
+      case 'website':
+        return {
+          type: 'link',
+          url: cleanUrl,
+          title: extractDomainName(cleanUrl),
+          description: 'Click to view this website',
+          thumbnail: '', // Will be populated by Open Graph data
         };
 
       default:
@@ -208,4 +243,116 @@ function generateVimeoThumbnail(videoId: string): string {
 function extractVimeoDuration(videoId: string): number {
   // Would fetch from Vimeo API in real implementation
   return 0;
+}
+
+// Open Graph metadata fetching
+export interface OpenGraphData {
+  title?: string;
+  description?: string;
+  image?: string;
+  siteName?: string;
+  url?: string;
+  type?: string;
+}
+
+export async function fetchOpenGraphData(url: string): Promise<OpenGraphData> {
+  try {
+    // For demo purposes, we'll simulate Open Graph data
+    // In a real implementation, this would fetch from a server-side proxy
+    // that can handle CORS and parse HTML to extract Open Graph tags
+
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 500));
+
+    // Mock Open Graph data for demonstration
+    const mockData: Record<string, OpenGraphData> = {
+      'github.com': {
+        title: 'GitHub: Let\'s build from here',
+        description: 'GitHub is where over 100 million developers shape the future of software, together. Contribute to the open source community, manage your Git repositories, review code like a pro, track bugs and features, power your CI/CD and DevOps workflows, and secure code before you commit it.',
+        image: 'https://github.com/fluidicon.png',
+        siteName: 'GitHub',
+        url: url,
+        type: 'website'
+      },
+      'twitter.com': {
+        title: 'X. It\'s what\'s happening',
+        description: 'From breaking news and entertainment to sports and politics, get the full story with all the live commentary.',
+        image: 'https://abs.twimg.com/images/v1/og-image.248400e7.png',
+        siteName: 'X',
+        url: url,
+        type: 'website'
+      },
+      'youtube.com': {
+        title: 'YouTube',
+        description: 'Enjoy the videos and music you love, upload original content, and share it all with friends, family, and the world on YouTube.',
+        image: 'https://www.youtube.com/s/desktop/05bb6b44/img/favicon_144x144.png',
+        siteName: 'YouTube',
+        url: url,
+        type: 'website'
+      },
+      'reddit.com': {
+        title: 'Reddit - Dive into anything',
+        description: 'Reddit is a network of communities where people can dive into their interests, hobbies and passions. There\'s a community for whatever you\'re interested in on Reddit.',
+        image: 'https://www.redditstatic.com/desktop2x/img/favicon/android-icon-192x192.png',
+        siteName: 'Reddit',
+        url: url,
+        type: 'website'
+      }
+    };
+
+    // Try to match the domain
+    const domain = extractDomainName(url);
+    const mockEntry = Object.entries(mockData).find(([key]) => domain.includes(key));
+
+    if (mockEntry) {
+      return {
+        ...mockEntry[1],
+        url: url
+      };
+    }
+
+    // Generic fallback for unknown domains
+    return {
+      title: `${extractDomainName(url)} - Visit Website`,
+      description: `Click to visit ${extractDomainName(url)} and explore more content.`,
+      url: url,
+      siteName: extractDomainName(url),
+      type: 'website'
+    };
+  } catch (error) {
+    console.warn('Failed to fetch Open Graph data:', error);
+    // Return basic fallback data
+    return {
+      title: extractDomainName(url),
+      description: 'Click to view this website',
+      url: url,
+    };
+  }
+}
+
+function extractDomainName(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname.replace('www.', '');
+  } catch {
+    return 'Website';
+  }
+}
+
+// Cache for Open Graph data to avoid repeated requests
+const ogCache = new Map<string, OpenGraphData>();
+
+export async function getOpenGraphData(url: string): Promise<OpenGraphData> {
+  // Check cache first
+  if (ogCache.has(url)) {
+    return ogCache.get(url)!;
+  }
+
+  // Fetch fresh data
+  const data = await fetchOpenGraphData(url);
+
+  // Cache the result
+  ogCache.set(url, data);
+
+  return data;
 }

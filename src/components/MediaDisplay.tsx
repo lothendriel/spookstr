@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, Volume2, VolumeX, Maximize, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LinkPreview } from '@/components/LinkPreview';
 
 interface MediaDisplayProps {
   media: MediaItem;
@@ -96,7 +97,7 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
                 <div className="text-lime-500">Loading video...</div>
               </div>
             )}
-            
+
             <video
               id={`media-${media.url}`}
               className={cn(
@@ -243,6 +244,9 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
             </div>
           </div>
         );
+
+      case 'link':
+        return <LinkPreview media={media} />;
 
       case 'external':
         return (
