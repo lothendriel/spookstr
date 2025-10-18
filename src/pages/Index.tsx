@@ -9,7 +9,7 @@ import { PostDetailView } from '@/components/PostDetailView';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Button } from '@/components/ui/button';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Ghost } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 const Index = () => {

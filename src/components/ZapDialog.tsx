@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, forwardRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, memo, useMemo, useCallback } from 'react';
 import { Zap, Copy, Check, ExternalLink, Sparkle, Sparkles, Star, Rocket, ArrowLeft, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -67,7 +67,7 @@ interface ZapContentProps {
 }
 
 // Moved ZapContent outside of ZapDialog to prevent re-renders causing focus loss
-const ZapContent = forwardRef<HTMLDivElement, ZapContentProps>(({
+const ZapContent = memo(forwardRef<HTMLDivElement, ZapContentProps>(({
   invoice,
   amount,
   comment,
@@ -232,10 +232,10 @@ const ZapContent = forwardRef<HTMLDivElement, ZapContentProps>(({
       </>
     )}
   </div>
-));
+)));
 ZapContent.displayName = 'ZapContent';
 
-export function ZapDialog({ target, children, className }: ZapDialogProps) {
+export const ZapDialog = memo(({ target, children, className }: ZapDialogProps) => {
   if (!target) {
     return null;
   }
@@ -295,7 +295,7 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
     };
   }, [invoice]);
 
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async () => {
     if (invoice) {
       await navigator.clipboard.writeText(invoice);
       setCopied(true);
@@ -305,14 +305,14 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
       });
       setTimeout(() => setCopied(false), 2000);
     }
-  };
+  }, [invoice, toast]);
 
-  const openInWallet = () => {
+  const openInWallet = useCallback(() => {
     if (invoice) {
       const lightningUrl = `lightning:${invoice}`;
       window.open(lightningUrl, '_blank');
     }
-  };
+  }, [invoice]);
 
   useEffect(() => {
     if (open) {
@@ -329,12 +329,12 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
     }
   }, [open, setInvoice]);
 
-  const handleZap = () => {
+  const handleZap = useCallback(() => {
     const finalAmount = typeof amount === 'string' ? parseInt(amount, 10) : amount;
     zap(finalAmount, comment);
-  };
+  }, [amount, comment, zap]);
 
-  const contentProps = {
+  const contentProps = useMemo(() => ({
     invoice,
     amount,
     comment,
@@ -349,37 +349,32 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
     setComment,
     inputRef,
     zap,
-  };
+  }), [invoice, amount, comment, isZapping, qrCodeUrl, copied, webln, handleZap, handleCopy, openInWallet, zap]);
 
   // Special case for developer zap - check if it's the developer mock event
-  const isDeveloper = target.id === 'developer-tip';
-  const developerLud16 = isDeveloper ? 'studio314@getalby.com' : null;
+  const isDeveloper = useMemo(() => target.id === 'developer-tip', [target.id]);
+  const developerLud16 = useMemo(() => isDeveloper ? 'studio314@getalby.com' : null, [isDeveloper]);
   const author = authorQuery?.data;
 
   // For developer zaps, we don't need author metadata
-  const hasLightningAddress = isDeveloper ? !!developerLud16 : !!(author?.metadata?.lud06 || author?.metadata?.lud16);
+  const hasLightningAddress = useMemo(() =>
+    isDeveloper ? !!developerLud16 : !!(author?.metadata?.lud06 || author?.metadata?.lud16),
+    [isDeveloper, developerLud16, author?.metadata?.lud06, author?.metadata?.lud16]
+  );
 
-  console.log('ZapDialog render check:', {
-    user: !!user,
-    userPubkey: user?.pubkey,
-    targetPubkey: target.pubkey,
-    isDeveloper,
-    hasLightningAddress,
-    developerLud16,
-    authorLud16: author?.metadata?.lud16,
-    authorLud06: author?.metadata?.lud06,
-    authorLoading: authorQuery?.isLoading,
-    shouldRender: !!(user && user.pubkey !== target.pubkey && hasLightningAddress)
-  });
+  // Memoize the render decision to prevent unnecessary recalculations
+  const shouldRender = useMemo(() => {
+    if (user === null && !isDeveloper) {
+      return false;
+    }
+    if (!isDeveloper && (!user || user.pubkey === target.pubkey || authorQuery?.isLoading || !hasLightningAddress)) {
+      return false;
+    }
+    return true;
+  }, [user, isDeveloper, target.pubkey, authorQuery?.isLoading, hasLightningAddress]);
 
-  // Don't render if user is not logged in, is the author, or no lightning address
-  // For regular posts, also wait for author data to load
-  if (user === null && !isDeveloper) {
-    // User not logged in for non-developer zaps
-    return null;
-  }
-
-  if (!isDeveloper && (!user || user.pubkey === target.pubkey || authorQuery?.isLoading || !hasLightningAddress)) {
+  // Don't render if conditions aren't met
+  if (!shouldRender) {
     return null;
   }
 
@@ -491,4 +486,6 @@ export function ZapDialog({ target, children, className }: ZapDialogProps) {
       </DialogContent>
     </Dialog>
   );
-}
+});
+
+ZapDialog.displayName = 'ZapDialog';

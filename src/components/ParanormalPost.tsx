@@ -12,6 +12,8 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { Heart, Repeat, MessageCircle, Zap } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+import { nip19 } from 'nostr-tools';
 
 interface ParanormalPostProps {
   event: NostrEvent;
@@ -23,6 +25,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const author = useAuthor(event.pubkey);
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
+  const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
 
@@ -32,6 +35,12 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
 
   // Check if author has lightning address for zapping
   const hasLightningAddress = metadata?.lud16 || metadata?.lud06;
+
+  const handleAvatarClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const npub = nip19.npubEncode(event.pubkey);
+    navigate(`/${npub}`);
+  };
 
   const handleLike = () => {
     if (!user) return;
@@ -62,7 +71,10 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     >
       <CardHeader className="pb-3">
         <div className="flex items-center space-x-3">
-          <Avatar className="h-10 w-10 border-2 border-lime-500/30">
+          <Avatar
+            className="h-10 w-10 border-2 border-lime-500/30 cursor-pointer hover:border-lime-400/50 transition-colors"
+            onClick={handleAvatarClick}
+          >
             <AvatarImage src={metadata?.picture} alt={displayName} />
             <AvatarFallback className="bg-lime-500/20 text-lime-400">
               {displayName.charAt(0).toUpperCase()}
@@ -70,7 +82,12 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
           </Avatar>
           <div className="flex-1">
             <div className="flex items-center space-x-2">
-              <span className="font-semibold text-lime-400">{displayName}</span>
+              <span
+                className="font-semibold text-lime-400 cursor-pointer hover:text-lime-300 transition-colors"
+                onClick={handleAvatarClick}
+              >
+                {displayName}
+              </span>
               {metadata?.nip05 && (
                 <span className="text-xs text-lime-500/70">✓</span>
               )}
@@ -112,7 +129,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                 <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
               </Button>
 
-              
+
 
               <Button
                 variant="ghost"
