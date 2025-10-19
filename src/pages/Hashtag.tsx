@@ -2,6 +2,7 @@ import { useSeoMeta } from '@unhead/react';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
