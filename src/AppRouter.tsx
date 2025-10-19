@@ -5,6 +5,7 @@ import Index from "./pages/Index";
 import { NIP19Page } from "./pages/NIP19Page";
 import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
+import Hashtag from "./pages/Hashtag";
 
 export function AppRouter() {
   return (
@@ -13,6 +14,7 @@ export function AppRouter() {
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/t/:tag" element={<Hashtag />} />
         {/* NIP-19 route for npub1, note1, naddr1, nevent1, nprofile1 */}
         <Route path="/:nip19" element={<NIP19Page />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

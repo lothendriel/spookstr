@@ -1,6 +1,8 @@
 import { useSeoMeta } from '@unhead/react';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { useAuthor } from '@/hooks/useAuthor';
+import { useFollow } from '@/hooks/useFollow';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { genUserName } from '@/lib/genUserName';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,11 +11,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
-import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon } from 'lucide-react';
+import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { PostDetailView } from '@/components/PostDetailView';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { nip19 } from 'nostr-tools';
 
 interface ProfileProps {
   pubkey: string;
@@ -23,7 +26,14 @@ export default function Profile({ pubkey }: ProfileProps) {
   const navigate = useNavigate();
   const author = useAuthor(pubkey);
   const { nostr } = useNostr();
+  const { user } = useCurrentUser();
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const { isFollowing, follow, unfollow, isPending } = useFollow(pubkey);
+
+  const isOwnProfile = user?.pubkey === pubkey;
+  const npub = nip19.npubEncode(pubkey);
 
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(pubkey);
@@ -32,6 +42,24 @@ export default function Profile({ pubkey }: ProfileProps) {
     title: `${displayName} - Spookstr`,
     description: metadata?.about || `View ${displayName}'s profile on Spookstr`,
   });
+
+  const handleCopyPubkey = async () => {
+    try {
+      await navigator.clipboard.writeText(npub);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy public key:', error);
+    }
+  };
+
+  const handleFollowToggle = async () => {
+    if (isFollowing(pubkey)) {
+      await unfollow(pubkey);
+    } else {
+      await follow(pubkey);
+    }
+  };
 
   // Fetch user's posts
   const { data: posts, isLoading: isLoadingPosts } = useQuery({
@@ -114,13 +142,66 @@ export default function Profile({ pubkey }: ProfileProps) {
 
                 {/* Profile Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h1 className="text-2xl font-bold text-lime-400 truncate">
-                      {displayName}
-                    </h1>
-                    {metadata?.nip05 && (
-                      <span className="text-lime-500">✓</span>
-                    )}
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h1 className="text-2xl font-bold text-lime-400 truncate">
+                        {displayName}
+                      </h1>
+                      {metadata?.nip05 && (
+                        <span className="text-lime-500">✓</span>
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-2 ml-4">
+                      {!isOwnProfile && user && (
+                        <Button
+                          onClick={handleFollowToggle}
+                          disabled={isPending}
+                          variant={isFollowing(pubkey) ? "outline" : "default"}
+                          size="sm"
+                          className={`
+                            ${isFollowing(pubkey)
+                              ? "border-lime-500 text-lime-400 hover:bg-lime-500/10"
+                              : "bg-lime-500 hover:bg-lime-600 text-black"
+                            }
+                          `}
+                        >
+                          {isPending ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-black border-t-transparent" />
+                          ) : isFollowing(pubkey) ? (
+                            <>
+                              <UserMinus className="h-4 w-4 mr-1" />
+                              Unfollow
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="h-4 w-4 mr-1" />
+                              Follow
+                            </>
+                          )}
+                        </Button>
+                      )}
+
+                      <Button
+                        onClick={handleCopyPubkey}
+                        variant="outline"
+                        size="sm"
+                        className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10"
+                      >
+                        {copied ? (
+                          <>
+                            <Check className="h-4 w-4 mr-1" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4 mr-1" />
+                            Copy Key
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
 
                   {metadata?.nip05 && (
