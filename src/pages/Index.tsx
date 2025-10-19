@@ -45,29 +45,7 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-black via-green-950/20 to-black">
       <SpookstrHeader />
 
-      {/* Desktop Create Post Button - Now in sidebar area */}
-      <div className="hidden lg:block fixed left-4 top-48 z-10">
-        <CreatePostModal>
-          <div className="border border-lime-500/20 bg-black/40 backdrop-blur-sm rounded-lg p-4 mb-6">
-            <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold shadow-lg w-full">
-              <Plus className="h-4 w-4 mr-2" />
-              Post
-            </Button>
-          </div>
-        </CreatePostModal>
-      </div>
 
-      {/* Mobile Floating Action Button */}
-      <div className="lg:hidden fixed bottom-24 right-4 z-10">
-        <CreatePostModal>
-          <Button
-            size="lg"
-            className="bg-lime-500 hover:bg-lime-400 text-black rounded-full w-14 h-14 shadow-lg"
-          >
-            <Plus className="h-6 w-6" />
-          </Button>
-        </CreatePostModal>
-      </div>
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
