@@ -45,8 +45,8 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-black via-green-950/20 to-black">
       <SpookstrHeader />
 
-      {/* Desktop Create Post Button */}
-      <div className="hidden lg:block fixed left-4 top-36 z-10">
+      {/* Desktop Create Post Button - Now in sidebar area */}
+      <div className="hidden lg:block fixed left-4 top-48 z-10">
         <CreatePostModal>
           <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold shadow-lg">
             <Plus className="h-4 w-4 mr-2" />
