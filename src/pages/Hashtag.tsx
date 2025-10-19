@@ -19,6 +19,7 @@ export default function Hashtag() {
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
 
   console.log('🏷️ Hashtag component rendered with tag:', tag);
+  console.log('📊 Posts state:', { posts, isLoadingPosts, postsLength: posts?.length });
 
   useSeoMeta({
     title: tag ? `#${tag} - Spookstr` : 'Hashtag - Spookstr',
