@@ -46,11 +46,11 @@ const Index = () => {
       <SpookstrHeader />
 
       {/* Desktop Create Post Button */}
-      <div className="hidden lg:block fixed left-4 top-20 z-10">
+      <div className="hidden lg:block fixed left-4 top-36 z-10">
         <CreatePostModal>
           <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold shadow-lg">
             <Plus className="h-4 w-4 mr-2" />
-            +Post
+            Post
           </Button>
         </CreatePostModal>
       </div>
