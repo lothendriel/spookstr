@@ -97,5 +97,24 @@
 
   body {
     @apply bg-background text-foreground;
+    /* Add the paranormal background image */
+    background-image: url('https://cdn.satellite.earth/febcdac37056137742dfa43d29651d1d2687e150acbb52050976f7caa5369d6c.webp');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+
+    /* Add overlay to ensure text readability */
+    &::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.85));
+      z-index: -1;
+      pointer-events: none;
+    }
   }
 }
