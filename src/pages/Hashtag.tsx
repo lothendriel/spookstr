@@ -21,6 +21,8 @@ export default function Hashtag({ tag }: HashtagProps) {
   const { nostr } = useNostr();
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
 
+  console.log('🏷️ Hashtag component rendered with tag:', tag);
+
   useSeoMeta({
     title: `#${tag} - Spookstr`,
     description: `View posts tagged with #${tag} on Spookstr`,
@@ -31,10 +33,12 @@ export default function Hashtag({ tag }: HashtagProps) {
     queryKey: ['hashtag-posts', tag],
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
+      console.log('🔍 Querying for hashtag:', tag);
       const events = await nostr.query(
         [{ kinds: [1], '#t': [tag], limit: 50 }],
         { signal }
       );
+      console.log('📋 Found events for hashtag', tag, ':', events.length, events);
       return events.sort((a, b) => b.created_at - a.created_at);
     },
     enabled: !!tag,
