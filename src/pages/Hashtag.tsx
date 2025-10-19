@@ -7,31 +7,29 @@ import { ParanormalPost } from '@/components/ParanormalPost';
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { Ghost, ArrowLeft, Hash } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useState } from 'react';
 import { PostDetailView } from '@/components/PostDetailView';
 import type { NostrEvent } from '@nostrify/nostrify';
 
-interface HashtagProps {
-  tag: string;
-}
-
-export default function Hashtag({ tag }: HashtagProps) {
+export default function Hashtag() {
   const navigate = useNavigate();
   const { nostr } = useNostr();
+  const { tag } = useParams<{ tag: string }>();
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
 
   console.log('🏷️ Hashtag component rendered with tag:', tag);
 
   useSeoMeta({
-    title: `#${tag} - Spookstr`,
-    description: `View posts tagged with #${tag} on Spookstr`,
+    title: tag ? `#${tag} - Spookstr` : 'Hashtag - Spookstr',
+    description: tag ? `View posts tagged with #${tag} on Spookstr` : 'View posts by hashtag on Spookstr',
   });
 
   // Fetch posts with this hashtag
   const { data: posts, isLoading: isLoadingPosts } = useQuery({
     queryKey: ['hashtag-posts', tag],
     queryFn: async (c) => {
+      if (!tag) return [];
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
       console.log('🔍 Querying for hashtag:', tag);
       const events = await nostr.query(
@@ -81,7 +79,7 @@ export default function Hashtag({ tag }: HashtagProps) {
               <div>
                 <h1 className="text-2xl font-bold text-lime-400">#{tag}</h1>
                 <p className="text-lime-500/70">
-                  {posts ? `${posts.length} posts` : 'Loading posts...'}
+                  {posts ? `${posts.length} posts` : tag ? 'Loading posts...' : 'No hashtag specified'}
                 </p>
               </div>
             </div>
@@ -120,7 +118,7 @@ export default function Hashtag({ tag }: HashtagProps) {
                   No Posts Found
                 </h3>
                 <p className="text-lime-500/60">
-                  No posts found with the hashtag #{tag}
+                  {tag ? `No posts found with the hashtag #${tag}` : 'No hashtag specified'}
                 </p>
               </CardContent>
             </Card>
