@@ -31,6 +31,7 @@ import { useToast } from '@/hooks/useToast';
 import { useZaps } from '@/hooks/useZaps';
 import { useWallet } from '@/hooks/useWallet';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Event } from 'nostr-tools';
 import QRCode from 'qrcode';
 import type { WebLNProvider } from "@webbtc/webln-types";
@@ -54,12 +55,14 @@ interface ZapContentProps {
   amount: number | string;
   comment: string;
   isZapping: boolean;
+  isPaying: boolean;
   qrCodeUrl: string;
   copied: boolean;
   webln: WebLNProvider | null;
   handleZap: () => void;
   handleCopy: () => void;
   openInWallet: () => void;
+  handleWebLNPayment: () => void;
   setAmount: (amount: number | string) => void;
   setComment: (comment: string) => void;
   inputRef: React.RefObject<HTMLInputElement>;
@@ -72,12 +75,14 @@ const ZapContent = memo(forwardRef<HTMLDivElement, ZapContentProps>(({
   amount,
   comment,
   isZapping,
+  isPaying,
   qrCodeUrl,
   copied,
   webln,
   handleZap,
   handleCopy,
   openInWallet,
+  handleWebLNPayment,
   setAmount,
   setComment,
   inputRef,
@@ -141,16 +146,13 @@ const ZapContent = memo(forwardRef<HTMLDivElement, ZapContentProps>(({
           <div className="space-y-3 mt-4">
             {webln && (
               <Button
-                onClick={() => {
-                  const finalAmount = typeof amount === 'string' ? parseInt(amount, 10) : amount;
-                  zap(finalAmount, comment);
-                }}
-                disabled={isZapping}
+                onClick={handleWebLNPayment}
+                disabled={isPaying}
                 className="w-full"
                 size="lg"
               >
                 <Zap className="h-4 w-4 mr-2" />
-                {isZapping ? "Processing..." : "Pay with WebLN"}
+                {isPaying ? "Processing..." : "Pay with WebLN"}
               </Button>
             )}
 
@@ -244,10 +246,11 @@ export const ZapDialog = memo(({ target, children, className }: ZapDialogProps) 
   const authorQuery = useAuthor(target.pubkey);
   const { toast } = useToast();
   const { webln, activeNWC } = useWallet();
-  const { zap, isZapping, invoice, setInvoice } = useZaps(target, webln, activeNWC, () => setOpen(false));
+  const { zap, isZapping, invoice, setInvoice, payWithWebLN } = useZaps(target, webln, activeNWC, () => setOpen(false));
   const [amount, setAmount] = useState<number | string>(100);
   const [comment, setComment] = useState<string>('');
   const [copied, setCopied] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
   const isMobile = useIsMobile();
@@ -314,18 +317,52 @@ export const ZapDialog = memo(({ target, children, className }: ZapDialogProps) 
     }
   }, [invoice]);
 
+  const handleWebLNPayment = useCallback(async () => {
+    if (!invoice) {
+      return;
+    }
+
+    setIsPaying(true);
+    try {
+      await payWithWebLN(invoice);
+
+      // Clear states immediately on success
+      setInvoice(null);
+      setIsPaying(false);
+      setOpen(false);
+
+      toast({
+        title: 'Zap successful!',
+        description: `You sent ${amount} sats to ${target.id === 'developer-tip' ? 'the developer' : 'the author'}.`,
+      });
+
+      // Invalidate zap queries to refresh counts
+      queryClient.invalidateQueries({ queryKey: ['zaps'] });
+    } catch (error) {
+      console.error('WebLN payment failed:', error);
+      setIsPaying(false);
+      toast({
+        title: 'WebLN payment failed',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+        variant: 'destructive',
+      });
+    }
+  }, [invoice, payWithWebLN, amount, toast, queryClient, setOpen]);
+
   useEffect(() => {
     if (open) {
       setAmount(100);
       setInvoice(null);
       setCopied(false);
       setQrCodeUrl('');
+      setIsPaying(false);
     } else {
       // Clean up state when dialog closes
       setAmount(100);
       setInvoice(null);
       setCopied(false);
       setQrCodeUrl('');
+      setIsPaying(false);
     }
   }, [open, setInvoice]);
 
@@ -334,22 +371,26 @@ export const ZapDialog = memo(({ target, children, className }: ZapDialogProps) 
     zap(finalAmount, comment);
   }, [amount, comment, zap]);
 
+  const queryClient = useQueryClient();
+
   const contentProps = useMemo(() => ({
     invoice,
     amount,
     comment,
     isZapping,
+    isPaying,
     qrCodeUrl,
     copied,
     webln,
     handleZap,
     handleCopy,
     openInWallet,
+    handleWebLNPayment,
     setAmount,
     setComment,
     inputRef,
     zap,
-  }), [invoice, amount, comment, isZapping, qrCodeUrl, copied, webln, handleZap, handleCopy, openInWallet, zap]);
+  }), [invoice, amount, comment, isZapping, isPaying, qrCodeUrl, copied, webln, handleZap, handleCopy, openInWallet, handleWebLNPayment, zap]);
 
   // Special case for developer zap - check if it's the developer mock event
   const isDeveloper = useMemo(() => target.id === 'developer-tip', [target.id]);

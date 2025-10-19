@@ -736,6 +736,33 @@ export function useZaps(
     setInvoice(null);
   }, []);
 
+  // Function to pay an existing invoice with WebLN
+  const payWithWebLN = useCallback(async (invoiceToPay: string) => {
+    if (!webln) {
+      throw new Error('WebLN not available');
+    }
+
+    try {
+      // For native WebLN, we may need to enable it first
+      let webLnProvider = webln;
+      if (webln.enable && typeof webln.enable === 'function') {
+        const enabledProvider = await webln.enable();
+        // Some implementations return to provider, others return void
+        // Cast to WebLNProvider to handle both cases
+        const provider = enabledProvider as WebLNProvider | undefined;
+        if (provider) {
+          webLnProvider = provider;
+        }
+      }
+
+      await webLnProvider.sendPayment(invoiceToPay);
+      return true;
+    } catch (error) {
+      console.error('WebLN payment failed:', error);
+      throw error;
+    }
+  }, [webln]);
+
   return {
     zaps,
     zapCount,
@@ -746,5 +773,6 @@ export function useZaps(
     invoice,
     setInvoice,
     resetInvoice,
+    payWithWebLN,
   };
 }
