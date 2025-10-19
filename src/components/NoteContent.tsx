@@ -157,6 +157,7 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
     } else if (hashtag) {
       // Handle hashtags
       const tag = hashtag.slice(1); // Remove the #
+      console.log('🔗 Creating hashtag link:', { hashtag, tag, url: `/t/${tag}` });
       parts.push(
         <Link
           key={`hashtag-${keyCounter++}`}
