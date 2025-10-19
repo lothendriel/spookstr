@@ -246,6 +246,7 @@ export const ZapDialog = memo(({ target, children, className }: ZapDialogProps) 
   const authorQuery = useAuthor(target.pubkey);
   const { toast } = useToast();
   const { webln, activeNWC } = useWallet();
+  const queryClient = useQueryClient();
   const { zap, isZapping, invoice, setInvoice, payWithWebLN } = useZaps(target, webln, activeNWC, () => setOpen(false));
   const [amount, setAmount] = useState<number | string>(100);
   const [comment, setComment] = useState<string>('');
@@ -370,8 +371,6 @@ export const ZapDialog = memo(({ target, children, className }: ZapDialogProps) 
     const finalAmount = typeof amount === 'string' ? parseInt(amount, 10) : amount;
     zap(finalAmount, comment);
   }, [amount, comment, zap]);
-
-  const queryClient = useQueryClient();
 
   const contentProps = useMemo(() => ({
     invoice,
