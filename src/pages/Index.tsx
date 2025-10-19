@@ -4,12 +4,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useParanormalFeed } from '@/hooks/useParanormalFeed';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { CreateParanormalPost } from '@/components/CreateParanormalPost';
+import { CreatePostModal } from '@/components/CreatePostModal';
 import { DeveloperTip } from '@/components/DeveloperTip';
 import { PostDetailView } from '@/components/PostDetailView';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Button } from '@/components/ui/button';
-import { RotateCcw, Ghost } from 'lucide-react';
+import { RotateCcw, Ghost, Plus } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 const Index = () => {
@@ -44,12 +45,35 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-black via-green-950/20 to-black">
       <SpookstrHeader />
 
+      {/* Desktop Create Post Button */}
+      <div className="hidden lg:block fixed left-4 top-20 z-10">
+        <CreatePostModal>
+          <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold shadow-lg">
+            <Plus className="h-4 w-4 mr-2" />
+            +Post
+          </Button>
+        </CreatePostModal>
+      </div>
+
+      {/* Mobile Floating Action Button */}
+      <div className="lg:hidden fixed bottom-24 right-4 z-10">
+        <CreatePostModal>
+          <Button
+            size="lg"
+            className="bg-lime-500 hover:bg-lime-400 text-black rounded-full w-14 h-14 shadow-lg"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        </CreatePostModal>
+      </div>
+
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Left Sidebar */}
+          {/* Left Sidebar - Now just DeveloperTip on desktop */}
           <div className="lg:col-span-1 space-y-6">
-            <CreateParanormalPost />
-            <DeveloperTip />
+            <div className="hidden lg:block">
+              <DeveloperTip />
+            </div>
           </div>
 
           {/* Main Feed */}
@@ -131,6 +155,11 @@ const Index = () => {
 
           {/* Right Sidebar */}
           <div className="lg:col-span-1 space-y-6">
+            {/* DeveloperTip - Now shown on mobile too */}
+            <div className="lg:hidden">
+              <DeveloperTip />
+            </div>
+
             <div className="border border-lime-500/20 rounded-lg p-6 bg-black/40 backdrop-blur-sm">
               <h3 className="text-lg font-semibold text-lime-400 mb-4">
                 Paranormal Categories
