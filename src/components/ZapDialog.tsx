@@ -348,7 +348,7 @@ export const ZapDialog = memo(({ target, children, className }: ZapDialogProps) 
         variant: 'destructive',
       });
     }
-  }, [invoice, payWithWebLN, amount, toast, queryClient, setOpen]);
+  }, [invoice, payWithWebLN, toast, queryClient, setOpen, target.id]);
 
   useEffect(() => {
     if (open) {
