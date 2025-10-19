@@ -32,27 +32,11 @@ export default function Hashtag() {
       if (!tag) return [];
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
       console.log('🔍 Querying for hashtag:', tag);
-
-      // For debugging, let's also try a broader query to see if there are any posts at all
-      const allEvents = await nostr.query(
-        [{ kinds: [1], limit: 10 }],
-        { signal }
-      );
-      console.log('📋 All events found:', allEvents.length);
-
-      // Now query for the specific hashtag
       const events = await nostr.query(
         [{ kinds: [1], '#t': [tag], limit: 50 }],
         { signal }
       );
       console.log('📋 Found events for hashtag', tag, ':', events.length, events);
-
-      // Also log the tags of the first few events to see what tags exist
-      allEvents.slice(0, 3).forEach((event, index) => {
-        const tags = event.tags.filter(t => t[0] === 't').map(t => t[1]);
-        console.log(`📋 Event ${index + 1} tags:`, tags);
-      });
-
       return events.sort((a, b) => b.created_at - a.created_at);
     },
     enabled: !!tag,
