@@ -48,10 +48,12 @@ const Index = () => {
       {/* Desktop Create Post Button - Now in sidebar area */}
       <div className="hidden lg:block fixed left-4 top-48 z-10">
         <CreatePostModal>
-          <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold shadow-lg">
-            <Plus className="h-4 w-4 mr-2" />
-            Post
-          </Button>
+          <div className="border border-lime-500/20 bg-black/40 backdrop-blur-sm rounded-lg p-4 mb-6">
+            <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold shadow-lg w-full">
+              <Plus className="h-4 w-4 mr-2" />
+              Post
+            </Button>
+          </div>
         </CreatePostModal>
       </div>
 
@@ -70,7 +72,7 @@ const Index = () => {
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Left Sidebar - Now just DeveloperTip on desktop */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="lg:col-span-1">
             <div className="hidden lg:block">
               <DeveloperTip />
             </div>
