@@ -11,15 +11,15 @@ export function DesktopLayout({ children, className }: DesktopLayoutProps) {
     <div className={cn(
       // Desktop layout - hidden on mobile/tablet
       'hidden xl:flex',
-      
+
       // Full viewport height
       'min-h-screen',
-      
+
       // Fixed positioning for sidebars
       'relative',
-      
-      // Background and spacing
-      'bg-gradient-to-br from-black via-green-950/20 to-black p-4',
+
+      // Spacing
+      'p-4',
       className
     )}>
       {/* Left Sidebar - Fixed */}

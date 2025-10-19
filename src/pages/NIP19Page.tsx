@@ -67,7 +67,7 @@ function NoteView({ noteId }: { noteId: string }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-green-950/20 to-black">
+      <div className="min-h-screen">
         <SpookstrHeader />
         <main className="max-w-4xl mx-auto px-4 py-8">
           <Card className="border-lime-500/20 bg-black/40">
@@ -93,7 +93,7 @@ function NoteView({ noteId }: { noteId: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-green-950/20 to-black">
+    <div className="min-h-screen">
       <div className="max-w-4xl mx-auto p-4">
         <PostDetailView event={event} onBack={() => window.history.back()} />
       </div>
@@ -116,7 +116,7 @@ function EventView({ eventId }: { eventId: string }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-green-950/20 to-black">
+      <div className="min-h-screen">
         <SpookstrHeader />
         <main className="max-w-4xl mx-auto px-4 py-8">
           <Card className="border-lime-500/20 bg-black/40">
@@ -142,7 +142,7 @@ function EventView({ eventId }: { eventId: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-green-950/20 to-black">
+    <div className="min-h-screen">
       <div className="max-w-4xl mx-auto p-4">
         <PostDetailView event={event} onBack={() => window.history.back()} />
       </div>

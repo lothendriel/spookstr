@@ -120,7 +120,7 @@ function NotificationItem({ notification, isRead, onMarkAsRead, onClick }: Notif
               )}
             </div>
             <div className="text-xs text-lime-500/60 mt-1">{timeAgo}</div>
-            
+
             {/* Preview content for comments */}
             {getPreviewContent() && (
               <div className="mt-2 text-sm text-lime-100/80 bg-lime-500/5 p-2 rounded border border-lime-500/10">
@@ -160,7 +160,7 @@ export default function Notifications() {
   const handleNotificationClick = (notification: NotificationItemProps['notification']) => {
     // Mark as read
     markAsRead(notification.id);
-    
+
     // Navigate to the post
     const nevent = nip19.neventEncode({
       id: notification.targetEventId,
@@ -176,7 +176,7 @@ export default function Notifications() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-green-950/20 to-black">
+      <div className="min-h-screen">
         <SpookstrHeader />
         <main className="max-w-4xl mx-auto px-4 py-8">
           <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm">
@@ -197,7 +197,7 @@ export default function Notifications() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-green-950/20 to-black">
+    <div className="min-h-screen">
       <SpookstrHeader />
 
       <main className="max-w-4xl mx-auto px-4 py-8">

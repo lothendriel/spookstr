@@ -41,7 +41,7 @@ export default function Hashtag({ tag }: HashtagProps) {
 
   if (selectedPost) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-green-950/20 to-black p-4">
+      <div className="min-h-screen p-4">
         <div className="max-w-4xl mx-auto">
           <PostDetailView
             event={selectedPost}
@@ -53,7 +53,7 @@ export default function Hashtag({ tag }: HashtagProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-green-950/20 to-black">
+    <div className="min-h-screen">
       <SpookstrHeader />
 
       <main className="max-w-4xl mx-auto px-4 py-8">

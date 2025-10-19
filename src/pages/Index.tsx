@@ -31,7 +31,7 @@ const Index = () => {
 
   if (selectedPost) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-black via-green-950/20 to-black p-4">
+      <div className="min-h-screen p-4">
         <div className="max-w-4xl mx-auto">
           <PostDetailView
             event={selectedPost}
@@ -43,7 +43,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-green-950/20 to-black">
+    <div className="min-h-screen">
       <SpookstrHeader />
 
 
