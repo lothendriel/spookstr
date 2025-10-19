@@ -90,14 +90,17 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
   const parts: React.ReactNode[] = [];
 
   // Regex to find URLs, Nostr references, and hashtags
-  const regex = /(https?:\/\/[^\s]+)|nostr:(npub1|note1|nprofile1|nevent1)([023456789acdefghjklmnpqrstuvwxyz]+)|(#\w+)/g;
+  const regex = /(https?:\/\/[^\s]+)|(nostr:(npub1|note1|nprofile1|nevent1)[023456789acdefghjklmnpqrstuvwxyz]+)|(#\w+)/g;
 
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let keyCounter = keyOffset;
 
   while ((match = regex.exec(text)) !== null) {
-    const [fullMatch, mediaUrl, mediaExt, regularUrl, nostrPrefix, nostrData, hashtag] = match;
+    const fullMatch = match[0];
+    const url = match[1];
+    const nostrRef = match[2];
+    const hashtag = match[4]; // Group 4 is the hashtag
     const index = match.index;
 
     // Add text before this match
@@ -105,47 +108,29 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
       parts.push(text.substring(lastIndex, index));
     }
 
-    if (mediaUrl) {
+    if (url) {
       // Skip URLs that are already handled as media or links
-      if (skipUrls.has(mediaUrl)) {
-        parts.push(mediaUrl);
+      if (skipUrls.has(url)) {
+        parts.push(url);
       } else {
-        // This is a media URL, but it wasn't caught by the media parser
-        // Treat it as a regular URL
+        // Handle URLs
         parts.push(
           <a
             key={`url-${keyCounter++}`}
-            href={mediaUrl}
+            href={url}
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-500 hover:underline"
           >
-            {mediaUrl}
+            {url}
           </a>
         );
       }
-    } else if (regularUrl) {
-      // Skip URLs that are already handled as media or links
-      if (skipUrls.has(regularUrl)) {
-        parts.push(regularUrl);
-      } else {
-        // Handle regular URLs
-        parts.push(
-          <a
-            key={`url-${keyCounter++}`}
-            href={regularUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-500 hover:underline"
-          >
-            {regularUrl}
-          </a>
-        );
-      }
-    } else if (nostrPrefix && nostrData) {
+    } else if (nostrRef) {
       // Handle Nostr references
       try {
-        const nostrId = `${nostrPrefix}${nostrData}`;
+        // Remove the "nostr:" prefix
+        const nostrId = nostrRef.substring(6);
         const decoded = nip19.decode(nostrId);
 
         if (decoded.type === 'npub') {
