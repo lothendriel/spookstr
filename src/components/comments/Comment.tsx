@@ -83,8 +83,8 @@ export function Comment({ root, comment, depth = 0, maxDepth = 3, limit }: Comme
   };
 
   return (
-    <div className={`space-y-3 ${depth > 0 ? 'ml-6 border-l-2 border-muted pl-4' : ''}`}
-      onClick={(e) => e.stopPropagation()}
+    <div className={`space-y-3 ${depth > 0 ? 'border-l-2 border-muted pl-4' : ''}`}
+     style={{ marginLeft: depth > 0 ? `${depth * 1.5}rem` : '0' }} onClick={(e) => e.stopPropagation()}
     >
       <Card className="bg-card/50">
         <CardContent className="p-4">
