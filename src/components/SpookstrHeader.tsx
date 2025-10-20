@@ -1,4 +1,4 @@
-import { Ghost, Zap, Plus } from 'lucide-react';
+import { Ghost, Zap, Plus, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { NotificationBell } from '@/components/NotificationBell';
