@@ -17,18 +17,18 @@ export default function PodcastPlayerCard() {
     const fetchRSS = async () => {
       try {
         // Using CORS proxy to avoid CORS issues
-        const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://rss.premiereradio.net/podcast/coast.xml');
+        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://rss.premiereradio.net/podcast/coast.xml');
         const response = await fetch(proxyUrl);
-        
+
         if (!response.ok) {
           throw new Error('Failed to fetch RSS feed');
         }
-        
+
         const text = await response.text();
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(text, 'application/xml');
         const items = xmlDoc.querySelectorAll('item');
-        
+
         const episodesData = Array.from(items).map(item => {
           return {
             title: item.querySelector('title')?.textContent?.trim() || 'Untitled Episode',
@@ -37,7 +37,7 @@ export default function PodcastPlayerCard() {
             pubDate: item.querySelector('pubDate')?.textContent || ''
           };
         });
-        
+
         setEpisodes(episodesData);
         if (episodesData.length > 0) {
           setCurrentEpisode(episodesData[0]);
@@ -60,7 +60,7 @@ export default function PodcastPlayerCard() {
 
   const togglePlay = () => {
     if (!audioRef.current) return;
-    
+
     if (audioRef.current.paused) {
       audioRef.current.play();
     } else {
@@ -70,7 +70,7 @@ export default function PodcastPlayerCard() {
 
   const nextEpisode = () => {
     if (!episodes.length) return;
-    
+
     const currentIndex = episodes.findIndex(e => e?.url === currentEpisode?.url);
     const nextIndex = (currentIndex + 1) % episodes.length;
     setCurrentEpisode(episodes[nextIndex]);
@@ -78,7 +78,7 @@ export default function PodcastPlayerCard() {
 
   const prevEpisode = () => {
     if (!episodes.length) return;
-    
+
     const currentIndex = episodes.findIndex(e => e?.url === currentEpisode?.url);
     const prevIndex = (currentIndex - 1 + episodes.length) % episodes.length;
     setCurrentEpisode(episodes[prevIndex]);
@@ -100,7 +100,7 @@ export default function PodcastPlayerCard() {
           <span>Coast to Coast AM Podcast</span>
         </CardTitle>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         <div className="w-full bg-black/30 rounded-lg p-4">
           {currentEpisode ? (
@@ -158,12 +158,12 @@ export default function PodcastPlayerCard() {
                         const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://rss.premiereradio.net/podcast/coast.xml');
                         const response = await fetch(proxyUrl);
                         if (!response.ok) throw new Error('Failed to fetch RSS feed');
-                        
+
                         const text = await response.text();
                         const parser = new DOMParser();
                         const xmlDoc = parser.parseFromString(text, 'application/xml');
                         const items = xmlDoc.querySelectorAll('item');
-                        
+
                         const episodesData = Array.from(items).map(item => {
                           return {
                             title: item.querySelector('title')?.textContent?.trim() || 'Untitled Episode',
@@ -172,7 +172,7 @@ export default function PodcastPlayerCard() {
                             pubDate: item.querySelector('pubDate')?.textContent || ''
                           };
                         });
-                        
+
                         setEpisodes(episodesData);
                         if (episodesData.length > 0) {
                           setCurrentEpisode(episodesData[0]);
@@ -208,8 +208,8 @@ export default function PodcastPlayerCard() {
                 error ? (
                   <div>
                     <p className="text-red-400">{error}</p>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="mt-2 border-lime-500/50 text-lime-400 hover:bg-lime-500/10"
                       onClick={() => window.location.reload()}
                     >
@@ -223,7 +223,7 @@ export default function PodcastPlayerCard() {
             </div>
           )}
         </div>
-        
+
         <div className="max-h-60 overflow-y-auto pr-2 space-y-2">
           {isLoading ? (
             <div className="space-y-2">
@@ -233,7 +233,7 @@ export default function PodcastPlayerCard() {
             </div>
           ) : (
             episodes.map((episode, index) => (
-              <div 
+              <div
                 key={index}
                 onClick={() => setCurrentEpisode(episode)}
                 className={`cursor-pointer transition-all rounded-lg p-3 ${currentEpisode?.url === episode.url ? 'bg-black/30' : 'hover:bg-black/30'}`}
