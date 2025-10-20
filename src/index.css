@@ -96,6 +96,9 @@
   }
 
   body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
     @apply bg-background text-foreground;
     /* Add the paranormal background image */
     background-image: url('https://cdn.satellite.earth/af6caf18a87b01bbfb974c6020f674b20cf45857a3c69c13de770f12c131807a.avif') !important;
@@ -119,7 +122,7 @@
   }
 
   /* Ensure background is applied to html element as well */
-  html {
+  html { height: 100%; margin: 0; padding: 0;
     background-image: url('https://cdn.satellite.earth/af6caf18a87b01bbfb974c6020f674b20cf45857a3c69c13de770f12c131807a.avif') !important;
     background-size: cover !important;
     background-position: center !important;
