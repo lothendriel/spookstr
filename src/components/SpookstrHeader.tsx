@@ -33,6 +33,10 @@ export function SpookstrHeader() {
                 Post
               </Button>
             </CreatePostModal>
+            <Button variant="outline" onClick={() => navigate('/calendar')}>
+              <Calendar className="h-4 w-4 mr-2" />
+              Events
+            </Button>
 
             <div className="hidden md:flex items-center space-x-2 text-lime-500/60">
               <Zap className="h-4 w-4" />

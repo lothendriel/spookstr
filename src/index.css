@@ -98,7 +98,7 @@
   body {
     @apply bg-background text-foreground;
     /* Add the paranormal background image */
-    background-image: url('https://cdn.satellite.earth/febcdac37056137742dfa43d29651d1d2687e150acbb52050976f7caa5369d6c.webp') !important;
+    background-image: url('https://cdn.satellite.earth/af6caf18a87b01bbfb974c6020f674b20cf45857a3c69c13de770f12c131807a.avif') !important;
     background-size: cover !important;
     background-position: center !important;
     background-attachment: fixed !important;
@@ -120,7 +120,7 @@
 
   /* Ensure background is applied to html element as well */
   html {
-    background-image: url('https://cdn.satellite.earth/febcdac37056137742dfa43d29651d1d2687e150acbb52050976f7caa5369d6c.webp') !important;
+    background-image: url('https://cdn.satellite.earth/af6caf18a87b01bbfb974c6020f674b20cf45857a3c69c13de770f12c131807a.avif') !important;
     background-size: cover !important;
     background-position: center !important;
     background-attachment: fixed !important;
