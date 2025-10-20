@@ -27,12 +27,15 @@ export function RedditParanormalFeed() {
       setError(null);
       
       try {
-        // Using Reddit's JSON API for r/Paranormal
-        const response = await fetch('https://www.reddit.com/r/Paranormal/hot.json?limit=3');
+        // Fetch 10 new posts and randomly select 3
+        const response = await fetch('https://www.reddit.com/r/Paranormal/new.json?limit=10');
         const data = await response.json();
         
-        // Extract posts from Reddit's response structure
-        const redditPosts = data.data.children.map((child: any) => {
+        // Shuffle the children to get random order
+        const shuffled = data.data.children.slice().sort(() => Math.random() - 0.5);
+        const selected = shuffled.slice(0, 3);
+        
+        const redditPosts = selected.map((child: any) => {
           const post = child.data;
           return {
             id: post.id,
@@ -65,10 +68,15 @@ export function RedditParanormalFeed() {
       setError(null);
       
       try {
-        const response = await fetch('https://www.reddit.com/r/Paranormal/hot.json?limit=3');
+        // Fetch 10 new posts and randomly select 3
+        const response = await fetch('https://www.reddit.com/r/Paranormal/new.json?limit=10');
         const data = await response.json();
         
-        const redditPosts = data.data.children.map((child: any) => {
+        // Shuffle the children to get random order
+        const shuffled = data.data.children.slice().sort(() => Math.random() - 0.5);
+        const selected = shuffled.slice(0, 3);
+        
+        const redditPosts = selected.map((child: any) => {
           const post = child.data;
           return {
             id: post.id,

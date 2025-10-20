@@ -5,6 +5,16 @@ import { useQuery } from '@tanstack/react-query';
 export function useAuthor(pubkey: string | undefined) {
   const { nostr } = useNostr();
 
+  // Check localStorage for cached data
+  let initialData;
+  if (pubkey) {
+    const cacheKey = `author-${pubkey}`;
+    const cachedItem = localStorage.getItem(cacheKey);
+    if (cachedItem) {
+      initialData = JSON.parse(cachedItem);
+    }
+  }
+
   return useQuery<{ event?: NostrEvent; metadata?: NostrMetadata }>({
     queryKey: ['author', pubkey ?? ''],
     queryFn: async ({ signal }) => {
@@ -14,23 +24,30 @@ export function useAuthor(pubkey: string | undefined) {
 
       const [event] = await nostr.query(
         [{ kinds: [0], authors: [pubkey!], limit: 1 }],
-        { signal: AbortSignal.any([signal, AbortSignal.timeout(1500)]) },
+        {
+          signal: AbortSignal.any([signal, AbortSignal.timeout(3000)]),
+        },
       );
 
       if (!event) {
-        // Return empty object instead of throwing error when no metadata event is found
-        // This allows components to handle missing metadata gracefully
         return {};
       }
 
       try {
         const metadata = n.json().pipe(n.metadata()).parse(event.content);
-        return { metadata, event };
+        const result = { metadata, event };
+        // Cache data in localStorage
+        if (pubkey) {
+          const cacheKey = `author-${pubkey}`;
+          localStorage.setItem(cacheKey, JSON.stringify(result));
+        }
+        return result;
       } catch {
         // Return event without metadata if parsing fails
         return { event };
       }
     },
+    initialData,
     retry: 3,
   });
 }

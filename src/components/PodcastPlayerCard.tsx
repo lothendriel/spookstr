@@ -14,13 +14,12 @@ export default function PodcastPlayerCard() {
       
       <CardContent className="p-4">
         <iframe 
-          data-testid="embed-iframe" 
-          style={{ borderRadius: '12px', width: '100%', height: '352px', border: 'none' }} 
-          src="https://open.spotify.com/embed/show/5duIdXjabstAN2AAXrBv2r?utm_source=generator" 
-          frameBorder="0" 
-          allowFullScreen="" 
-          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-          loading="lazy"
+          title="" 
+          height="300" 
+          width="100%" 
+          src="https://www.iheart.com/podcast/coast-to-coast-18899828/?embed=true&theme=dark&ihrnetwork=true&episodeCount=10" 
+          allow="autoplay" 
+          frameborder="0"
         ></iframe>
       </CardContent>
     </Card>
