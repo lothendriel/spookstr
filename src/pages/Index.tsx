@@ -13,6 +13,7 @@ import { NostrEvent } from '@nostrify/nostrify';
 import { Button } from '@/components/ui/button';
 import { RotateCcw, Ghost, Plus } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import PodcastPlayerCard from '@/components/PodcastPlayerCard';
 
 const Index = () => {
   useSeoMeta({
@@ -171,6 +172,9 @@ const Index = () => {
                 </div>
               </div>
             </div>
+
+            {/* NEW Podcast Player Card */}
+            <PodcastPlayerCard />
 
             <div className="border border-lime-500/20 rounded-lg p-4 bg-black/40 backdrop-blur-sm">
               <div className="text-center">
