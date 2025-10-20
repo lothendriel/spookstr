@@ -27,7 +27,7 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       staleTime: 60000, // 1 minute
-      gcTime: Infinity,
+      gcTime: 300000, // 5 minutes instead of Infinity
     },
   },
 });

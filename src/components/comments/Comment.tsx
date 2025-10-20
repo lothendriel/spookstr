@@ -30,13 +30,13 @@ interface CommentProps {
 
 export function Comment({ root, comment, depth = 0, maxDepth = 3, limit }: CommentProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
-  const [showReplies, setShowReplies] = useState(depth < 2); // Auto-expand first 2 levels
+  const [showReplies, setShowReplies] = useState(false); // Auto-expand first 2 levels
   const { user } = useCurrentUser();
   const { mutate: publishEvent } = useNostrPublish();
-  
+
   const author = useAuthor(comment.pubkey);
   const { data: commentsData } = useComments(root, limit);
-  
+
   // Fetch counts for likes and zaps
   const { nostr } = useNostr();
   const { data: likeEvents } = useQuery({
@@ -47,7 +47,7 @@ export function Comment({ root, comment, depth = 0, maxDepth = 3, limit }: Comme
     }
   });
   const likeCount = likeEvents?.length || 0;
-  
+
   const { data: zapEvents } = useQuery({
     queryKey: ['zaps', comment.id],
     queryFn: async () => {
@@ -56,7 +56,7 @@ export function Comment({ root, comment, depth = 0, maxDepth = 3, limit }: Comme
     }
   });
   const zapCount = zapEvents?.length || 0;
-  
+
   const metadata = author.data?.metadata;
   const displayName = metadata?.name ?? genUserName(comment.pubkey);
   const timeAgo = formatDistanceToNow(new Date(comment.created_at * 1000), { addSuffix: true });
@@ -103,7 +103,7 @@ export function Comment({ root, comment, depth = 0, maxDepth = 3, limit }: Comme
                   </Avatar>
                 </Link>
                 <div>
-                  <Link 
+                  <Link
                     to={`/${nip19.npubEncode(comment.pubkey)}`}
                     className="font-medium text-sm hover:text-primary transition-colors"
                   >

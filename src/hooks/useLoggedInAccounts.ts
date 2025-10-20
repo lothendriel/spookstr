@@ -14,15 +14,26 @@ export function useLoggedInAccounts() {
   const { nostr } = useNostr();
   const { logins, setLogin, removeLogin } = useNostrLogin();
 
+  // Create initial data from localStorage cache
+  let initialData = logins.map(({ id, pubkey }): Account => {
+    const cacheKey = `author-${pubkey}`;
+    const cachedItem = localStorage.getItem(cacheKey);
+    if (cachedItem) {
+      const item = JSON.parse(cachedItem);
+      return { ...item, id, pubkey };
+    }
+    return { id, pubkey, metadata: {} };
+  });
+
   const { data: authors = [] } = useQuery({
     queryKey: ['logins', logins.map((l) => l.id).join(';')],
     queryFn: async ({ signal }) => {
       const events = await nostr.query(
         [{ kinds: [0], authors: logins.map((l) => l.pubkey) }],
-        { signal: AbortSignal.any([signal, AbortSignal.timeout(1500)]) },
+        { signal: AbortSignal.any([signal, AbortSignal.timeout(3000)]) },
       );
 
-      return logins.map(({ id, pubkey }): Account => {
+      const updatedAccounts = logins.map(({ id, pubkey }): Account => {
         const event = events.find((e) => e.pubkey === pubkey);
         try {
           const metadata = n.json().pipe(n.metadata()).parse(event?.content);
@@ -31,7 +42,16 @@ export function useLoggedInAccounts() {
           return { id, pubkey, metadata: {}, event };
         }
       });
+
+      // Save fresh data to localStorage
+      updatedAccounts.forEach(account => {
+        const cacheKey = `author-${account.pubkey}`;
+        localStorage.setItem(cacheKey, JSON.stringify(account));
+      });
+
+      return updatedAccounts;
     },
+    initialData,
     retry: 3,
   });
 
