@@ -17,6 +17,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { genUserName } from '@/lib/genUserName';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
+import { useNostr } from '@nostrify/react';
+import { useQuery } from '@tanstack/react-query';
 
 interface PostDetailViewProps {
   event: NostrEvent;
@@ -32,6 +34,35 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const [replyContent, setReplyContent] = useState('');
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
+
+  // Fetch counts for likes, reposts, and zaps
+  const { nostr } = useNostr();
+  const { data: likeEvents } = useQuery({
+    queryKey: ['likes', event.id],
+    queryFn: async () => {
+      const events = await nostr.query([{ kinds: [7], '#e': [event.id] }]);
+      return events;
+    }
+  });
+  const likeCount = likeEvents?.length || 0;
+
+  const { data: repostEvents } = useQuery({
+    queryKey: ['reposts', event.id],
+    queryFn: async () => {
+      const events = await nostr.query([{ kinds: [6], '#e': [event.id] }]);
+      return events;
+    }
+  });
+  const repostCount = repostEvents?.length || 0;
+
+  const { data: zapEvents } = useQuery({
+    queryKey: ['zaps', event.id],
+    queryFn: async () => {
+      const events = await nostr.query([{ kinds: [9734], '#e': [event.id] }]);
+      return events;
+    }
+  });
+  const zapCount = zapEvents?.length || 0;
 
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(event.pubkey);
@@ -132,9 +163,10 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
               size="sm"
               onClick={handleLike}
               disabled={!user}
-              className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
+              className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
             >
               <Heart className={`h-4 w-4 ${liked ? 'fill-lime-500 text-lime-500' : ''}`} />
+              <span className="text-xs">{likeCount}</span>
             </Button>
 
             <Button
@@ -142,33 +174,38 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
               size="sm"
               onClick={handleRepost}
               disabled={!user}
-              className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
+              className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
             >
               <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
+              <span className="text-xs">{repostCount}</span>
             </Button>
 
             <Button
               variant="ghost"
               size="sm"
-              disabled
-              className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
+              className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
             >
               <MessageCircle className="h-4 w-4" />
+              <span className="text-xs">{replies.length}</span>
             </Button>
 
             {hasLightningAddress ? (
               <ZapButton
                 target={event}
-                className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
-              />
+                className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
+              >
+                <Zap className="h-4 w-4" />
+                <span className="text-xs">{zapCount}</span>
+              </ZapButton>
             ) : (
               <ZapDialog target={event}>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
+                  className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
                 >
                   <Zap className="h-4 w-4" />
+                  <span className="text-xs">{zapCount}</span>
                 </Button>
               </ZapDialog>
             )}

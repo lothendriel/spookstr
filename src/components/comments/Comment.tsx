@@ -11,9 +11,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MessageSquare, ChevronDown, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { Heart, Zap, MessageSquare, ChevronDown, ChevronRight, MoreHorizontal } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { genUserName } from '@/lib/genUserName';
+import { useNostr } from '@nostrify/react';
+import { useQuery } from '@tanstack/react-query';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { ZapDialog } from '@/components/ZapDialog';
 
 interface CommentProps {
   root: NostrEvent | URL;
@@ -26,27 +31,70 @@ interface CommentProps {
 export function Comment({ root, comment, depth = 0, maxDepth = 3, limit }: CommentProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showReplies, setShowReplies] = useState(depth < 2); // Auto-expand first 2 levels
+  const { user } = useCurrentUser();
+  const { mutate: publishEvent } = useNostrPublish();
   
   const author = useAuthor(comment.pubkey);
   const { data: commentsData } = useComments(root, limit);
   
+  // Fetch counts for likes and zaps
+  const { nostr } = useNostr();
+  const { data: likeEvents } = useQuery({
+    queryKey: ['likes', comment.id],
+    queryFn: async () => {
+      const events = await nostr.query([{ kinds: [7], '#e': [comment.id] }]);
+      return events;
+    }
+  });
+  const likeCount = likeEvents?.length || 0;
+  
+  const { data: zapEvents } = useQuery({
+    queryKey: ['zaps', comment.id],
+    queryFn: async () => {
+      const events = await nostr.query([{ kinds: [9734], '#e': [comment.id] }]);
+      return events;
+    }
+  });
+  const zapCount = zapEvents?.length || 0;
+  
   const metadata = author.data?.metadata;
-  const displayName = metadata?.name ?? genUserName(comment.pubkey)
+  const displayName = metadata?.name ?? genUserName(comment.pubkey);
   const timeAgo = formatDistanceToNow(new Date(comment.created_at * 1000), { addSuffix: true });
 
   // Get direct replies to this comment
   const replies = commentsData?.getDirectReplies(comment.id) || [];
   const hasReplies = replies.length > 0;
 
+  const handleLike = () => {
+    if (!user) return;
+    publishEvent({
+      kind: 7,
+      content: '+',
+      tags: [['e', comment.id], ['p', comment.pubkey]]
+    });
+  };
+
+  const handleAvatarClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const npub = nip19.npubEncode(comment.pubkey);
+    // This is a simpler navigation path since it's just in the comment view
+    // In actual implementation, you might want to use a more robust way
+    window.location.href = `/${npub}`;
+  };
+
   return (
-    <div className={`space-y-3 ${depth > 0 ? 'ml-6 border-l-2 border-muted pl-4' : ''}`}>
+    <div className={`space-y-3 ${depth > 0 ? 'ml-6 border-l-2 border-muted pl-4' : ''}`}
+      onClick={(e) => e.stopPropagation()}
+    >
       <Card className="bg-card/50">
         <CardContent className="p-4">
           <div className="space-y-3">
             {/* Comment Header */}
             <div className="flex items-start justify-between">
               <div className="flex items-center space-x-3">
-                <Link to={`/${nip19.npubEncode(comment.pubkey)}`}>
+                <Link to={`/${nip19.npubEncode(comment.pubkey)}`}
+                  onClick={handleAvatarClick}
+                >
                   <Avatar className="h-8 w-8 hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer">
                     <AvatarImage src={metadata?.picture} />
                     <AvatarFallback className="text-xs">
@@ -77,23 +125,45 @@ export function Comment({ root, comment, depth = 0, maxDepth = 3, limit }: Comme
                 <Button
                   variant="ghost"
                   size="sm"
+                  onClick={handleLike}
+                  disabled={!user}
+                  className="h-8 px-2 text-xs flex items-center space-x-1"
+                >
+                  <Heart className="h-3 w-3" />
+                  <span className="text-xs">{likeCount}</span>
+                </Button>
+
+                <ZapDialog target={comment}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 text-xs flex items-center space-x-1"
+                  >
+                    <Zap className="h-3 w-3" />
+                    <span className="text-xs">{zapCount}</span>
+                  </Button>
+                </ZapDialog>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setShowReplyForm(!showReplyForm)}
-                  className="h-8 px-2 text-xs"
+                  className="h-8 px-2 text-xs flex items-center space-x-1"
                 >
                   <MessageSquare className="h-3 w-3 mr-1" />
                   Reply
                 </Button>
-                
+
                 {hasReplies && (
                   <Collapsible open={showReplies} onOpenChange={setShowReplies}>
                     <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs">
+                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs flex items-center space-x-1">
                         {showReplies ? (
                           <ChevronDown className="h-3 w-3 mr-1" />
                         ) : (
                           <ChevronRight className="h-3 w-3 mr-1" />
                         )}
-                        {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+                        <span className="text-xs">{replies.length} {replies.length === 1 ? 'reply' : 'replies'}</span>
                       </Button>
                     </CollapsibleTrigger>
                   </Collapsible>

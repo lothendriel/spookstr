@@ -14,6 +14,8 @@ import { Heart, Repeat, MessageCircle, Zap } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
+import { useNostr } from '@nostrify/react';
+import { useQuery } from '@tanstack/react-query';
 
 interface ParanormalPostProps {
   event: NostrEvent;
@@ -28,6 +30,49 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
+
+  // Fetch counts for likes, reposts, comments, and zaps
+  const { nostr } = useNostr();
+
+  // Like count
+  const { data: likeEvents } = useQuery({
+    queryKey: ['likes', event.id],
+    queryFn: async () => {
+      const events = await nostr.query([{ kinds: [7], '#e': [event.id] }]);
+      return events;
+    }
+  });
+  const likeCount = likeEvents?.length || 0;
+
+  // Repost count
+  const { data: repostEvents } = useQuery({
+    queryKey: ['reposts', event.id],
+    queryFn: async () => {
+      const events = await nostr.query([{ kinds: [6], '#e': [event.id] }]);
+      return events;
+    }
+  });
+  const repostCount = repostEvents?.length || 0;
+
+  // Comment count
+  const { data: commentEvents } = useQuery({
+    queryKey: ['comments', event.id],
+    queryFn: async () => {
+      const events = await nostr.query([{ kinds: [1111], '#e': [event.id] }]);
+      return events;
+    }
+  });
+  const commentCount = commentEvents?.length || 0;
+
+  // Zap count
+  const { data: zapEvents } = useQuery({
+    queryKey: ['zaps', event.id],
+    queryFn: async () => {
+      const events = await nostr.query([{ kinds: [9734], '#e': [event.id] }]);
+      return events;
+    }
+  });
+  const zapCount = zapEvents?.length || 0;
 
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(event.pubkey);
@@ -61,8 +106,6 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     });
     setReposted(true);
   };
-
-  // Quote repost functionality removed as share button was deprecated
 
   return (
     <Card
@@ -112,9 +155,10 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                   e.stopPropagation();
                   handleLike();
                 }}
-                className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
+                className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
               >
                 <Heart className={`h-4 w-4 ${liked ? 'fill-lime-500 text-lime-500' : ''}`} />
+                <span className="text-xs">{likeCount}</span>
               </Button>
 
               <Button
@@ -124,12 +168,11 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                   e.stopPropagation();
                   handleRepost();
                 }}
-                className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
+                className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
               >
                 <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
+                <span className="text-xs">{repostCount}</span>
               </Button>
-
-
 
               <Button
                 variant="ghost"
@@ -138,24 +181,29 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                   e.stopPropagation();
                   if (onClick) onClick();
                 }}
-                className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
+                className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
               >
                 <MessageCircle className="h-4 w-4" />
+                <span className="text-xs">{commentCount}</span>
               </Button>
 
               {hasLightningAddress ? (
                 <ZapButton
                   target={event}
-                  className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
-                />
+                  className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                >
+                  <Zap className="h-4 w-4" />
+                  <span className="text-xs">{zapCount}</span>
+                </ZapButton>
               ) : (
                 <ZapDialog target={event}>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
+                    className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
                   >
                     <Zap className="h-4 w-4" />
+                    <span className="text-xs">{zapCount}</span>
                   </Button>
                 </ZapDialog>
               )}
