@@ -23,52 +23,36 @@ export function ZapButton({
   const { data: author } = useAuthor(target?.pubkey || '');
   const { webln, activeNWC } = useWallet();
 
+  // Only fetch data if not provided externally
   const { totalSats: fetchedTotalSats, isLoading } = useZaps(
-    externalZapData ? [] : target ? [target.id] : [],
+    externalZapData ? [] : target ?? [], // Empty array prevents fetching if external data provided
     webln,
     activeNWC
   );
 
-  if (!target) {
+  // Don't show zap button if user is not logged in, is the author, or author has no lightning address
+  if (!user || !target || user.pubkey === target.pubkey || (!author?.metadata?.lud16 && !author?.metadata?.lud06)) {
     return null;
   }
 
-  const canZap = user && user.pubkey !== target.pubkey && (author?.metadata?.lud16 || author?.metadata?.lud06);
+  // Use external data if provided, otherwise use fetched data
   const totalSats = externalZapData?.totalSats ?? fetchedTotalSats;
   const showLoading = externalZapData?.isLoading || isLoading;
 
-  const formatZapAmount = (amount: number) => {
-    if (amount >= 1000000) {
-      return `${(amount / 1000000).toFixed(1)}M`;
-    } else if (amount >= 1000) {
-      const formatted = (amount / 1000).toFixed(1);
-      if (formatted.endsWith('.0')) {
-        return `${formatted.split('.')[0]}K`;
-      }
-      return `${formatted}K`;
-    }
-    return amount.toLocaleString();
-  };
-
-  const content = (
-    <div className={`flex items-center gap-1 ${className}`}> // Fixed missing closing bracket
-      <Zap className="h-4 w-4" />
-      <span className="text-xs">
-        {showLoading ? '...' :
-          showCount && totalSats > 0 ?
-            formatZapAmount(totalSats)
-          : 'Zap'}
-      </span>
-    </div>
-  );
-
-  if (!canZap) {
-    return content;
-  }
-
   return (
     <ZapDialog target={target}>
-      {content}
+      <div className={`flex items-center gap-1 ${className}`}>
+        <Zap className="h-4 w-4" />
+        <span className="text-xs">
+          {showLoading ? (
+            '...'
+          ) : showCount && totalSats > 0 ? (
+            `${totalSats.toLocaleString()}`
+          ) : (
+            'Zap'
+          )}
+        </span>
+      </div>
     </ZapDialog>
   );
 }
