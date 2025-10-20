@@ -11,6 +11,7 @@ import { useParanormalReplies } from '@/hooks/useParanormalFeed';
 import { ParanormalPost } from './ParanormalPost';
 import { NoteContent } from '@/components/NoteContent';
 import { ZapButton } from '@/components/ZapButton';
+import { ZapDialog } from '@/components/ZapDialog';
 import { ArrowLeft, Send, Heart, Repeat, MessageCircle, Zap } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { genUserName } from '@/lib/genUserName';
@@ -57,8 +58,7 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const { data: zapEvents } = useQuery({
     queryKey: ['zaps', event.id],
     queryFn: async () => {
-      // Fixed: 9734 should be 9735 (NIP-57 zap kind)
-      const events = await nostr.query([{ kinds: [9735], '#e': [event.id] }]);
+      const events = await nostr.query([{ kinds: [9734], '#e': [event.id] }]);
       return events;
     }
   });
@@ -189,11 +189,26 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
               <span className="text-xs">{replies.length}</span>
             </Button>
 
-            {/* Fix: Use ZapButton without children and correct zap kind */}
-            <ZapButton
-              target={event}
-              className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
-            />
+            {hasLightningAddress ? (
+              <ZapButton
+                target={event}
+                className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
+              >
+                <Zap className="h-4 w-4" />
+                <span className="text-xs">{zapCount}</span>
+              </ZapButton>
+            ) : (
+              <ZapDialog target={event}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
+                >
+                  <Zap className="h-4 w-4" />
+                  <span className="text-xs">{zapCount}</span>
+                </Button>
+              </ZapDialog>
+            )}
           </div>
         </CardContent>
       </Card>
