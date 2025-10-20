@@ -17,7 +17,7 @@ export default function PodcastPlayerCard() {
     const fetchRSS = async () => {
       try {
         // Using CORS proxy to avoid CORS issues
-        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://rss.premiereradio.net/podcast/coast.xml');
+        const proxyUrl = 'https://api.proxycurl.com/v2/proxy?url=' + encodeURIComponent('https://rss.premiereradio.net/podcast/coast.xml');
         const response = await fetch(proxyUrl);
 
         if (!response.ok) {
