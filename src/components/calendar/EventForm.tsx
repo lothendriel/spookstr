@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
+import { useToast } from '@/hooks/useToast';
 import { useState } from "react";
 
 export default function EventForm() {
@@ -15,6 +16,7 @@ export default function EventForm() {
   const [url, setUrl] = useState('');
   const [categories, setCategories] = useState('');
   const { mutate: publishEvent } = useNostrPublish();
+  const { toast } = useToast();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +25,7 @@ export default function EventForm() {
     const startDate = new Date(selectedDate as Date);
     let startStr = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
     let endStr: string | undefined = undefined;
-    
+
     if (!allDay) {
       // For timed events, combine date with time
       startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}T${startTime}:00`;
@@ -31,35 +33,53 @@ export default function EventForm() {
         endStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}T${endTime}:00`;
       }
     }
-    
+
     const tags = [
       ['d', id],
       ['title', title],
       ['start', startStr],
     ];
-    
+
     if (endStr) {
       tags.push(['end', endStr]);
     }
-    
+
     if (location) {
       tags.push(['location', location]);
     }
-    
+
     if (url) {
       tags.push(['url', url]);
     }
-    
+
     if (categories) {
       const catArray = categories.split(',').map(c => c.trim());
       catArray.forEach(cat => tags.push(['t', cat]));
     }
 
-    try {
-      publishEvent({ kind: eventKind, content: '', tags });
-    } catch (error) {
-      console.error("Failed to publish event:", error);
-    }
+    publishEvent(
+      { kind: eventKind, content: '', tags },
+      {
+        onSuccess: () => {
+          toast.success("Event submitted successfully!");
+          // Reset form fields
+          setTitle('');
+          setSelectedDate(new Date());
+          setAllDay(true);
+          setStartTime('09:00');
+          setEndTime('17:00');
+          setLocation('');
+          setUrl('');
+          setCategories('');
+        },
+        onError: (error) => {
+          toast.error("Failed to submit event", {
+            description: error instanceof Error ? error.message : "Unknown error",
+          });
+          console.error("Failed to publish event:", error);
+        },
+      }
+    );
   };
 
   return (
@@ -80,7 +100,7 @@ export default function EventForm() {
       <div>
         <Label>Is All Day?</Label>
         <div className="flex items-center space-x-2">
-          <input 
+          <input
             type="checkbox"
             id="isAllDay"
             checked={allDay}
