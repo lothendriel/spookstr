@@ -57,11 +57,16 @@ export default function EventForm() {
       catArray.forEach(cat => tags.push(['t', cat]));
     }
 
+    console.log('🔄 Calendar submission initiated');
     publishEvent(
       { kind: eventKind, content: '', tags },
       {
         onSuccess: () => {
-          toast.success("Event submitted successfully!");
+          console.log('✅ Event published successfully');
+          toast({
+            title: 'Success',
+            description: 'Event submitted successfully!',
+          });
           // Reset form fields
           setTitle('');
           setSelectedDate(new Date());
@@ -73,10 +78,13 @@ export default function EventForm() {
           setCategories('');
         },
         onError: (error) => {
-          toast.error("Failed to submit event", {
-            description: error instanceof Error ? error.message : "Unknown error",
+          console.error('❌ Submission failed:', error);
+          toast({
+            title: 'Error',
+            description: error instanceof Error ? error.message : 'Failed to submit event',
+            variant: 'destructive',
           });
-          console.error("Failed to publish event:", error);
+          console.error('Failed to publish event:', error);
         },
       }
     );
