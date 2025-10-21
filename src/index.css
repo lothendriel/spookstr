@@ -4,20 +4,20 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 0 0% 0%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 10%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 210 40% 96.1%;
+    --primary-foreground: 222.2 47.4% 11.2%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 222.2 47.4% 11.2%;
+    --secondary-foreground: 210 40% 98%;
 
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
@@ -30,21 +30,21 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 210 40% 96.1%;
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 98%;
+    --sidebar-background: 0 0% 8%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-foreground: 210 40% 98%;
 
-    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary: 210 40% 96.1%;
 
-    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
 
-    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent: 210 40% 96.1%;
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
 
     --sidebar-border: 220 13% 91%;
 
@@ -52,41 +52,41 @@
   }
 
   .dark {
-    --background: 0 0% 5%;
-    --foreground: 120 100% 85%;
+    --background: 0 0% 0%;
+    --foreground: 210 40% 98%;
 
-    --card: 0 0% 8%;
-    --card-foreground: 120 100% 85%;
+    --card: 0 0% 10%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 8%;
-    --popover-foreground: 120 100% 85%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 120 100% 50%;
-    --primary-foreground: 0 0% 5%;
+    --primary: 210 40% 96.1%;
+    --primary-foreground: 222.2 47.4% 11.2%;
 
-    --secondary: 120 50% 15%;
-    --secondary-foreground: 120 100% 85%;
+    --secondary: 222.2 47.4% 11.2%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 120 30% 12%;
-    --muted-foreground: 120 60% 65%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 120 100% 60%;
-    --accent-foreground: 0 0% 5%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 120 100% 85%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 120 50% 20%;
-    --input: 120 50% 20%;
-    --ring: 120 100% 50%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 210 40% 96.1%;
     --sidebar-background: 0 0% 8%;
-    --sidebar-foreground: 120 100% 85%;
-    --sidebar-primary: 120 100% 50%;
-    --sidebar-primary-foreground: 0 0% 5%;
-    --sidebar-accent: 120 50% 15%;
-    --sidebar-accent-foreground: 120 100% 85%;
-    --sidebar-border: 120 50% 20%;
-    --sidebar-ring: 120 100% 50%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 210 40% 96.1%;
+    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
+    --sidebar-accent: 210 40% 96.1%;
+    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
 
@@ -96,37 +96,15 @@
   }
 
   body {
-  height: 100%;
-  margin: 0;
-  padding: 0;
+    height: 100%;
+    margin: 0;
+    padding: 0;
     @apply bg-background text-foreground;
-    /* Add the paranormal background image */
-    background-image: url('https://cdn.satellite.earth/af6caf18a87b01bbfb974c6020f674b20cf45857a3c69c13de770f12c131807a.avif') !important;
-    background-size: cover !important;
-    background-position: center !important;
-    background-attachment: fixed !important;
-    background-repeat: no-repeat !important;
-
-    /* Add overlay to ensure text readability */
-    &::before {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.85)) !important;
-      z-index: -1;
-      pointer-events: none;
-    }
   }
 
-  /* Ensure background is applied to html element as well */
-  html { height: 100%; margin: 0; padding: 0;
-    background-image: url('https://cdn.satellite.earth/af6caf18a87b01bbfb974c6020f674b20cf45857a3c69c13de770f12c131807a.avif') !important;
-    background-size: cover !important;
-    background-position: center !important;
-    background-attachment: fixed !important;
-    background-repeat: no-repeat !important;
+  html {
+    height: 100%;
+    margin: 0;
+    padding: 0;
   }
 }
