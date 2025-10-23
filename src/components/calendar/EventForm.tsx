@@ -1,4 +1,5 @@
 import { useNostrPublish } from "@/hooks/useNostrPublish";
+import { useToast } from "@/hooks/useToast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +15,19 @@ export default function EventForm() {
   const [location, setLocation] = useState('');
   const [url, setUrl] = useState('');
   const [categories, setCategories] = useState('');
-  const { mutate: publishEvent } = useNostrPublish();
+  const { toast } = useToast();
+  const { mutate: publishEvent, isPending } = useNostrPublish();
+
+  const resetForm = () => {
+    setTitle('');
+    setAllDay(true);
+    setSelectedDate(new Date());
+    setStartTime('09:00');
+    setEndTime('17:00');
+    setLocation('');
+    setUrl('');
+    setCategories('');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +36,7 @@ export default function EventForm() {
     const startDate = new Date(selectedDate as Date);
     let startStr = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
     let endStr: string | undefined = undefined;
-    
+
     if (!allDay) {
       // For timed events, combine date with time
       startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}T${startTime}:00`;
@@ -31,35 +44,49 @@ export default function EventForm() {
         endStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}T${endTime}:00`;
       }
     }
-    
+
     const tags = [
       ['d', id],
       ['title', title],
       ['start', startStr],
     ];
-    
+
     if (endStr) {
       tags.push(['end', endStr]);
     }
-    
+
     if (location) {
       tags.push(['location', location]);
     }
-    
+
     if (url) {
       tags.push(['url', url]);
     }
-    
+
     if (categories) {
       const catArray = categories.split(',').map(c => c.trim());
       catArray.forEach(cat => tags.push(['t', cat]));
     }
 
-    try {
-      publishEvent({ kind: eventKind, content: '', tags });
-    } catch (error) {
-      console.error("Failed to publish event:", error);
-    }
+    publishEvent(
+      { kind: eventKind, content: '', tags },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Event created successfully!",
+            description: "Your calendar event has been published to Nostr.",
+          });
+          resetForm();
+        },
+        onError: (error) => {
+          toast({
+            title: "Failed to create event",
+            description: error instanceof Error ? error.message : "An error occurred while publishing your event.",
+            variant: "destructive",
+          });
+        },
+      }
+    );
   };
 
   return (
@@ -80,7 +107,7 @@ export default function EventForm() {
       <div>
         <Label>Is All Day?</Label>
         <div className="flex items-center space-x-2">
-          <input 
+          <input
             type="checkbox"
             id="isAllDay"
             checked={allDay}
@@ -125,7 +152,9 @@ export default function EventForm() {
         <Label htmlFor="categories">Categories (comma separated, e.g. work, meeting)</Label>
         <Input id="categories" value={categories} onChange={(e) => setCategories(e.target.value)} />
       </div>
-      <Button type="submit" className="w-full">Create Event</Button>
+      <Button type="submit" className="w-full" disabled={isPending}>
+        {isPending ? "Creating Event..." : "Create Event"}
+      </Button>
     </form>
   );
 }
