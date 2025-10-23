@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
 
 export default function CalendarDisplay() {
@@ -13,8 +14,26 @@ export default function CalendarDisplay() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      <div className="container mx-auto py-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+          {[...Array(6)].map((_, index) => (
+            <Card key={index} className="shadow-lg">
+              <CardContent className="p-4">
+                <Skeleton className="h-6 w-3/4 mb-3" />
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Skeleton className="h-4 w-4" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Skeleton className="h-4 w-4" />
+                    <Skeleton className="h-4 w-1/3" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -45,7 +64,7 @@ export default function CalendarDisplay() {
 
           try {
             let startDate: Date;
-            
+
             const numStart = Number(startTag);
             if (!isNaN(numStart) && startTag.length >= 9 && startTag.length <= 13) {
               startDate = new Date(numStart * 1000);

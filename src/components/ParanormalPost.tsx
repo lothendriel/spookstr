@@ -3,6 +3,7 @@ import { NostrEvent } from '@nostrify/nostrify';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { NoteContent } from '@/components/NoteContent';
@@ -31,48 +32,35 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
 
-  // Fetch counts for likes, reposts, comments, and zaps
+  // Fetch all interaction counts in a single query
   const { nostr } = useNostr();
 
-  // Like count
-  const { data: likeEvents } = useQuery({
-    queryKey: ['likes', event.id],
-    queryFn: async () => {
-      const events = await nostr.query([{ kinds: [7], '#e': [event.id] }]);
-      return events;
-    }
-  });
-  const likeCount = likeEvents?.length || 0;
+  const { data: interactionCounts, isLoading: isLoadingCounts } = useQuery({
+    queryKey: ['post-interactions', event.id],
+    queryFn: async (c) => {
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
 
-  // Repost count
-  const { data: repostEvents } = useQuery({
-    queryKey: ['reposts', event.id],
-    queryFn: async () => {
-      const events = await nostr.query([{ kinds: [6], '#e': [event.id] }]);
-      return events;
-    }
-  });
-  const repostCount = repostEvents?.length || 0;
+      // Single query with all interaction kinds
+      const events = await nostr.query([{
+        kinds: [6, 7, 9734, 1111], // reposts, likes, zaps, comments
+        '#e': [event.id],
+        limit: 200,
+      }], { signal });
 
-  // Comment count
-  const { data: commentEvents } = useQuery({
-    queryKey: ['comments', event.id],
-    queryFn: async () => {
-      const events = await nostr.query([{ kinds: [1111], '#e': [event.id] }]);
-      return events;
-    }
+      // Process counts in JavaScript
+      return {
+        likes: events.filter(e => e.kind === 7).length,
+        reposts: events.filter(e => e.kind === 6).length,
+        zaps: events.filter(e => e.kind === 9734).length,
+        comments: events.filter(e => e.kind === 1111).length,
+      };
+    },
   });
-  const commentCount = commentEvents?.length || 0;
 
-  // Zap count
-  const { data: zapEvents } = useQuery({
-    queryKey: ['zaps', event.id],
-    queryFn: async () => {
-      const events = await nostr.query([{ kinds: [9734], '#e': [event.id] }]);
-      return events;
-    }
-  });
-  const zapCount = zapEvents?.length || 0;
+  const likeCount = interactionCounts?.likes || 0;
+  const repostCount = interactionCounts?.reposts || 0;
+  const commentCount = interactionCounts?.comments || 0;
+  const zapCount = interactionCounts?.zaps || 0;
 
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(event.pubkey);
@@ -148,64 +136,76 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
         {showActions && (
           <div className="flex items-center justify-between mt-4 pt-3 border-t border-lime-500/20">
             <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleLike();
-                }}
-                className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-              >
-                <Heart className={`h-4 w-4 ${liked ? 'fill-lime-500 text-lime-500' : ''}`} />
-                <span className="text-xs">{likeCount}</span>
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRepost();
-                }}
-                className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-              >
-                <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
-                <span className="text-xs">{repostCount}</span>
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onClick) onClick();
-                }}
-                className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-              >
-                <MessageCircle className="h-4 w-4" />
-                <span className="text-xs">{commentCount}</span>
-              </Button>
-
-              {hasLightningAddress ? (
-                <ZapButton
-                  target={event}
-                  className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-                >
-                  <Zap className="h-4 w-4" />
-                  <span className="text-xs">{zapCount}</span>
-                </ZapButton>
+              {isLoadingCounts ? (
+                // Loading skeletons for counts
+                <div className="flex space-x-3">
+                  <Skeleton className="h-8 w-8" />
+                  <Skeleton className="h-8 w-8" />
+                  <Skeleton className="h-8 w-8" />
+                  <Skeleton className="h-8 w-8" />
+                </div>
               ) : (
-                <ZapDialog target={event}>
+                <>
                   <Button
                     variant="ghost"
                     size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLike();
+                    }}
                     className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
                   >
-                    <Zap className="h-4 w-4" />
-                    <span className="text-xs">{zapCount}</span>
+                    <Heart className={`h-4 w-4 ${liked ? 'fill-lime-500 text-lime-500' : ''}`} />
+                    <span className="text-xs">{likeCount}</span>
                   </Button>
-                </ZapDialog>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRepost();
+                    }}
+                    className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                  >
+                    <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
+                    <span className="text-xs">{repostCount}</span>
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onClick) onClick();
+                    }}
+                    className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    <span className="text-xs">{commentCount}</span>
+                  </Button>
+
+                  {hasLightningAddress ? (
+                    <ZapButton
+                      target={event}
+                      className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                    >
+                      <Zap className="h-4 w-4" />
+                      <span className="text-xs">{zapCount}</span>
+                    </ZapButton>
+                  ) : (
+                    <ZapDialog target={event}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                      >
+                        <Zap className="h-4 w-4" />
+                        <span className="text-xs">{zapCount}</span>
+                      </Button>
+                    </ZapDialog>
+                  )}
+                </>
               )}
             </div>
           </div>
