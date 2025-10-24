@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
+import { useAppContext } from './useAppContext';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 export interface Notification {
@@ -16,6 +17,7 @@ export interface Notification {
 export function useNotifications() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const { config } = useAppContext();
 
   return useQuery({
     queryKey: ['notifications', user?.pubkey],
@@ -38,9 +40,11 @@ export function useNotifications() {
         return [];
       }
 
-      // Query for all interactions with user's posts
-      // kinds: 1 (comments), 6 (reposts), 7 (likes), 9735 (zaps)
-      const interactions = await nostr.query(
+      // Use ALL selected relays for notifications
+      const relayGroup = nostr.group(config.selectedRelays || [config.relayUrl]);
+
+      // Query for all interactions with user's posts from ALL relays
+      const interactions = await relayGroup.query(
         [
           {
             kinds: [1, 6, 7, 9735],
@@ -56,8 +60,13 @@ export function useNotifications() {
         event => event.pubkey !== user.pubkey
       );
 
+      // Deduplicate by event.id — multiple relays may return same event
+      const uniqueInteractions = Array.from(
+        new Map(otherUserInteractions.map(event => [event.id, event])).values()
+      );
+
       // Convert to notifications
-      const notifications: Notification[] = otherUserInteractions.map(event => {
+      const notifications: Notification[] = uniqueInteractions.map(event => {
         let type: Notification['type'];
 
         if (event.kind === 7) {

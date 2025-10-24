@@ -35,6 +35,10 @@ export function AppProvider(props: AppProviderProps) {
       serialize: JSON.stringify,
       deserialize: (value: string) => {
         const parsed = JSON.parse(value);
+        // Ensure selectedRelays exists, defaulting to [relayUrl] for backward compatibility
+        if (parsed.selectedRelays === undefined) {
+          parsed.selectedRelays = [parsed.relayUrl];
+        }
         return AppConfigSchema.parse(parsed);
       }
     }
@@ -88,11 +92,11 @@ function useApplyTheme(theme: Theme) {
     if (theme !== 'system') return;
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
+
     const handleChange = () => {
       const root = window.document.documentElement;
       root.classList.remove('light', 'dark');
-      
+
       const systemTheme = mediaQuery.matches ? 'dark' : 'light';
       root.classList.add(systemTheme);
     };
