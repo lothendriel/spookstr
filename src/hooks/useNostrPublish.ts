@@ -30,13 +30,37 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
           created_at: event.created_at ?? Math.floor(Date.now() / 1000),
         });
 
+        console.log('🚀 Publishing event:', {
+          id: signedEvent.id,
+          kind: signedEvent.kind,
+          content: signedEvent.content.substring(0, 100) + '...',
+          relayUrl: options?.relayUrl || 'all relays'
+        });
+
         if (options?.relayUrl) {
-          // Publish to specific relay only
-          const relay = nostr.relay(options.relayUrl);
-          await relay.event(signedEvent, { signal: AbortSignal.timeout(5000) });
+          // Publish to specific relay only using group for better connection handling
+          console.log('📡 Connecting to specific relay:', options.relayUrl);
+          try {
+            const relayGroup = nostr.group([options.relayUrl]);
+            console.log('✅ Relay group created, publishing event...');
+            await relayGroup.event(signedEvent, { signal: AbortSignal.timeout(15000) });
+            console.log('✅ Event published successfully to:', options.relayUrl);
+          } catch (error) {
+            console.error('❌ Failed to publish to specific relay:', error);
+            console.error('Relay URL:', options.relayUrl);
+            console.error('Error details:', error);
+            throw new Error(`Failed to publish to ${options.relayUrl}: ${error.message || error}`);
+          }
         } else {
           // Publish to all relays (default behavior)
-          await nostr.event(signedEvent, { signal: AbortSignal.timeout(5000) });
+          console.log('📡 Publishing to all relays...');
+          try {
+            await nostr.event(signedEvent, { signal: AbortSignal.timeout(10000) });
+            console.log('✅ Event published successfully to all relays');
+          } catch (error) {
+            console.error('❌ Failed to publish to all relays:', error);
+            throw new Error(`Failed to publish to relays: ${error.message || error}`);
+          }
         }
 
         return signedEvent;
@@ -45,7 +69,9 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
       }
     },
     onError: (error) => {
-      console.error("Failed to publish event:", error);
+      console.error("❌ Failed to publish event:", error);
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
     },
     onSuccess: (data) => {
       console.log("Event published successfully:", data);

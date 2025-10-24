@@ -109,8 +109,16 @@ export function CreateParanormalPost() {
   };
 
   const handleSubmit = () => {
-    if (!user || !content.trim() || selectedTags.length === 0) return;
+    if (!user || !content.trim() || selectedTags.length === 0) {
+      console.log('❌ Cannot submit - validation failed:', {
+        hasUser: !!user,
+        hasContent: !!content.trim(),
+        hasTags: selectedTags.length > 0
+      });
+      return;
+    }
 
+    console.log('✅ Form validation passed, preparing to submit...');
     const tags = selectedTags.map(tag => ['t', tag]);
 
     // Add uploaded file tags (NIP-94)
