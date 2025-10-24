@@ -48,14 +48,14 @@ export default function CommunityPage() {
           kind: 1, // Use kind 1 for regular posts so they appear in all clients
           content: postContent,
           tags: [
-            // Community categorization using t tags (standard Nostr practice)
+            // Primary community association (NIP-72 standard)
+            ['a', `34550:${community.author}:${community.id}`],
+
+            // Community categorization using t tags (for discoverability)
             ['t', 'community'],
             ['t', 'spookstr'],
             ['t', community.id],
-            ['t', 'paranormal'],
-
-            // Community reference for Spookstr-specific functionality
-            ['a', `34550:${community.author}:${community.id}`]
+            ['t', 'paranormal']
           ]
         }
       });

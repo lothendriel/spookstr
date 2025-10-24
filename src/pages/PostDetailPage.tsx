@@ -68,6 +68,9 @@ export default function PostDetailPage() {
 
     try {
       const tags = [
+        // Primary community association (NIP-72 standard)
+        ['a', `34550:${community.author}:${community.id}`],
+
         // Community categorization
         ['t', 'community'],
         ['t', 'spookstr'],

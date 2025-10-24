@@ -97,10 +97,10 @@ export function useCommunityPosts(communityId?: string, communityAuthor?: string
 
       const signal = AbortSignal.timeout(5000);
 
-      // Query for community posts (kind 1 with community t tags)
+      // Query for community posts (kind 1 with specific community a tag)
       const events = await nostr.query([{
         kinds: [1],
-        '#t': [communityId], // Filter by community ID
+        '#a': [`34550:${communityAuthor}:${communityId}`], // Filter by specific community association
         limit: 50
       }], { signal });
 
