@@ -10,18 +10,24 @@ import { Users, Settings } from 'lucide-react';
 
 interface CreateCommunityDefinitionProps {
   onSuccess?: () => void;
+  initialData?: {
+    id: string;
+    name: string;
+    description: string;
+    image?: string;
+  };
 }
 
-export function CreateCommunityDefinition({ onSuccess }: CreateCommunityDefinitionProps) {
+export function CreateCommunityDefinition({ onSuccess, initialData }: CreateCommunityDefinitionProps) {
   const { user } = useCurrentUser();
   const { mutate: createEvent, isPending } = useNostrPublish();
   const { toast } = useToast();
-  
+
   const [formData, setFormData] = useState({
-    id: 'spookstr',
-    name: 'Spookstr Community',
-    description: 'A community for paranormal enthusiasts to share experiences, discuss ghost stories, UFO sightings, cryptid encounters, and all things supernatural.',
-    image: '',
+    id: initialData?.id || '',
+    name: initialData?.name || '',
+    description: initialData?.description || '',
+    image: initialData?.image || '',
     moderators: [] as string[]
   });
 
@@ -67,7 +73,7 @@ export function CreateCommunityDefinition({ onSuccess }: CreateCommunityDefiniti
           title: 'Community Created',
           description: `${formData.name} community has been created successfully!`,
         });
-        
+
         if (onSuccess) {
           onSuccess();
         }

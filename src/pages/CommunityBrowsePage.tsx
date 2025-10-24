@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { useCommunity, CommunityDefinition } from '@/hooks/useCommunity';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useToast } from '@/hooks/useToast';
 import { Users, Search, Plus, Ghost, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -27,6 +29,8 @@ const PARANORMAL_COMMUNITIES = [
 export default function CommunityBrowsePage() {
   const { nostr } = useNostr();
   const navigate = useNavigate();
+  const { user } = useCurrentUser();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -157,7 +161,21 @@ export default function CommunityBrowsePage() {
               <CommunityCard
                 key={community.id}
                 community={community}
-                onClick={() => navigate(`/community/${community.id}`)}
+                onClick={() => {
+                  if (community.exists) {
+                    navigate(`/community/${community.id}`);
+                  } else {
+                    if (user) {
+                      navigate(`/create-community/${community.id}`);
+                    } else {
+                      toast({
+                        title: 'Login Required',
+                        description: 'Please log in to create a community.',
+                        variant: 'destructive',
+                      });
+                    }
+                  }
+                }}
               />
             ))}
           </div>
@@ -212,10 +230,19 @@ function CommunityCard({ community, onClick }: CommunityCardProps) {
   const creatorName = metadata?.name || (community.author ? genUserName(community.author) : 'Unknown Creator');
   const creatorImage = metadata?.picture;
 
+  const handleClick = () => {
+    if (community.exists) {
+      onClick();
+    } else {
+      // Navigate to create community page with pre-filled data
+      onClick(); // This will be handled by the parent component
+    }
+  };
+
   return (
     <Card
-      className="border-lime-500/20 bg-black/40 backdrop-blur-sm hover:border-lime-400/40 transition-all cursor-pointer group"
-      onClick={onClick}
+      className={`border-lime-500/20 bg-black/40 backdrop-blur-sm hover:border-lime-400/40 transition-all cursor-pointer group ${!community.exists ? 'border-dashed' : ''}`}
+      onClick={handleClick}
     >
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
