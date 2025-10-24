@@ -15,6 +15,8 @@ export function usePostComment() {
 
   return useMutation({
     mutationFn: async ({ root, reply, content }: PostCommentParams) => {
+      console.log("💬 usePostComment mutationFn called", { root, reply, content });
+
       const tags: string[][] = [];
 
       // For URL roots, we need to handle differently
@@ -36,6 +38,8 @@ export function usePostComment() {
       // Add client tag for identification
       tags.push(['client', 'spookstr']);
 
+      console.log("🏷️  Comment tags:", tags);
+
       const event = await publishEvent({
         event: {
           kind: 1, // Use kind 1 for NIP-10 compliant text notes
@@ -47,10 +51,14 @@ export function usePostComment() {
       return event;
     },
     onSuccess: (_, { root }) => {
+      console.log("✅ Comment posted successfully, invalidating queries");
       // Invalidate and refetch comments
       queryClient.invalidateQueries({
         queryKey: ['comments', root instanceof URL ? root.toString() : root.id]
       });
+    },
+    onError: (error) => {
+      console.error("❌ Failed to post comment:", error);
     },
   });
 }

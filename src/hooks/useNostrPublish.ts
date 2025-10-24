@@ -19,6 +19,8 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
 
   return useMutation({
     mutationFn: async ({ event, options }: { event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>; options?: PublishOptions }) => {
+      console.log("🚀 useNostrPublish mutationFn called", { event, options });
+
       if (user) {
         const tags = event.tags ?? [];
 
@@ -29,13 +31,15 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
 
         // Create a unique signature for this event to detect duplicates
         const eventSignature = `${event.kind}:${event.content}:${JSON.stringify(tags.sort())}:${event.created_at || Date.now()}`;
-        
+        console.log("📝 Generated event signature:", eventSignature);
+
         // Check if we've recently published this exact same event
         if (recentEventSignatures.has(eventSignature)) {
           console.warn("Duplicate event detected, skipping publish:", eventSignature);
           throw new Error("Duplicate event: This appears to be a duplicate submission");
         }
 
+        console.log("🔐 Signing event...");
         const signedEvent = await user.signer.signEvent({
           kind: event.kind,
           content: event.content ?? "",
@@ -43,14 +47,17 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
           created_at: event.created_at ?? Math.floor(Date.now() / 1000),
         });
 
+        console.log("✅ Event signed successfully:", signedEvent.id);
+
         // Add the signature to our tracking set
         recentEventSignatures.add(eventSignature);
-        
+
         // Clean up old signatures after TTL
         setTimeout(() => {
           recentEventSignatures.delete(eventSignature);
         }, SIGNATURE_CACHE_TTL);
 
+        console.log("📡 Publishing event...");
         if (options?.relayUrl) {
           // Publish to specific relay only
           const relay = nostr.relay(options.relayUrl);
@@ -60,8 +67,10 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
           await nostr.event(signedEvent, { signal: AbortSignal.timeout(8000) });
         }
 
+        console.log("🎉 Event published successfully!");
         return signedEvent;
       } else {
+        console.error("❌ User not logged in");
         throw new Error("User is not logged in");
       }
     },
