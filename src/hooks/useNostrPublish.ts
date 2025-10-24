@@ -33,10 +33,10 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
         if (options?.relayUrl) {
           // Publish to specific relay only
           const relay = nostr.relay(options.relayUrl);
-          await relay.event(signedEvent, { signal: AbortSignal.timeout(15000) });
+          await relay.event(signedEvent, { signal: AbortSignal.timeout(5000) });
         } else {
           // Publish to all relays (default behavior)
-          await nostr.event(signedEvent, { signal: AbortSignal.timeout(15000) });
+          await nostr.event(signedEvent, { signal: AbortSignal.timeout(5000) });
         }
 
         return signedEvent;
@@ -44,11 +44,7 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
         throw new Error("User is not logged in");
       }
     },
-    retry: (failureCount, error) => {
-      // Don't retry Nostr event publishing to avoid duplicates
-      // Nostr events are idempotent and retries can cause duplicates
-      return false;
-    },
+
     onError: (error) => {
       console.error("Failed to publish event:", error);
     },
