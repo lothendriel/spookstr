@@ -93,7 +93,7 @@ export default function CreateCommunityPage() {
               </p>
               <CreateCommunityDefinition
                 initialData={{ id: targetCommunityId }}
-                onSuccess={() => navigate(`/community/${targetCommunityId}`)}
+                onSuccess={() => navigate(`/community/${targetCommunityId}?created=true`)}
               />
             </CardContent>
           </Card>
@@ -118,7 +118,7 @@ export default function CreateCommunityPage() {
             </p>
             <CreateCommunityDefinition
               initialData={predefinedCommunity}
-              onSuccess={() => navigate(`/community/${predefinedCommunity.id}`)}
+              onSuccess={() => navigate(`/community/${predefinedCommunity.id}?created=true`)}
             />
           </CardContent>
         </Card>

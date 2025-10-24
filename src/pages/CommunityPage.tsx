@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,22 +9,28 @@ import { genUserName } from '@/lib/genUserName';
 import { NoteContent } from '@/components/NoteContent';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCommunity, useCommunityPosts, CommunityDefinition, CommunityPost } from '@/hooks/useCommunity';
-import { MessageCircle, Settings } from 'lucide-react';
+import { MessageCircle, Settings, RefreshCw, Clock } from 'lucide-react';
 import { CommunityManagement } from '@/components/CommunityManagement';
 
 export default function CommunityPage() {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [postContent, setPostContent] = useState('');
   const [showManagement, setShowManagement] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  // Check if we just came from creating this community
+  const justCreated = new URLSearchParams(location.search).get('created') === 'true';
 
   // Fetch community definition
-  const { data: community, isLoading: communityLoading } = useCommunity(communityId);
+  const { data: community, isLoading: communityLoading, error, refetch } = useCommunity(communityId);
 
   // Fetch community posts
   const { data: posts, isLoading: postsLoading } = useCommunityPosts(
@@ -59,6 +65,25 @@ export default function CommunityPage() {
     }
   };
 
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    setRetryCount(prev => prev + 1);
+    await refetch();
+    setIsRetrying(false);
+  };
+
+  // Auto-retry if we just created the community
+  useEffect(() => {
+    if (justCreated && !community && !communityLoading && retryCount < 5) {
+      const timer = setTimeout(() => {
+        refetch();
+        setRetryCount(prev => prev + 1);
+      }, 2000 * (retryCount + 1)); // Exponential backoff: 2s, 4s, 6s, 8s, 10s
+
+      return () => clearTimeout(timer);
+    }
+  }, [justCreated, community, communityLoading, retryCount, refetch]);
+
   if (communityLoading) {
     return (
       <div className="container mx-auto px-4 py-6">
@@ -75,11 +100,71 @@ export default function CommunityPage() {
   }
 
   if (!community) {
+    // Show different message if we just created the community
+    if (justCreated) {
+      return (
+        <div className="container mx-auto px-4 py-6">
+          <div className="max-w-4xl mx-auto text-center">
+            <Card className="border-purple-500/20 bg-black/40 backdrop-blur-sm">
+              <CardContent className="py-12">
+                <Clock className="h-16 w-16 text-purple-500/60 mx-auto mb-4 animate-pulse" />
+                <h1 className="text-2xl font-bold mb-4 text-purple-400">Community is being created...</h1>
+                <p className="text-purple-300 mb-6">
+                  Your community was successfully submitted to Nostr! It may take a few moments to propagate across the network.
+                </p>
+                <div className="space-y-4">
+                  <p className="text-sm text-purple-500/60">
+                    Retry attempt {retryCount}/5
+                  </p>
+                  <Button
+                    onClick={handleRetry}
+                    disabled={isRetrying}
+                    className="bg-purple-500 hover:bg-purple-400 text-black"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isRetrying ? 'animate-spin' : ''}`} />
+                    {isRetrying ? 'Checking...' : 'Check Now'}
+                  </Button>
+                  <div>
+                    <button
+                      onClick={() => navigate('/communities')}
+                      className="text-purple-400 hover:text-purple-300 underline text-sm"
+                    >
+                      Back to Communities
+                    </button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="container mx-auto px-4 py-6">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-2xl font-bold mb-4">Community not found</h1>
-          <p className="text-muted-foreground">The community you're looking for doesn't exist.</p>
+          <Card className="border-purple-500/20 bg-black/40 backdrop-blur-sm">
+            <CardContent className="py-12">
+              <h1 className="text-2xl font-bold mb-4 text-purple-400">Community not found</h1>
+              <p className="text-purple-300 mb-6">The community you're looking for doesn't exist or hasn't been created yet.</p>
+              <div className="space-y-4">
+                <Button
+                  onClick={() => navigate('/communities')}
+                  variant="outline"
+                >
+                  Browse Communities
+                </Button>
+                <div>
+                  <button
+                    onClick={() => navigate(`/create-community/${communityId}`)}
+                    className="text-purple-400 hover:text-purple-300 underline"
+                  >
+                    Create this Community
+                  </button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
