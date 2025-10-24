@@ -37,36 +37,17 @@ export function CommentForm({
   const replyDisplayName = replyMetadata?.name ?? (reply ? genUserName(reply.pubkey) : '');
 
   const handleSubmit = (e: React.FormEvent) => {
-    console.log("📝 CommentForm handleSubmit called", {
-      content: content.trim(),
-      hasUser: !!user,
-      root,
-      reply,
-      isPending
-    });
-
     e.preventDefault();
 
-    if (!content.trim() || !user) {
-      console.log("❌ Form validation failed", {
-        hasContent: !!content.trim(),
-        hasUser: !!user
-      });
-      return;
-    }
+    if (!content.trim() || !user) return;
 
-    console.log("🚀 Calling postComment...");
     postComment(
       { content: content.trim(), root, reply },
       {
         onSuccess: () => {
-          console.log("✅ CommentForm onSuccess called");
           setContent('');
           onSuccess?.();
         },
-        onError: (error) => {
-          console.error("❌ CommentForm onError:", error);
-        }
       }
     );
   };
