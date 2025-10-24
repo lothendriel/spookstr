@@ -114,7 +114,7 @@ export function useParanormalFeed() {
   return useQuery({
     queryKey: ['paranormal-feed', config.relayUrl],
     queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]); // Increased timeout to 10 seconds
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(20000)]); // Increased timeout to 10 seconds
 
       console.log('🔍 Loading paranormal feed from relay:', config.relayUrl);
 
@@ -124,11 +124,17 @@ export function useParanormalFeed() {
         console.log('🔄 Querying directly from selected relay:', config.relayUrl);
         const relay = nostr.relay(config.relayUrl);
 
-        const events = await relay.query([{
+        // Split tags into chunks of 10
+        const tagChunks = [];
+        for (let i = 0; i < PARANORMAL_TAGS.length; i += 10) {
+          tagChunks.push(PARANORMAL_TAGS.slice(i, i + 10));
+        }
+        const filters = tagChunks.map(chunk => ({
           kinds: [1],
-          '#t': PARANORMAL_TAGS,
-          limit: 50,
-        }], { signal });
+          '#t': chunk,
+          limit: 50
+        }));
+        const events = await relay.query(filters, { signal });
 
         console.log('✅ Feed loaded successfully from:', config.relayUrl, 'Events:', events.length);
 
