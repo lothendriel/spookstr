@@ -17,8 +17,7 @@ import { genUserName } from '@/lib/genUserName';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 import { useNostr } from '@nostrify/react';
-import { useRealtimeInteractionCounts } from '@/hooks/useRealtimeInteractionCounts';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 interface PostDetailViewProps {
   event: NostrEvent;
@@ -29,17 +28,37 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const author = useAuthor(event.pubkey);
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
 
-  // Fetch all interaction counts with real-time updates
-  const { counts: interactionCounts, isLoading: isLoadingCounts } = useRealtimeInteractionCounts(event.id);
+  // Fetch all interaction counts in a single query
+  const { nostr } = useNostr();
+  const { data: interactionCounts, isLoading: isLoadingCounts } = useQuery({
+    queryKey: ['post-interactions', event.id],
+    queryFn: async (c) => {
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
 
-  const likeCount = interactionCounts.likes;
-  const repostCount = interactionCounts.reposts;
-  const zapCount = interactionCounts.zaps;
+      // Single query with all interaction kinds
+      const events = await nostr.query([{
+        kinds: [6, 7, 9734, 1111], // reposts, likes, zaps, comments
+        '#e': [event.id],
+        limit: 200,
+      }], { signal });
+
+      // Process counts in JavaScript
+      return {
+        likes: events.filter(e => e.kind === 7).length,
+        reposts: events.filter(e => e.kind === 6).length,
+        zaps: events.filter(e => e.kind === 9734).length,
+        comments: events.filter(e => e.kind === 1111).length,
+      };
+    },
+  });
+
+  const likeCount = interactionCounts?.likes || 0;
+  const repostCount = interactionCounts?.reposts || 0;
+  const zapCount = interactionCounts?.zaps || 0;
 
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(event.pubkey);
@@ -55,16 +74,6 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
 
   const handleLike = () => {
     if (!user) return;
-
-    // Optimistic update - increment like count immediately
-    queryClient.setQueryData(['post-interactions', event.id], (oldData: any) => {
-      if (!oldData) return oldData;
-      return {
-        ...oldData,
-        likes: oldData.likes + 1
-      };
-    });
-
     createEvent({
       event: {
         kind: 7,
@@ -77,16 +86,6 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
 
   const handleRepost = () => {
     if (!user) return;
-
-    // Optimistic update - increment repost count immediately
-    queryClient.setQueryData(['post-interactions', event.id], (oldData: any) => {
-      if (!oldData) return oldData;
-      return {
-        ...oldData,
-        reposts: oldData.reposts + 1
-      };
-    });
-
     createEvent({
       event: {
         kind: 6,
