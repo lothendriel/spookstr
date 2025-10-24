@@ -9,6 +9,24 @@ interface PublishOptions {
   relayUrl?: string;
 }
 
+// Test relay connectivity
+async function testRelayConnection(nostr: any, relayUrl: string): Promise<boolean> {
+  try {
+    console.log('🔍 Testing relay connection:', relayUrl);
+    const relay = nostr.relay(relayUrl);
+
+    // Try a simple query to test connectivity
+    const testFilters = [{ kinds: [1], limit: 1 }];
+    await relay.query(testFilters, { signal: AbortSignal.timeout(5000) });
+
+    console.log('✅ Relay connection test successful:', relayUrl);
+    return true;
+  } catch (error) {
+    console.warn('⚠️ Relay connection test failed:', relayUrl, error);
+    return false;
+  }
+}
+
 export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>; options?: PublishOptions }> {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
@@ -38,18 +56,48 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
         });
 
         if (options?.relayUrl) {
-          // Publish to specific relay only using group for better connection handling
+          // Publish to specific relay only with connection test and fallback strategies
           console.log('📡 Connecting to specific relay:', options.relayUrl);
+
+          // Test connection first
+          const isConnected = await testRelayConnection(nostr, options.relayUrl);
+
+          if (!isConnected) {
+            console.warn('⚠️ Relay connection test failed, but attempting to publish anyway...');
+          }
+
           try {
+            // First try with group approach
             const relayGroup = nostr.group([options.relayUrl]);
             console.log('✅ Relay group created, publishing event...');
             await relayGroup.event(signedEvent, { signal: AbortSignal.timeout(15000) });
             console.log('✅ Event published successfully to:', options.relayUrl);
-          } catch (error) {
-            console.error('❌ Failed to publish to specific relay:', error);
-            console.error('Relay URL:', options.relayUrl);
-            console.error('Error details:', error);
-            throw new Error(`Failed to publish to ${options.relayUrl}: ${error.message || error}`);
+          } catch (groupError) {
+            console.warn('⚠️ Group approach failed, trying direct relay connection...');
+            console.warn('Group error:', groupError);
+
+            try {
+              // Fallback to direct relay connection
+              const relay = nostr.relay(options.relayUrl);
+              console.log('✅ Direct relay connection established, publishing event...');
+              await relay.event(signedEvent, { signal: AbortSignal.timeout(20000) });
+              console.log('✅ Event published successfully to:', options.relayUrl);
+            } catch (directError) {
+              console.error('❌ Both group and direct relay connections failed:', directError);
+              console.error('Relay URL:', options.relayUrl);
+              console.error('Direct error details:', directError);
+
+              // Last resort: try to publish through the main nostr pool but only to this relay
+              try {
+                console.log('🔄 Last resort: trying through main pool with single relay...');
+                const tempPool = nostr.group([options.relayUrl]);
+                await tempPool.event(signedEvent, { signal: AbortSignal.timeout(25000) });
+                console.log('✅ Event published successfully through last resort method:', options.relayUrl);
+              } catch (lastResortError) {
+                console.error('❌ All connection methods failed:', lastResortError);
+                throw new Error(`Failed to publish to ${options.relayUrl} after multiple attempts: ${directError.message || directError}`);
+              }
+            }
           }
         } else {
           // Publish to all relays (default behavior)

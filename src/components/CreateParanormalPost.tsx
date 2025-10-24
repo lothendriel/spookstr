@@ -169,7 +169,7 @@ export function CreateParanormalPost() {
         content: content.trim(),
         tags
       },
-      options: postToSpookstr2Only ? { relayUrl: 'wss://relay.primal.net' } : undefined
+      options: postToSpookstr2Only ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
     });
 
     setContent('');
@@ -309,10 +309,10 @@ export function CreateParanormalPost() {
           <div className="flex-1 space-y-1">
             <label htmlFor="spookstr2-only" className="text-sm font-medium text-lime-300 cursor-pointer flex items-center gap-2">
               <RadioTower className="h-4 w-4" />
-              Post to Spookstr2 Relay Only (Testing with Primal)
+              Post to Spookstr2 Relay Only
             </label>
             <p className="text-xs text-lime-500/60">
-              Testing: When checked, your post will only be published to Primal relay. Uncheck to publish to all relays.
+              When checked, your post will only be published to the Spookstr2 relay. Uncheck to publish to all relays.
             </p>
           </div>
         </div>
