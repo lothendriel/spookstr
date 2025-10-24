@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSeoMeta } from '@unhead/react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useParanormalFeed } from '@/hooks/useParanormalFeed';
@@ -13,6 +13,7 @@ import { NostrEvent } from '@nostrify/nostrify';
 import { Button } from '@/components/ui/button';
 import { RotateCcw, Ghost, Plus } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import PodcastPlayerCard from '@/components/PodcastPlayerCard';
 
 const Index = () => {
@@ -24,10 +25,25 @@ const Index = () => {
   const queryClient = useQueryClient();
   const { data: posts, isLoading, error, refetch } = useParanormalFeed();
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
+  const [postsToShow, setPostsToShow] = useState(5); // Mobile pagination: show 5 posts initially
+  const isMobile = useIsMobile();
+
+  // Reset mobile pagination when new posts are loaded or when switching to desktop
+  useEffect(() => {
+    if (!isMobile || posts) {
+      setPostsToShow(5);
+    }
+  }, [posts, isMobile]);
 
   const handleRefresh = () => {
-    // Refetch paranormal feed
+    // Refetch paranormal feed and reset mobile pagination
+    setPostsToShow(5);
     refetch();
+  };
+
+  const handleLoadMore = () => {
+    // Load 5 more posts on mobile
+    setPostsToShow(prev => prev + 5);
   };
 
   if (selectedPost) {
@@ -126,7 +142,8 @@ const Index = () => {
 
             {!isLoading && !error && posts && posts.length > 0 && (
               <div className="space-y-4">
-                {posts.map((post) => (
+                {/* Determine which posts to show based on device */}
+                {(isMobile ? posts.slice(0, postsToShow) : posts).map((post) => (
                   <ParanormalPost
                     key={post.id}
                     event={post}
@@ -134,6 +151,19 @@ const Index = () => {
                     showActions={true}
                   />
                 ))}
+
+                {/* Load More Button - Only shown on mobile */}
+                {isMobile && postsToShow < posts.length && (
+                  <div className="flex justify-center pt-4">
+                    <Button
+                      onClick={handleLoadMore}
+                      variant="outline"
+                      className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10 w-full max-w-xs"
+                    >
+                      Load More Posts
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>
