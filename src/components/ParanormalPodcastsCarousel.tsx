@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize2, Play } from 'lucide-react';
+import { usePodcast } from '@/contexts/PodcastContext';
 
 const podcastEmbeds = [
   {
@@ -27,6 +28,7 @@ const podcastEmbeds = [
 
 export function ParanormalPodcastsCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const { playPodcast, togglePopOut, currentPodcast, isPoppedOut } = usePodcast();
 
   const goToPrevious = () => {
     setCurrentIndex((prev) => (prev === 0 ? podcastEmbeds.length - 1 : prev - 1));
@@ -36,12 +38,29 @@ export function ParanormalPodcastsCarousel() {
     setCurrentIndex((prev) => (prev === podcastEmbeds.length - 1 ? 0 : prev + 1));
   };
 
-  const currentPodcast = podcastEmbeds[currentIndex];
+  const currentPodcastData = podcastEmbeds[currentIndex];
+
+  const handlePlayAndPopOut = () => {
+    playPodcast(currentPodcastData);
+    if (!isPoppedOut) {
+      togglePopOut();
+    }
+  };
+
+  const isCurrentPodcastPlaying = currentPodcast?.title === currentPodcastData.title && isPoppedOut;
 
   return (
     <div className="border border-lime-500/20 rounded-lg p-4 bg-black/40 backdrop-blur-sm">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold text-lime-400">Paranormal Podcasts</h3>
+        <h3 className="text-lg font-semibold text-lime-400 flex items-center space-x-2">
+          <span>Paranormal Podcasts</span>
+          {isCurrentPodcastPlaying && (
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-lime-400 rounded-full animate-pulse"></div>
+              <span className="text-xs text-lime-400">Playing</span>
+            </div>
+          )}
+        </h3>
         <div className="flex gap-1">
           <Button
             variant="ghost"
@@ -85,9 +104,29 @@ export function ParanormalPodcastsCarousel() {
         </div>
       </div>
 
-      <p className="text-center text-lime-100 text-sm mt-3 font-medium">
-        {currentPodcast.title}
-      </p>
+      <div className="flex items-center justify-between mt-3">
+        <p className="text-lime-100 text-sm font-medium truncate flex-1">
+          {currentPodcastData.title}
+        </p>
+        <Button
+          onClick={handlePlayAndPopOut}
+          variant="outline"
+          size="sm"
+          className="ml-2 border-lime-500/50 text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+        >
+          {isCurrentPodcastPlaying ? (
+            <>
+              <Maximize2 className="h-3 w-3" />
+              <span className="text-xs">Pop-out</span>
+            </>
+          ) : (
+            <>
+              <Play className="h-3 w-3" />
+              <span className="text-xs">Play & Pop-out</span>
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }

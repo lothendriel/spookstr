@@ -11,10 +11,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { NostrLoginProvider } from '@nostrify/react/login';
 import { AppProvider } from '@/components/AppProvider';
 import { NWCProvider } from '@/contexts/NWCContext';
+import { PodcastProvider } from '@/contexts/PodcastContext';
 import { AppConfig } from '@/contexts/AppContext';
 import AppRouter from './AppRouter';
 
 import { ScrollToTop } from '@/components/ScrollToTop';
+import { PopOutPodcastPlayer } from '@/components/PopOutPodcastPlayer';
+import { PodcastIndicator } from '@/components/PodcastIndicator';
 
 const head = createHead({
   plugins: [
@@ -53,20 +56,28 @@ export function App() {
           <NostrLoginProvider storageKey='nostr:login'>
             <NostrProvider>
               <NWCProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <Suspense>
-                    <AppRouter />
-                  </Suspense>
-                </TooltipProvider>
+                <PodcastProvider>
+                  <TooltipProvider>
+                    <Toaster />
+                    <Suspense>
+                      <AppRouter />
+                    </Suspense>
+
+                    {/* Global pop-out podcast player */}
+                    <PopOutPodcastPlayer />
+
+                    {/* Podcast indicator for background playing */}
+                    <PodcastIndicator />
+
+                    {/* Scroll to top button */}
+                    <ScrollToTop />
+                  </TooltipProvider>
+                </PodcastProvider>
               </NWCProvider>
             </NostrProvider>
           </NostrLoginProvider>
         </QueryClientProvider>
       </AppProvider>
-
-      {/* Scroll to top button */}
-      <ScrollToTop />
     </UnheadProvider>
   );
 }
