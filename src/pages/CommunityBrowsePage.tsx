@@ -47,7 +47,7 @@ export default function CommunityBrowsePage() {
         limit: 100
       }], { signal });
 
-      return events.map(event => {
+      const communityDefinitions = events.map(event => {
         const nameTag = event.tags.find(tag => tag[0] === 'name');
         const descriptionTag = event.tags.find(tag => tag[0] === 'description');
         const imageTag = event.tags.find(tag => tag[0] === 'image');
@@ -65,12 +65,26 @@ export default function CommunityBrowsePage() {
           created_at: event.created_at
         } as CommunityDefinition;
       }).filter(community => community.id);
+
+      // Debug logging to help identify issues
+      console.log('Found community definitions:', communityDefinitions);
+      console.log('Looking for spookstr community:', communityDefinitions.find(c => c.id === 'spookstr'));
+
+      return communityDefinitions;
     }
   });
 
   // Get detailed info for predefined communities
   const communityDetails = PARANORMAL_COMMUNITIES.map(predefined => {
     const community = communities?.find(c => c.id === predefined.id);
+
+    // Debug logging for spookstr specifically
+    if (predefined.id === 'spookstr') {
+      console.log('Spookstr predefined:', predefined);
+      console.log('Spookstr found community:', community);
+      console.log('Spookstr exists:', !!community);
+    }
+
     return {
       ...predefined,
       ...(community || {}),
