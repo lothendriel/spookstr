@@ -51,7 +51,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const [quoteContent, setQuoteContent] = useState('');
 
   // Fetch all interaction counts with real-time updates
-  const { data: interactionCounts, isLoading: isLoadingCounts } = useRealtimeInteractions(event.id);
+  const { data: interactionCounts, isLoading: isLoadingCounts, optimisticUpdate } = useRealtimeInteractions(event.id);
 
   const likeCount = interactionCounts?.likes || 0;
   const repostCount = interactionCounts?.reposts || 0;
@@ -73,6 +73,10 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
 
   const handleLike = () => {
     if (!user) return;
+
+    // Optimistic update - increment count immediately
+    optimisticUpdate(7, 1);
+
     createEvent({
       event: {
         kind: 7,
@@ -85,6 +89,10 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
 
   const handleRepost = () => {
     if (!user) return;
+
+    // Optimistic update - increment count immediately
+    optimisticUpdate(6, 1);
+
     createEvent({
       event: {
         kind: 6,
@@ -102,6 +110,9 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
 
   const handleQuoteSubmit = () => {
     if (!user || !quoteContent.trim()) return;
+
+    // Optimistic update - increment comment count immediately (since it's a kind 1 event)
+    optimisticUpdate(1, 1);
 
     // Create quote repost with q tag
     createEvent({
