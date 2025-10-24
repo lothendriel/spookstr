@@ -11,7 +11,7 @@ import { ZapButton } from '@/components/ZapButton';
 import { ZapDialog } from '@/components/ZapDialog';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { Heart, Repeat, MessageCircle, Zap, Quote } from 'lucide-react';
+import { Heart, Repeat, MessageCircle, Zap, Quote, RadioTower } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
@@ -33,6 +33,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface ParanormalPostProps {
   event: NostrEvent;
@@ -49,6 +50,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const [reposted, setReposted] = useState(false);
   const [isQuoteDialogOpen, setIsQuoteDialogOpen] = useState(false);
   const [quoteContent, setQuoteContent] = useState('');
+  const [postToSpookstr2Only, setPostToSpookstr2Only] = useState(false);
 
   // Fetch all interaction counts with real-time updates
   const { data: interactionCounts, isLoading: isLoadingCounts, optimisticUpdate } = useRealtimeInteractions(event.id);
@@ -123,11 +125,13 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
           ['q', event.id, '', event.pubkey],
           ['p', event.pubkey]
         ]
-      }
+      },
+      options: postToSpookstr2Only ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
     });
     setQuoteContent('');
     setIsQuoteDialogOpen(false);
     setReposted(true);
+    setPostToSpookstr2Only(false); // Reset the checkbox
   };
 
   return (
@@ -273,7 +277,12 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     </Card>
 
     {/* Quote Repost Dialog */}
-    <Dialog open={isQuoteDialogOpen} onOpenChange={setIsQuoteDialogOpen}>
+    <Dialog open={isQuoteDialogOpen} onOpenChange={(open) => {
+      if (!open) {
+        setIsQuoteDialogOpen(false);
+        setPostToSpookstr2Only(false); // Reset checkbox when dialog is closed
+      }
+    }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Quote Repost</DialogTitle>
@@ -295,11 +304,35 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
               {event.content.length > 150 && '...'}
             </p>
           </div>
+
+          {/* Spookstr2 Relay Option */}
+          <div className="flex items-start space-x-3 p-4 border border-lime-500/20 rounded-lg bg-black/10">
+            <div className="flex items-center h-5">
+              <Checkbox
+                id="spookstr2-only-quote"
+                checked={postToSpookstr2Only}
+                onCheckedChange={(checked) => setPostToSpookstr2Only(checked as boolean)}
+                className="border-lime-500/50 data-[state=checked]:bg-lime-500 data-[state=checked]:border-lime-500"
+              />
+            </div>
+            <div className="flex-1 space-y-1">
+              <label htmlFor="spookstr2-only-quote" className="text-sm font-medium text-lime-300 cursor-pointer flex items-center gap-2">
+                <RadioTower className="h-4 w-4" />
+                Post to Spookstr2 Relay Only
+              </label>
+              <p className="text-xs text-lime-500/60">
+                When checked, your quote repost will only be published to the Spookstr2 relay. Uncheck to publish to all relays.
+              </p>
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={() => setIsQuoteDialogOpen(false)}
+            onClick={() => {
+              setIsQuoteDialogOpen(false);
+              setPostToSpookstr2Only(false); // Reset checkbox when canceled
+            }}
           >
             Cancel
           </Button>
