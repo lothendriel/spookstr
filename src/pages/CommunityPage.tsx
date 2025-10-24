@@ -44,19 +44,21 @@ export default function CommunityPage() {
 
     try {
       await createEvent({
-        kind: 1111,
-        content: postContent,
-        tags: [
-          // Community references (uppercase for root scope)
-          ['A', `34550:${community.author}:${community.id}`],
-          ['P', community.author],
-          ['K', '34550'],
+        event: {
+          kind: 1111,
+          content: postContent,
+          tags: [
+            // Community references (uppercase for root scope)
+            ['A', `34550:${community.author}:${community.id}`],
+            ['P', community.author],
+            ['K', '34550'],
 
-          // Same community references (lowercase for parent scope)
-          ['a', `34550:${community.author}:${community.id}`],
-          ['p', community.author],
-          ['k', '34550']
-        ]
+            // Same community references (lowercase for parent scope)
+            ['a', `34550:${community.author}:${community.id}`],
+            ['p', community.author],
+            ['k', '34550']
+          ]
+        }
       });
 
       setPostContent('');
@@ -239,13 +241,13 @@ export default function CommunityPage() {
 
         {/* Create Post Form */}
         {showCreatePost && (
-          <Card className="mb-6">
+          <Card className="mb-6 border-purple-500/20 bg-black/40 backdrop-blur-sm">
             <CardContent className="pt-6">
               <textarea
                 value={postContent}
                 onChange={(e) => setPostContent(e.target.value)}
                 placeholder="Share something with the community..."
-                className="w-full min-h-[100px] p-3 border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full min-h-[100px] p-3 border border-purple-500/30 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 bg-black/20 text-purple-100 placeholder:text-purple-500/50"
               />
               <div className="flex justify-end gap-2 mt-4">
                 <Button
@@ -257,6 +259,7 @@ export default function CommunityPage() {
                 <Button
                   onClick={handleCreatePost}
                   disabled={!postContent.trim() || !user}
+                  className="bg-purple-500 hover:bg-purple-400 text-black"
                 >
                   Post
                 </Button>
