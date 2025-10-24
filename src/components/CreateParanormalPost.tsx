@@ -109,16 +109,8 @@ export function CreateParanormalPost() {
   };
 
   const handleSubmit = () => {
-    if (!user || !content.trim() || selectedTags.length === 0) {
-      console.log('❌ Cannot submit - validation failed:', {
-        hasUser: !!user,
-        hasContent: !!content.trim(),
-        hasTags: selectedTags.length > 0
-      });
-      return;
-    }
+    if (!user || !content.trim() || selectedTags.length === 0) return;
 
-    console.log('✅ Form validation passed, preparing to submit...');
     const tags = selectedTags.map(tag => ['t', tag]);
 
     // Add uploaded file tags (NIP-94)
@@ -162,19 +154,6 @@ export function CreateParanormalPost() {
       tags: tags
     });
     console.log('📋 Final event tags array:', tags);
-
-    // Show user feedback about where the post will be published
-    if (postToSpookstr2Only) {
-      toast({
-        title: 'Publishing to Spookstr2 Relay',
-        description: 'Your post will be published only to the Spookstr2 relay.',
-      });
-    } else {
-      toast({
-        title: 'Publishing to All Relays',
-        description: 'Your post will be published to multiple relays including Mostr, Nostr.band, Damus, and Primal.',
-      });
-    }
 
     createEvent({
       event: {

@@ -24,76 +24,31 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   useEffect(() => {
     relayUrl.current = config.relayUrl;
     queryClient.resetQueries();
-    console.log('🔄 Relay changed to:', config.relayUrl);
   }, [config.relayUrl, queryClient]);
 
   // Initialize NPool only once
   if (!pool.current) {
     pool.current = new NPool({
       open(url: string) {
-        console.log('🔗 Opening connection to relay:', url);
         return new NRelay1(url);
       },
       reqRouter(filters) {
-        const kinds = filters.flatMap(f => f.kinds || []);
-        console.log(`🔍 Routing query for kinds [${kinds.join(', ')}]`);
-
-        // For profile metadata (kind 0) and contact lists (kind 3), query from multiple relays
-        const needsMultiRelayQuery = filters.some(filter =>
-          filter.kinds?.some(kind => [0, 3].includes(kind))
-        );
-
-        if (needsMultiRelayQuery) {
-          const multiRelays = new Set<string>([relayUrl.current]);
-
-          // Add preset relays for important queries, but limit to prevent too many requests
-          for (const { url } of (presetRelays ?? [])) {
-            multiRelays.add(url);
-            if (multiRelays.size >= 3) { // Limit to 3 relays
-              break;
-            }
-          }
-
-          console.log(`🔍 Querying kinds [${kinds.join(', ')}] from multiple relays:`, [...multiRelays]);
-          return new Map([...multiRelays].map(url => [url, filters]));
-        }
-
-        // For all other queries (including feed queries), use only the selected relay
-        // This ensures users see content from their specifically selected relay
-        console.log(`🔍 Querying kinds [${kinds.join(', ')}] from selected relay:`, relayUrl.current);
         return new Map([[relayUrl.current, filters]]);
       },
-      eventRouter(event: NostrEvent) {
-        console.log('📡 Routing event publication for kind:', event.kind, 'event ID:', event.id.substring(0, 8));
+      eventRouter(_event: NostrEvent) {
+        // Publish to the selected relay
+        const allRelays = new Set<string>([relayUrl.current]);
 
-        // Always publish to all preset relays to ensure maximum reach
-        const allRelays = new Set<string>();
-
-        // Add the current selected relay
-        allRelays.add(relayUrl.current);
-
-        // Add all preset relays
+        // Also publish to the preset relays, capped to 5
         for (const { url } of (presetRelays ?? [])) {
           allRelays.add(url);
+
+          if (allRelays.size >= 5) {
+            break;
+          }
         }
 
-        // Ensure critical relays are always included
-        const criticalRelays = [
-          'wss://relay.mostr.pub',      // Mostr relay
-          'wss://relay.nostr.band',     // Nostr.band
-          'wss://relay.damus.io',       // Damus
-          'wss://relay.primal.net',     // Primal
-          'wss://spookstr2.nostr1.com'  // Spookstr2
-        ];
-
-        for (const criticalRelay of criticalRelays) {
-          allRelays.add(criticalRelay);
-        }
-
-        const relayList = [...allRelays];
-        console.log('📡 Event will be published to relays:', relayList);
-
-        return relayList;
+        return [...allRelays];
       },
     });
   }
