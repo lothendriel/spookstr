@@ -73,16 +73,18 @@ export function useFollow(targetPubkey?: string): FollowList {
       ];
 
       // Publish new kind 3 event
-      const tags = newFollows.map(follow => 
+      const tags = newFollows.map(follow =>
         follow.relay || follow.petname
           ? ['p', follow.pubkey, follow.relay, follow.petname].filter(Boolean)
           : ['p', follow.pubkey]
       );
 
       await publishEvent({
-        kind: 3,
-        content: '',
-        tags,
+        event: {
+          kind: 3,
+          content: '',
+          tags,
+        }
       });
     },
     onSuccess: () => {
@@ -112,16 +114,18 @@ export function useFollow(targetPubkey?: string): FollowList {
       const newFollows = (followList || []).filter(follow => follow.pubkey !== pubkey);
 
       // Publish new kind 3 event
-      const tags = newFollows.map(follow => 
+      const tags = newFollows.map(follow =>
         follow.relay || follow.petname
           ? ['p', follow.pubkey, follow.relay, follow.petname].filter(Boolean)
           : ['p', follow.pubkey]
       );
 
       await publishEvent({
-        kind: 3,
-        content: '',
-        tags,
+        event: {
+          kind: 3,
+          content: '',
+          tags,
+        }
       });
     },
     onSuccess: () => {

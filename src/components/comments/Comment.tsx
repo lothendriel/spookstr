@@ -68,9 +68,11 @@ export function Comment({ root, comment, depth = 0, maxDepth = 3, limit }: Comme
   const handleLike = () => {
     if (!user) return;
     publishEvent({
-      kind: 7,
-      content: '+',
-      tags: [['e', comment.id], ['p', comment.pubkey]]
+      event: {
+        kind: 7,
+        content: '+',
+        tags: [['e', comment.id], ['p', comment.pubkey]]
+      }
     });
   };
 

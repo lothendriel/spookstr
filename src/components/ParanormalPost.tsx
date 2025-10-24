@@ -78,9 +78,11 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const handleLike = () => {
     if (!user) return;
     createEvent({
-      kind: 7,
-      content: '+',
-      tags: [['e', event.id], ['p', event.pubkey]]
+      event: {
+        kind: 7,
+        content: '+',
+        tags: [['e', event.id], ['p', event.pubkey]]
+      }
     });
     setLiked(true);
   };
@@ -88,9 +90,11 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const handleRepost = () => {
     if (!user) return;
     createEvent({
-      kind: 6,
-      content: '',
-      tags: [['e', event.id], ['p', event.pubkey]]
+      event: {
+        kind: 6,
+        content: '',
+        tags: [['e', event.id], ['p', event.pubkey]]
+      }
     });
     setReposted(true);
   };

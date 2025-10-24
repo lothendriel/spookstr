@@ -69,7 +69,7 @@ export default function EventForm() {
     }
 
     publishEvent(
-      { kind: eventKind, content: '', tags },
+      { event: { kind: eventKind, content: '', tags } },
       {
         onSuccess: () => {
           toast({

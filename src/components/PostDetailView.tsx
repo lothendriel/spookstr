@@ -79,9 +79,11 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const handleLike = () => {
     if (!user) return;
     createEvent({
-      kind: 7,
-      content: '+',
-      tags: [['e', event.id], ['p', event.pubkey]]
+      event: {
+        kind: 7,
+        content: '+',
+        tags: [['e', event.id], ['p', event.pubkey]]
+      }
     });
     setLiked(true);
   };
@@ -89,9 +91,11 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const handleRepost = () => {
     if (!user) return;
     createEvent({
-      kind: 6,
-      content: '',
-      tags: [['e', event.id], ['p', event.pubkey]]
+      event: {
+        kind: 6,
+        content: '',
+        tags: [['e', event.id], ['p', event.pubkey]]
+      }
     });
     setReposted(true);
   };
@@ -100,9 +104,11 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
     if (!user || !replyContent.trim()) return;
 
     createEvent({
-      kind: 1,
-      content: replyContent.trim(),
-      tags: [['e', event.id], ['p', event.pubkey]]
+      event: {
+        kind: 1,
+        content: replyContent.trim(),
+        tags: [['e', event.id], ['p', event.pubkey]]
+      }
     });
 
     setReplyContent('');
