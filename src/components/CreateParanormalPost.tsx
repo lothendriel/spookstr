@@ -163,6 +163,19 @@ export function CreateParanormalPost() {
     });
     console.log('📋 Final event tags array:', tags);
 
+    // Show user feedback about where the post will be published
+    if (postToSpookstr2Only) {
+      toast({
+        title: 'Publishing to Spookstr2 Relay',
+        description: 'Your post will be published only to the Spookstr2 relay.',
+      });
+    } else {
+      toast({
+        title: 'Publishing to All Relays',
+        description: 'Your post will be published to multiple relays including Mostr, Nostr.band, Damus, and Primal.',
+      });
+    }
+
     createEvent({
       event: {
         kind: 1,
