@@ -33,6 +33,29 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return new NRelay1(url);
       },
       reqRouter(filters) {
+        // For profile metadata (kind 0), query multiple relays to increase chances of finding data
+        const isProfileQuery = filters.some(filter =>
+          filter.kinds?.includes(0) || filter.kinds?.includes(10000) || filter.kinds?.includes(10002)
+        );
+
+        if (isProfileQuery) {
+          // For profile queries, use the selected relay plus preset relays for better data availability
+          const relays = new Set<string>([relayUrl.current]);
+
+          // Add preset relays, capped at 5 total
+          for (const { url } of (presetRelays ?? [])) {
+            relays.add(url);
+            if (relays.size >= 5) break;
+          }
+
+          const relayMap = new Map();
+          for (const relayUrl of relays) {
+            relayMap.set(relayUrl, filters);
+          }
+          return relayMap;
+        }
+
+        // For other queries, use only the selected relay
         return new Map([[relayUrl.current, filters]]);
       },
       eventRouter(_event: NostrEvent) {
