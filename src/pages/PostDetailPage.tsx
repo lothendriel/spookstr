@@ -10,6 +10,7 @@ import { genUserName } from '@/lib/genUserName';
 import { NoteContent } from '@/components/NoteContent';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useNostr } from '@/hooks/useNostr';
 import { useState } from 'react';
 import { useCommunity, useCommunityComments, CommunityPost } from '@/hooks/useCommunity';
 import { ArrowLeft, MessageCircle, Send } from 'lucide-react';
@@ -20,6 +21,7 @@ export default function PostDetailPage() {
   const navigate = useNavigate();
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
+  const { nostr } = useNostr();
   const [commentContent, setCommentContent] = useState('');
   const [isReplying, setIsReplying] = useState(false);
   const [replyTo, setReplyTo] = useState<CommunityPost | null>(null);
@@ -32,9 +34,9 @@ export default function PostDetailPage() {
     queryKey: ['post', postId],
     queryFn: async () => {
       if (!postId) throw new Error('No post ID provided');
-      
+
       const signal = AbortSignal.timeout(5000);
-      
+
       // Query for the specific post by ID
       const events = await nostr.query([{
         ids: [postId],
@@ -69,7 +71,7 @@ export default function PostDetailPage() {
         ['A', `34550:${community.author}:${community.id}`],
         ['P', community.author],
         ['K', '34550'],
-        
+
         // Parent post reference
         ['e', parentPost?.id || post.id],
         ['p', parentPost?.pubkey || post.pubkey],
@@ -77,9 +79,11 @@ export default function PostDetailPage() {
       ];
 
       await createEvent({
-        kind: 1111,
-        content: content.trim(),
-        tags
+        event: {
+          kind: 1111,
+          content: content.trim(),
+          tags
+        }
       });
 
       setCommentContent('');
@@ -238,7 +242,7 @@ function PostCard({ post, isMainPost = false }: PostCardProps) {
       </CardHeader>
       <CardContent>
         <div className="whitespace-pre-wrap break-words">
-          <NoteContent 
+          <NoteContent
             event={{
               id: post.id,
               pubkey: post.pubkey,
@@ -247,7 +251,7 @@ function PostCard({ post, isMainPost = false }: PostCardProps) {
               tags: post.tags,
               kind: 1111,
               sig: ''
-            }} 
+            }}
             className="text-base"
           />
         </div>
@@ -285,7 +289,7 @@ function CommentCard({ comment, onReply }: CommentCardProps) {
         </div>
         <div className="bg-muted/50 rounded-lg p-3 mb-2">
           <div className="whitespace-pre-wrap break-words text-sm">
-            <NoteContent 
+            <NoteContent
               event={{
                 id: comment.id,
                 pubkey: comment.pubkey,
@@ -294,7 +298,7 @@ function CommentCard({ comment, onReply }: CommentCardProps) {
                 tags: comment.tags,
                 kind: 1111,
                 sig: ''
-              }} 
+              }}
               className="text-sm"
             />
           </div>
