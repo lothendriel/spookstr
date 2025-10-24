@@ -18,7 +18,7 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
       } else if (NKinds.replaceable(root.kind)) {
         filter['#A'] = [`${root.kind}:${root.pubkey}:`];
       } else {
-        filter['#E'] = [root.id];
+        filter['#e'] = [root.id];
       }
 
       if (typeof limit === 'number') {
@@ -57,7 +57,7 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
         });
 
         const allDescendants = [...directReplies];
-        
+
         // Recursively get descendants of each direct reply
         for (const reply of directReplies) {
           allDescendants.push(...getDescendants(reply.id));
