@@ -11,12 +11,27 @@ import { ZapButton } from '@/components/ZapButton';
 import { ZapDialog } from '@/components/ZapDialog';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { Heart, Repeat, MessageCircle, Zap } from 'lucide-react';
+import { Heart, Repeat, MessageCircle, Zap, Quote } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ParanormalPostProps {
   event: NostrEvent;
@@ -31,6 +46,8 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
+  const [isQuoteDialogOpen, setIsQuoteDialogOpen] = useState(false);
+  const [quoteContent, setQuoteContent] = useState('');
 
   // Fetch all interaction counts in a single query
   const { nostr } = useNostr();
@@ -92,18 +109,43 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     createEvent({
       event: {
         kind: 6,
-        content: '',
+        content: JSON.stringify(event),
         tags: [['e', event.id], ['p', event.pubkey]]
       }
     });
     setReposted(true);
   };
 
+  const handleQuoteRepost = () => {
+    if (!user) return;
+    setIsQuoteDialogOpen(true);
+  };
+
+  const handleQuoteSubmit = () => {
+    if (!user || !quoteContent.trim()) return;
+
+    // Create quote repost with q tag
+    createEvent({
+      event: {
+        kind: 1,
+        content: `${quoteContent}\n\nnostr:${nip19.noteEncode(event.id)}`,
+        tags: [
+          ['q', event.id, '', event.pubkey],
+          ['p', event.pubkey]
+        ]
+      }
+    });
+    setQuoteContent('');
+    setIsQuoteDialogOpen(false);
+    setReposted(true);
+  };
+
   return (
-    <Card
-      className="border-lime-500/20 hover:border-lime-500/40 transition-all duration-200 cursor-pointer bg-black/40 backdrop-blur-sm"
-      onClick={onClick}
-    >
+    <>
+      <Card
+        className="border-lime-500/20 hover:border-lime-500/40 transition-all duration-200 cursor-pointer bg-black/40 backdrop-blur-sm"
+        onClick={onClick}
+      >
       <CardHeader className="pb-3">
         <div className="flex items-center space-x-3">
           <Avatar
@@ -163,18 +205,41 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                     <span className="text-xs">{likeCount}</span>
                   </Button>
 
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRepost();
-                    }}
-                    className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-                  >
-                    <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
-                    <span className="text-xs">{repostCount}</span>
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                      >
+                        <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
+                        <span className="text-xs">{repostCount}</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRepost();
+                        }}
+                        className="flex items-center space-x-2"
+                      >
+                        <Repeat className="h-4 w-4" />
+                        <span>Repost</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleQuoteRepost();
+                        }}
+                        className="flex items-center space-x-2"
+                      >
+                        <Quote className="h-4 w-4" />
+                        <span>Quote Repost</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
                   <Button
                     variant="ghost"
@@ -216,5 +281,48 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
         )}
       </CardContent>
     </Card>
+
+    {/* Quote Repost Dialog */}
+    <Dialog open={isQuoteDialogOpen} onOpenChange={setIsQuoteDialogOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Quote Repost</DialogTitle>
+          <DialogDescription>
+            Add your thoughts about this post. The original post will be quoted below.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <Textarea
+            placeholder="What do you think about this post?"
+            value={quoteContent}
+            onChange={(e) => setQuoteContent(e.target.value)}
+            className="min-h-[100px] resize-none"
+          />
+          <div className="p-3 bg-lime-500/10 rounded-lg border border-lime-500/20">
+            <p className="text-xs text-lime-500/60 mb-1">Original post:</p>
+            <p className="text-sm text-lime-100 line-clamp-3">
+              {event.content.substring(0, 150)}
+              {event.content.length > 150 && '...'}
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setIsQuoteDialogOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleQuoteSubmit}
+            disabled={!quoteContent.trim()}
+            className="bg-lime-500 hover:bg-lime-600 text-black"
+          >
+            Quote Repost
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
