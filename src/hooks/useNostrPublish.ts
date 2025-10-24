@@ -5,29 +5,41 @@ import { useCurrentUser } from "./useCurrentUser";
 
 import type { NostrEvent } from "@nostrify/nostrify";
 
-export function useNostrPublish(): UseMutationResult<NostrEvent> {
+interface PublishOptions {
+  relayUrl?: string;
+}
+
+export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>; options?: PublishOptions }> {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
 
   return useMutation({
-    mutationFn: async (t: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>) => {
+    mutationFn: async ({ event, options }: { event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>; options?: PublishOptions }) => {
       if (user) {
-        const tags = t.tags ?? [];
+        const tags = event.tags ?? [];
 
         // Add the client tag if it doesn't exist
         if (location.protocol === "https:" && !tags.some(([name]) => name === "client")) {
           tags.push(["client", location.hostname]);
         }
 
-        const event = await user.signer.signEvent({
-          kind: t.kind,
-          content: t.content ?? "",
+        const signedEvent = await user.signer.signEvent({
+          kind: event.kind,
+          content: event.content ?? "",
           tags,
-          created_at: t.created_at ?? Math.floor(Date.now() / 1000),
+          created_at: event.created_at ?? Math.floor(Date.now() / 1000),
         });
 
-        await nostr.event(event, { signal: AbortSignal.timeout(5000) });
-        return event;
+        if (options?.relayUrl) {
+          // Publish to specific relay only
+          const relay = nostr.relay(options.relayUrl);
+          await relay.event(signedEvent, { signal: AbortSignal.timeout(5000) });
+        } else {
+          // Publish to all relays (default behavior)
+          await nostr.event(signedEvent, { signal: AbortSignal.timeout(5000) });
+        }
+
+        return signedEvent;
       } else {
         throw new Error("User is not logged in");
       }

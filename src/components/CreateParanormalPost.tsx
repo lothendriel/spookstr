@@ -3,11 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useUploadFile } from '@/hooks/useUploadFile';
 import { useToast } from '@/hooks/useToast';
-import { Ghost, Send, Upload, Image, Video, Music, X } from 'lucide-react';
+import { Ghost, Send, Upload, Image, Video, Music, X, RadioTower } from 'lucide-react';
 
 const PARANORMAL_TAGS = [
   'paranormal',
@@ -35,6 +36,7 @@ export function CreateParanormalPost() {
   const [content, setContent] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<Array<{tags: string[]; file: File}>>([]);
+  const [postToSpookstr2Only, setPostToSpookstr2Only] = useState(false);
 
   const handleTagToggle = (tag: string) => {
     setSelectedTags(prev =>
@@ -117,6 +119,7 @@ export function CreateParanormalPost() {
     console.log('Selected tags:', selectedTags);
     console.log('Uploaded files:', uploadedFiles);
     console.log('Uploaded files count:', uploadedFiles.length);
+    console.log('Post to Spookstr2 only:', postToSpookstr2Only);
 
     if (uploadedFiles.length === 0) {
       console.log('⚠️  WARNING: No files to attach!');
@@ -153,14 +156,18 @@ export function CreateParanormalPost() {
     console.log('📋 Final event tags array:', tags);
 
     createEvent({
-      kind: 1,
-      content: content.trim(),
-      tags
+      event: {
+        kind: 1,
+        content: content.trim(),
+        tags
+      },
+      options: postToSpookstr2Only ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
     });
 
     setContent('');
     setSelectedTags([]);
     setUploadedFiles([]);
+    setPostToSpookstr2Only(false);
   };
 
   if (!user) {
@@ -279,6 +286,27 @@ export function CreateParanormalPost() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Spookstr2 Relay Option */}
+        <div className="flex items-start space-x-3 p-4 border border-lime-500/20 rounded-lg bg-black/10">
+          <div className="flex items-center h-5">
+            <Checkbox
+              id="spookstr2-only"
+              checked={postToSpookstr2Only}
+              onCheckedChange={(checked) => setPostToSpookstr2Only(checked as boolean)}
+              className="border-lime-500/50 data-[state=checked]:bg-lime-500 data-[state=checked]:border-lime-500"
+            />
+          </div>
+          <div className="flex-1 space-y-1">
+            <label htmlFor="spookstr2-only" className="text-sm font-medium text-lime-300 cursor-pointer flex items-center gap-2">
+              <RadioTower className="h-4 w-4" />
+              Post to Spookstr2 Relay Only
+            </label>
+            <p className="text-xs text-lime-500/60">
+              When checked, your post will only be published to the Spookstr2 relay. Uncheck to publish to all relays.
+            </p>
+          </div>
         </div>
 
         <div>
