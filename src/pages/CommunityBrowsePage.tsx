@@ -35,7 +35,7 @@ export default function CommunityBrowsePage() {
     queryKey: ['communities'],
     queryFn: async () => {
       const signal = AbortSignal.timeout(5000);
-      
+
       // Query for all community definitions (kind 34550)
       const events = await nostr.query([{
         kinds: [34550],
@@ -69,7 +69,9 @@ export default function CommunityBrowsePage() {
     return {
       ...predefined,
       ...(community || {}),
-      exists: !!community
+      exists: !!community,
+      // Ensure author is always defined, fallback to empty string for predefined communities
+      author: community?.author || ''
     };
   });
 
@@ -152,9 +154,9 @@ export default function CommunityBrowsePage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCommunities.map((community) => (
-              <CommunityCard 
-                key={community.id} 
-                community={community} 
+              <CommunityCard
+                key={community.id}
+                community={community}
                 onClick={() => navigate(`/community/${community.id}`)}
               />
             ))}
@@ -207,11 +209,11 @@ function CommunityCard({ community, onClick }: CommunityCardProps) {
   const author = useAuthor(community.author);
   const metadata = author.data?.metadata;
 
-  const creatorName = metadata?.name || genUserName(community.author);
+  const creatorName = metadata?.name || (community.author ? genUserName(community.author) : 'Unknown Creator');
   const creatorImage = metadata?.picture;
 
   return (
-    <Card 
+    <Card
       className="border-lime-500/20 bg-black/40 backdrop-blur-sm hover:border-lime-400/40 transition-all cursor-pointer group"
       onClick={onClick}
     >
@@ -236,7 +238,7 @@ function CommunityCard({ community, onClick }: CommunityCardProps) {
           )}
         </div>
       </CardHeader>
-      
+
       <CardContent className="pt-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -255,7 +257,7 @@ function CommunityCard({ community, onClick }: CommunityCardProps) {
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             {community.exists ? (
               <Badge variant="default" className="bg-lime-500 text-black">
