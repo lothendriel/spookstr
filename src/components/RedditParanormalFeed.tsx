@@ -25,16 +25,16 @@ export function RedditParanormalFeed() {
     const fetchRedditPosts = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         // Fetch 10 new posts and randomly select 3
         const response = await fetch('https://www.reddit.com/r/Paranormal/new.json?limit=10');
         const data = await response.json();
-        
+
         // Shuffle the children to get random order
         const shuffled = data.data.children.slice().sort(() => Math.random() - 0.5);
         const selected = shuffled.slice(0, 3);
-        
+
         const redditPosts = selected.map((child: any) => {
           const post = child.data;
           return {
@@ -49,7 +49,7 @@ export function RedditParanormalFeed() {
             permalink: `https://www.reddit.com${post.permalink}`
           };
         });
-        
+
         setPosts(redditPosts);
       } catch (err) {
         console.error('Failed to fetch Reddit posts:', err);
@@ -66,16 +66,16 @@ export function RedditParanormalFeed() {
     const fetchRedditPosts = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         // Fetch 10 new posts and randomly select 3
         const response = await fetch('https://www.reddit.com/r/Paranormal/new.json?limit=10');
         const data = await response.json();
-        
+
         // Shuffle the children to get random order
         const shuffled = data.data.children.slice().sort(() => Math.random() - 0.5);
         const selected = shuffled.slice(0, 3);
-        
+
         const redditPosts = selected.map((child: any) => {
           const post = child.data;
           return {
@@ -90,7 +90,7 @@ export function RedditParanormalFeed() {
             permalink: `https://www.reddit.com${post.permalink}`
           };
         });
-        
+
         setPosts(redditPosts);
       } catch (err) {
         console.error('Failed to fetch Reddit posts:', err);
@@ -111,7 +111,7 @@ export function RedditParanormalFeed() {
   const formatTimeAgo = (timestamp: number) => {
     const now = Date.now() / 1000;
     const diff = now - timestamp;
-    
+
     if (diff < 3600) return `${Math.floor(diff / 60)}m`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
     return `${Math.floor(diff / 86400)}d`;
@@ -176,22 +176,22 @@ export function RedditParanormalFeed() {
       </CardHeader>
       <CardContent className="space-y-4">
         {posts.map((post) => (
-          <div key={post.id} className="space-y-2">
+          <div key={post.id} className="space-y-2 overflow-hidden">
             <a
               href={post.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-lime-100 hover:text-lime-300 transition-colors font-medium leading-tight"
+              className="text-lime-100 hover:text-lime-300 transition-colors font-medium leading-tight break-words whitespace-normal w-full"
             >
               {post.title}
             </a>
-            
+
             {post.selftext && (
-              <p className="text-sm text-lime-500/80 leading-relaxed">
+              <p className="text-sm text-lime-500/80 leading-relaxed break-words whitespace-normal w-full">
                 {truncateText(post.selftext, 120)}
               </p>
             )}
-            
+
             <div className="flex items-center justify-between text-xs text-lime-500/60">
               <div className="flex items-center space-x-3">
                 <span className="flex items-center space-x-1">
@@ -208,7 +208,7 @@ export function RedditParanormalFeed() {
             </div>
           </div>
         ))}
-        
+
         <div className="pt-2 border-t border-lime-500/20">
           <Button
             onClick={handleRefresh}
