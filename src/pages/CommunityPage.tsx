@@ -11,7 +11,8 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useState } from 'react';
 import { useCommunity, useCommunityPosts, CommunityDefinition, CommunityPost } from '@/hooks/useCommunity';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, Settings } from 'lucide-react';
+import { CommunityManagement } from '@/components/CommunityManagement';
 
 export default function CommunityPage() {
   const { communityId } = useParams<{ communityId: string }>();
@@ -20,6 +21,7 @@ export default function CommunityPage() {
   const { mutate: createEvent } = useNostrPublish();
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [postContent, setPostContent] = useState('');
+  const [showManagement, setShowManagement] = useState(false);
 
   // Fetch community definition
   const { data: community, isLoading: communityLoading } = useCommunity(communityId);
@@ -108,12 +110,34 @@ export default function CommunityPage() {
                   <Badge variant="secondary">{community.moderators.length} moderators</Badge>
                 </div>
               </div>
-              <Button onClick={() => setShowCreatePost(!showCreatePost)}>
-                {showCreatePost ? 'Cancel' : 'Create Post'}
-              </Button>
+              <div className="flex gap-2">
+                {user && community.moderators.includes(user.pubkey) && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowManagement(!showManagement)}
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    {showManagement ? 'Cancel' : 'Manage'}
+                  </Button>
+                )}
+                <Button onClick={() => setShowCreatePost(!showCreatePost)}>
+                  {showCreatePost ? 'Cancel' : 'Create Post'}
+                </Button>
+              </div>
             </div>
           </CardHeader>
         </Card>
+
+        {/* Community Management Form */}
+        {showManagement && (
+          <CommunityManagement
+            community={community}
+            onUpdate={() => {
+              // Refresh community data after update
+              window.location.reload();
+            }}
+          />
+        )}
 
         {/* Create Post Form */}
         {showCreatePost && (
