@@ -5,23 +5,23 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 const podcastEmbeds = [
   {
     title: "Coast to Coast AM",
-    embedCode: `<iframe allow="autoplay" width="100%" height="140" src="https://www.iheart.com/podcast/1100-the-best-of-coast-to-coas-18899828/?embed=true" frameborder="0"></iframe>`
+    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/1100-the-best-of-coast-to-coas-18899828/?embed=true" frameborder="0"></iframe>`
   },
   {
     title: "Sasquatch Chronicles",
-    embedCode: `<iframe allow="autoplay" width="100%" height="140" src="https://www.iheart.com/podcast/267-sasquatch-chronicles-29414973/?embed=true" frameborder="0"></iframe>`
+    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/267-sasquatch-chronicles-29414973/?embed=true" frameborder="0"></iframe>`
   },
   {
     title: "Strange Familiars",
-    embedCode: `<iframe allow="autoplay" width="100%" height="140" src="https://www.iheart.com/podcast/269-strange-familiars-88536416/?embed=true" frameborder="0"></iframe>`
+    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/269-strange-familiars-88536416/?embed=true" frameborder="0"></iframe>`
   },
   {
     title: "The Confessionals",
-    embedCode: `<iframe allow="autoplay" width="100%" height="140" src="https://www.iheart.com/podcast/267-the-confessionals-29768844/?embed=true" frameborder="0"></iframe>`
+    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/267-the-confessionals-29768844/?embed=true" frameborder="0"></iframe>`
   },
   {
     title: "Bigfoot and Beyond",
-    embedCode: `<iframe allow="autoplay" width="100%" height="140" src="https://www.iheart.com/podcast/267-bigfoot-and-beyond-with-cl-63055511/?embed=true" frameborder="0"></iframe>`
+    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/267-bigfoot-and-beyond-with-cl-63055511/?embed=true" frameborder="0"></iframe>`
   }
 ];
 

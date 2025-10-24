@@ -16,7 +16,7 @@ export default function PodcastPlayerCard() {
         <iframe
           allow="autoplay"
           width="100%"
-          height="300"
+          height="400"
           src="https://www.iheart.com/podcast/1100-the-best-of-coast-to-coas-18899828/?embed=true"
           frameborder="0"
         ></iframe>
