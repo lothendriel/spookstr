@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,9 +11,11 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useState } from 'react';
 import { useCommunity, useCommunityPosts, CommunityDefinition, CommunityPost } from '@/hooks/useCommunity';
+import { MessageCircle } from 'lucide-react';
 
 export default function CommunityPage() {
   const { communityId } = useParams<{ communityId: string }>();
+  const navigate = useNavigate();
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const [showCreatePost, setShowCreatePost] = useState(false);
@@ -151,7 +153,11 @@ export default function CommunityPage() {
             </div>
           ) : posts && posts.length > 0 ? (
             posts.map((post) => (
-              <PostCard key={post.id} post={post} />
+              <PostCard
+                key={post.id}
+                post={post}
+                onClick={() => navigate(`/community/${communityId}/post/${post.id}`)}
+              />
             ))
           ) : (
             <Card>
@@ -166,7 +172,7 @@ export default function CommunityPage() {
   );
 }
 
-function PostCard({ post }: { post: CommunityPost }) {
+function PostCard({ post, onClick }: { post: CommunityPost; onClick: () => void }) {
   const author = useAuthor(post.pubkey);
   const metadata = author.data?.metadata;
 
@@ -174,7 +180,7 @@ function PostCard({ post }: { post: CommunityPost }) {
   const profileImage = metadata?.picture;
 
   return (
-    <Card>
+    <Card className="cursor-pointer hover:border-lime-400/40 transition-all" onClick={onClick}>
       <CardHeader>
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
@@ -203,6 +209,13 @@ function PostCard({ post }: { post: CommunityPost }) {
             }}
             className="text-sm"
           />
+        </div>
+        <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
+          <span>{new Date(post.created_at * 1000).toLocaleString()}</span>
+          <div className="flex items-center gap-1">
+            <MessageCircle className="h-3 w-3" />
+            <span>Comments</span>
+          </div>
         </div>
       </CardContent>
     </Card>

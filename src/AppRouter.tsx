@@ -10,6 +10,7 @@ import Hashtag from "./pages/Hashtag";
 import CommunityPage from "./pages/CommunityPage";
 import CreateCommunityPage from "./pages/CreateCommunityPage";
 import CommunityBrowsePage from "./pages/CommunityBrowsePage";
+import PostDetailPage from "./pages/PostDetailPage";
 
 export function AppRouter() {
   return (
@@ -23,6 +24,7 @@ export function AppRouter() {
         {/* Community Routes */}
         <Route path="/communities" element={<CommunityBrowsePage />} />
         <Route path="/community/:communityId" element={<CommunityPage />} />
+        <Route path="/community/:communityId/post/:postId" element={<PostDetailPage />} />
         <Route path="/create-community" element={<CreateCommunityPage />} />
         {/* NIP-19 route for npub1, note1, naddr1, nevent1, nevent1, nprofile1 */}
         <Route path="/:nip19" element={<NIP19Page />} />
