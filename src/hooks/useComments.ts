@@ -11,12 +11,12 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
       const filter: NostrFilter = { kinds: [1111] };
 
       if (root instanceof URL) {
-        filter['#I'] = [root.toString()];
+        filter['#i'] = [root.toString()];
       } else if (NKinds.addressable(root.kind)) {
         const d = root.tags.find(([name]) => name === 'd')?.[1] ?? '';
-        filter['#A'] = [`${root.kind}:${root.pubkey}:${d}`];
+        filter['#a'] = [`${root.kind}:${root.pubkey}:${d}`];
       } else if (NKinds.replaceable(root.kind)) {
-        filter['#A'] = [`${root.kind}:${root.pubkey}:`];
+        filter['#a'] = [`${root.kind}:${root.pubkey}:`];
       } else {
         filter['#e'] = [root.id];
       }
@@ -25,9 +25,18 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
         filter.limit = limit;
       }
 
+      console.log('🔍 [useComments] Query filter:', JSON.stringify(filter, null, 2));
+
       // Query for all kind 1111 comments that reference this addressable event regardless of depth
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
       const events = await nostr.query([filter], { signal });
+
+      console.log('📥 [useComments] Query returned events:', events.length);
+      console.log('📋 [useComments] Root event:', {
+        id: root instanceof URL ? root.toString() : root.id,
+        kind: root instanceof URL ? 'URL' : root.kind,
+        pubkey: root instanceof URL ? 'N/A' : root.pubkey
+      });
 
       // Helper function to get tag value
       const getTagValue = (event: NostrEvent, tagName: string): string | undefined => {
@@ -35,19 +44,45 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
         return tag?.[1];
       };
 
+      // Log all events for debugging
+      events.forEach((event, index) => {
+        console.log(`📝 [useComments] Event ${index + 1}:`, {
+          id: event.id,
+          kind: event.kind,
+          content: event.content.substring(0, 100) + '...',
+          tags: event.tags,
+          eTag: getTagValue(event, 'e'),
+          aTag: getTagValue(event, 'a'),
+          iTag: getTagValue(event, 'i')
+        });
+      });
+
       // Filter top-level comments (those with lowercase tag matching the root)
       const topLevelComments = events.filter(comment => {
-        if (root instanceof URL) {
-          return getTagValue(comment, 'i') === root.toString();
-        } else if (NKinds.addressable(root.kind)) {
-          const d = getTagValue(root, 'd') ?? '';
-          return getTagValue(comment, 'a') === `${root.kind}:${root.pubkey}:${d}`;
-        } else if (NKinds.replaceable(root.kind)) {
-          return getTagValue(comment, 'a') === `${root.kind}:${root.pubkey}:`;
-        } else {
-          return getTagValue(comment, 'e') === root.id;
-        }
+        const matches = (() => {
+          if (root instanceof URL) {
+            return getTagValue(comment, 'i') === root.toString();
+          } else if (NKinds.addressable(root.kind)) {
+            const d = getTagValue(root, 'd') ?? '';
+            return getTagValue(comment, 'a') === `${root.kind}:${root.pubkey}:${d}`;
+          } else if (NKinds.replaceable(root.kind)) {
+            return getTagValue(comment, 'a') === `${root.kind}:${root.pubkey}:`;
+          } else {
+            return getTagValue(comment, 'e') === root.id;
+          }
+        })();
+
+        console.log(`🔍 [useComments] Comment ${comment.id} matches root:`, matches, {
+          expectedE: root instanceof URL ? root.toString() : root.id,
+          actualE: getTagValue(comment, 'e'),
+          expectedA: root instanceof URL ? null : `${root.kind}:${root.pubkey}:${getTagValue(root, 'd') ?? ''}`,
+          actualA: getTagValue(comment, 'a')
+        });
+
+        return matches;
       });
+
+      console.log('✅ [useComments] Top-level comments after filtering:', topLevelComments.length);
 
       // Helper function to get all descendants of a comment
       const getDescendants = (parentId: string): NostrEvent[] => {
