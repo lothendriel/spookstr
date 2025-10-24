@@ -42,7 +42,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
 
       // Single query with all interaction kinds
       const events = await nostr.query([{
-        kinds: [6, 7, 9734, 1111], // reposts, likes, zaps, comments
+        kinds: [6, 7, 9734, 1, 1111], // reposts, likes, zaps, text note replies, comments
         '#e': [event.id],
         limit: 200,
       }], { signal });
@@ -52,7 +52,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
         likes: events.filter(e => e.kind === 7).length,
         reposts: events.filter(e => e.kind === 6).length,
         zaps: events.filter(e => e.kind === 9734).length,
-        comments: events.filter(e => e.kind === 1111).length,
+        comments: events.filter(e => e.kind === 1 || e.kind === 1111).length,
       };
     },
   });
