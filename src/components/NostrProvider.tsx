@@ -43,18 +43,13 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
           filter.kinds?.some(kind => [0, 3].includes(kind))
         );
 
-        // For feed queries (kind 1 with tags), also try multiple relays for better results
-        const isFeedQuery = filters.some(filter =>
-          filter.kinds?.includes(1) && filter['#t']
-        );
-
-        if (needsMultiRelayQuery || isFeedQuery) {
+        if (needsMultiRelayQuery) {
           const multiRelays = new Set<string>([relayUrl.current]);
 
           // Add preset relays for important queries, but limit to prevent too many requests
           for (const { url } of (presetRelays ?? [])) {
             multiRelays.add(url);
-            if (multiRelays.size >= (needsMultiRelayQuery ? 3 : 2)) { // Limit relays
+            if (multiRelays.size >= 3) { // Limit to 3 relays
               break;
             }
           }
@@ -63,8 +58,9 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
           return new Map([...multiRelays].map(url => [url, filters]));
         }
 
-        // For all other queries, use only the selected relay
-        console.log(`🔍 Querying kinds [${kinds.join(', ')}] from single relay:`, relayUrl.current);
+        // For all other queries (including feed queries), use only the selected relay
+        // This ensures users see content from their specifically selected relay
+        console.log(`🔍 Querying kinds [${kinds.join(', ')}] from selected relay:`, relayUrl.current);
         return new Map([[relayUrl.current, filters]]);
       },
       eventRouter(event: NostrEvent) {

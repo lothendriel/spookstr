@@ -119,7 +119,26 @@ export function useParanormalFeed() {
       console.log('🔍 Loading paranormal feed from relay:', config.relayUrl);
 
       try {
-        // First test the selected relay connection
+        // Always try to get content from the selected relay first, without connection test
+        // This ensures we get the actual content from the selected relay
+        console.log('🔄 Querying directly from selected relay:', config.relayUrl);
+        const relay = nostr.relay(config.relayUrl);
+
+        const events = await relay.query([{
+          kinds: [1],
+          '#t': PARANORMAL_TAGS,
+          limit: 50,
+        }], { signal });
+
+        console.log('✅ Feed loaded successfully from:', config.relayUrl, 'Events:', events.length);
+
+        // If we got events from the selected relay, return them immediately
+        if (events.length > 0) {
+          return events;
+        }
+
+        // If no events from selected relay, test connection and try fallbacks
+        console.log('⚠️ No events found from selected relay, testing connection...');
         const isConnected = await testRelayConnection(nostr, config.relayUrl);
 
         if (!isConnected) {
@@ -136,15 +155,15 @@ export function useParanormalFeed() {
 
             if (fallbackConnected) {
               console.log('✅ Fallback relay connected, querying from:', fallbackRelay.url);
-              const relay = nostr.relay(fallbackRelay.url);
-              const events = await relay.query([{
+              const fallbackRelayConnection = nostr.relay(fallbackRelay.url);
+              const fallbackEvents = await fallbackRelayConnection.query([{
                 kinds: [1],
                 '#t': PARANORMAL_TAGS,
                 limit: 50,
               }], { signal });
 
-              console.log('✅ Feed loaded successfully from fallback relay:', fallbackRelay.url, 'Events:', events.length);
-              return events;
+              console.log('✅ Feed loaded successfully from fallback relay:', fallbackRelay.url, 'Events:', fallbackEvents.length);
+              return fallbackEvents;
             }
           }
 
@@ -152,39 +171,44 @@ export function useParanormalFeed() {
           return [];
         }
 
-        // Query for notes with paranormal tags from the selected relay
-        const events = await nostr.query([{
-          kinds: [1],
-          '#t': PARANORMAL_TAGS,
-          limit: 50,
-        }], { signal });
-
-        console.log('✅ Feed loaded successfully from:', config.relayUrl, 'Events:', events.length);
-        return events;
+        // If connected but no events, return empty array
+        console.log('✅ Connected to relay but no paranormal content found:', config.relayUrl);
+        return [];
       } catch (error) {
-        console.error('❌ Failed to load paranormal feed:', error);
+        console.error('❌ Failed to load paranormal feed from selected relay:', error);
 
-        // Try one more time with a direct connection to the selected relay
-        try {
-          console.log('🔄 Retrying with direct connection to:', config.relayUrl);
-          const relay = nostr.relay(config.relayUrl);
-          const events = await relay.query([{
-            kinds: [1],
-            '#t': PARANORMAL_TAGS,
-            limit: 50,
-          }], { signal: AbortSignal.timeout(8000) });
+        // Try fallback relays only if the selected relay completely fails
+        console.warn('⚠️ Selected relay failed, trying fallback relays...');
 
-          console.log('✅ Feed loaded successfully on retry from:', config.relayUrl, 'Events:', events.length);
-          return events;
-        } catch (retryError) {
-          console.error('❌ Retry also failed:', retryError);
-          return []; // Return empty array instead of throwing to prevent UI errors
+        const fallbackRelays = presetRelays
+          .filter(relay => relay.url !== config.relayUrl)
+          .slice(0, 3);
+
+        for (const fallbackRelay of fallbackRelays) {
+          try {
+            console.log('🔄 Trying fallback relay:', fallbackRelay.url);
+            const fallbackRelayConnection = nostr.relay(fallbackRelay.url);
+            const fallbackEvents = await fallbackRelayConnection.query([{
+              kinds: [1],
+              '#t': PARANORMAL_TAGS,
+              limit: 50,
+            }], { signal: AbortSignal.timeout(8000) });
+
+            console.log('✅ Feed loaded successfully from fallback relay:', fallbackRelay.url, 'Events:', fallbackEvents.length);
+            return fallbackEvents;
+          } catch (fallbackError) {
+            console.warn('⚠️ Fallback relay also failed:', fallbackRelay.url, fallbackError);
+            continue;
+          }
         }
+
+        console.error('❌ All relays failed, returning empty feed');
+        return []; // Return empty array instead of throwing to prevent UI errors
       }
     },
     refetchOnWindowFocus: false,
     staleTime: 60000, // Increased to 1 minute
-    retry: 2, // Add retry capability
+    retry: 1, // Reduce retry to avoid confusion with fallback logic
   });
 }
 
