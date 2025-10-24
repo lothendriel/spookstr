@@ -33,9 +33,9 @@ export function SpookstrHeader() {
                 Post
               </Button>
             </CreatePostModal>
-            <Button variant="outline" onClick={() => navigate('/community/spookstr')}>
+            <Button variant="outline" onClick={() => navigate('/communities')}>
               <Users className="h-4 w-4 mr-2" />
-              Community
+              Communities
             </Button>
             <Button variant="outline" onClick={() => navigate('/calendar')}>
               <Calendar className="h-4 w-4 mr-2" />
