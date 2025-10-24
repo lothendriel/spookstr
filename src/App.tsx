@@ -41,11 +41,11 @@ const defaultConfig: AppConfig = {
 };
 
 const presetRelays = [
+  { url: 'wss://spookstr2.nostr1.com', name: 'Spookstr2' },
   { url: 'wss://relay.nostr.band', name: 'Nostr.Band' },
   { url: 'wss://relay.damus.io', name: 'Damus' },
   { url: 'wss://relay.primal.net', name: 'Primal' },
   { url: 'wss://relay.mostr.pub', name: 'Mostr' },
-  { url: 'wss://spookstr2.nostr1.com', name: 'Spookstr2' },
 ];
 
 export function App() {
