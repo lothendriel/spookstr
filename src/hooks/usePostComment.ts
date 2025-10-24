@@ -23,19 +23,19 @@ export function usePostComment() {
 
       // Root event tags
       if (root instanceof URL) {
-        tags.push(['I', root.toString()]);
+        tags.push(['i', root.toString()]);
       } else if (NKinds.addressable(root.kind)) {
-        tags.push(['A', `${root.kind}:${root.pubkey}:${dRoot}`]);
+        tags.push(['a', `${root.kind}:${root.pubkey}:${dRoot}`]);
       } else if (NKinds.replaceable(root.kind)) {
-        tags.push(['A', `${root.kind}:${root.pubkey}:`]);
+        tags.push(['a', `${root.kind}:${root.pubkey}:`]);
       } else {
-        tags.push(['E', root.id]);
+        tags.push(['e', root.id]);
       }
       if (root instanceof URL) {
-        tags.push(['K', root.hostname]);
+        tags.push(['k', root.hostname]);
       } else {
-        tags.push(['K', root.kind.toString()]);
-        tags.push(['P', root.pubkey]);
+        tags.push(['k', root.kind.toString()]);
+        tags.push(['p', root.pubkey]);
       }
 
       // Reply event tags
