@@ -1,6 +1,12 @@
-import { NKinds, NostrEvent, NostrFilter } from '@nostrify/nostrify';
+import { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
+
+interface ThreadNode {
+  event: NostrEvent;
+  children: ThreadNode[];
+  depth: number;
+}
 
 export function useComments(root: NostrEvent | URL, limit?: number) {
   const { nostr } = useNostr();
@@ -8,15 +14,10 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
   return useQuery({
     queryKey: ['comments', root instanceof URL ? root.toString() : root.id, limit],
     queryFn: async (c) => {
-      const filter: NostrFilter = { kinds: [1, 1111] };
+      const filter: NostrFilter = { kinds: [1] }; // Only kind 1 events for NIP-10 comments
 
       if (root instanceof URL) {
-        filter['#i'] = [root.toString()];
-      } else if (NKinds.addressable(root.kind)) {
-        const d = root.tags.find(([name]) => name === 'd')?.[1] ?? '';
-        filter['#a'] = [`${root.kind}:${root.pubkey}:${d}`];
-      } else if (NKinds.replaceable(root.kind)) {
-        filter['#a'] = [`${root.kind}:${root.pubkey}:`];
+        filter['#r'] = [root.toString()];
       } else {
         filter['#e'] = [root.id];
       }
@@ -27,7 +28,7 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
 
       console.log('🔍 [useComments] Query filter:', JSON.stringify(filter, null, 2));
 
-      // Query for all kind 1111 comments that reference this addressable event regardless of depth
+      // Query for all kind 1 comments that reference this root event
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
       const events = await nostr.query([filter], { signal });
 
@@ -38,94 +39,138 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
         pubkey: root instanceof URL ? 'N/A' : root.pubkey
       });
 
-      // Helper function to get tag value
-      const getTagValue = (event: NostrEvent, tagName: string): string | undefined => {
-        const tag = event.tags.find(([name]) => name === tagName);
-        return tag?.[1];
+      // Helper function to get e tags with their marker (root, reply, mention)
+      const getETags = (event: NostrEvent): Array<{ id: string; marker?: string }> => {
+        return event.tags
+          .filter(([name]) => name === 'e')
+          .map(([, id, , marker]) => ({ id, marker }));
       };
 
-      // Log all events for debugging
-      events.forEach((event, index) => {
-        console.log(`📝 [useComments] Event ${index + 1}:`, {
-          id: event.id,
-          kind: event.kind,
-          content: event.content.substring(0, 100) + '...',
-          tags: event.tags,
-          eTag: getTagValue(event, 'e'),
-          aTag: getTagValue(event, 'a'),
-          iTag: getTagValue(event, 'i')
-        });
-      });
+      // Build thread tree structure
+      const buildThreadTree = (events: NostrEvent[]): ThreadNode[] => {
+        const eventMap = new Map<string, NostrEvent>();
+        const childMap = new Map<string, NostrEvent[]>();
 
-      // Filter top-level comments (those with lowercase tag matching the root)
-      const topLevelComments = events.filter(comment => {
-        const matches = (() => {
-          if (root instanceof URL) {
-            return getTagValue(comment, 'i') === root.toString();
-          } else if (NKinds.addressable(root.kind)) {
-            const d = getTagValue(root, 'd') ?? '';
-            return getTagValue(comment, 'a') === `${root.kind}:${root.pubkey}:${d}`;
-          } else if (NKinds.replaceable(root.kind)) {
-            return getTagValue(comment, 'a') === `${root.kind}:${root.pubkey}:`;
+        // Create event map and initialize child map
+        events.forEach(event => {
+          eventMap.set(event.id, event);
+          childMap.set(event.id, []);
+        });
+
+        // Build parent-child relationships
+        events.forEach(event => {
+          const eTags = getETags(event);
+
+          // Find the parent based on NIP-10 rules
+          let parentId: string | null = null;
+
+          // First, look for a 'reply' marker
+          const replyTag = eTags.find(tag => tag.marker === 'reply');
+          if (replyTag) {
+            parentId = replyTag.id;
           } else {
-            return getTagValue(comment, 'e') === root.id;
+            // If no 'reply' marker, look for a 'root' marker
+            const rootTag = eTags.find(tag => tag.marker === 'root');
+            if (rootTag) {
+              parentId = rootTag.id;
+            } else {
+              // If no markers, use the first e tag that references another event in the thread
+              const parentTag = eTags.find(tag =>
+                tag.id !== (root instanceof URL ? undefined : root.id) &&
+                eventMap.has(tag.id)
+              );
+              if (parentTag) {
+                parentId = parentTag.id;
+              }
+            }
           }
-        })();
 
-        console.log(`🔍 [useComments] Comment ${comment.id} matches root:`, matches, {
-          expectedE: root instanceof URL ? root.toString() : root.id,
-          actualE: getTagValue(comment, 'e'),
-          expectedA: root instanceof URL ? null : `${root.kind}:${root.pubkey}:${getTagValue(root, 'd') ?? ''}`,
-          actualA: getTagValue(comment, 'a')
+          // If we found a parent that exists in our event set, add this event as its child
+          if (parentId && childMap.has(parentId)) {
+            childMap.get(parentId)!.push(event);
+          }
         });
 
-        return matches;
-      });
+        // Find root nodes (events that don't have a parent in the thread or are direct replies to the root)
+        const rootNodes: ThreadNode[] = [];
+        const processed = new Set<string>();
 
-      console.log('✅ [useComments] Top-level comments after filtering:', topLevelComments.length);
+        const buildNode = (event: NostrEvent, depth: number): ThreadNode => {
+          const children = childMap.get(event.id) || [];
+          return {
+            event,
+            children: children.map(child => buildNode(child, depth + 1)),
+            depth
+          };
+        };
 
-      // Helper function to get all descendants of a comment
-      const getDescendants = (parentId: string): NostrEvent[] => {
-        const directReplies = events.filter(comment => {
-          const eTag = getTagValue(comment, 'e');
-          return eTag === parentId;
+        events.forEach(event => {
+          if (processed.has(event.id)) return;
+
+          const eTags = getETags(event);
+          const isDirectReply = root instanceof URL
+            ? eTags.some(tag => tag.marker === 'root')
+            : eTags.some(tag => tag.id === root.id && (tag.marker === 'root' || !tag.marker));
+
+          if (isDirectReply) {
+            const node = buildNode(event, 0);
+            rootNodes.push(node);
+            processed.add(event.id);
+
+            // Mark all descendants as processed
+            const markDescendants = (node: ThreadNode) => {
+              processed.add(node.event.id);
+              node.children.forEach(markDescendants);
+            };
+            markDescendants(node);
+          }
         });
 
-        const allDescendants = [...directReplies];
-
-        // Recursively get descendants of each direct reply
-        for (const reply of directReplies) {
-          allDescendants.push(...getDescendants(reply.id));
-        }
-
-        return allDescendants;
+        // Sort root nodes by creation time (newest first)
+        return rootNodes.sort((a, b) => b.event.created_at - a.event.created_at);
       };
 
-      // Create a map of comment ID to its descendants
-      const commentDescendants = new Map<string, NostrEvent[]>();
-      for (const comment of events) {
-        commentDescendants.set(comment.id, getDescendants(comment.id));
-      }
+      // Build the thread tree
+      const threadTree = buildThreadTree(events);
 
-      // Sort top-level comments by creation time (newest first)
-      const sortedTopLevel = topLevelComments.sort((a, b) => b.created_at - a.created_at);
+      // Helper function to flatten the tree for legacy compatibility
+      const flattenTree = (nodes: ThreadNode[]): NostrEvent[] => {
+        const result: NostrEvent[] = [];
+        nodes.forEach(node => {
+          result.push(node.event);
+          result.push(...flattenTree(node.children));
+        });
+        return result;
+      };
+
+      // Helper function to get direct replies to a specific comment
+      const getDirectReplies = (commentId: string): NostrEvent[] => {
+        const replies = events.filter(event => {
+          const eTags = getETags(event);
+          return eTags.some(tag =>
+            tag.id === commentId &&
+            (tag.marker === 'reply' || (!tag.marker && tag.id !== (root instanceof URL ? undefined : root.id)))
+          );
+        });
+        // Sort direct replies by creation time (oldest first for threaded display)
+        return replies.sort((a, b) => a.created_at - b.created_at);
+      };
+
+      // Get top-level comments (for backward compatibility)
+      const topLevelComments = threadTree.map(node => node.event);
+
+      console.log('✅ [useComments] Thread tree built:', {
+        totalEvents: events.length,
+        rootNodes: threadTree.length,
+        topLevelComments: topLevelComments.length
+      });
 
       return {
         allComments: events,
-        topLevelComments: sortedTopLevel,
-        getDescendants: (commentId: string) => {
-          const descendants = commentDescendants.get(commentId) || [];
-          // Sort descendants by creation time (oldest first for threaded display)
-          return descendants.sort((a, b) => a.created_at - b.created_at);
-        },
-        getDirectReplies: (commentId: string) => {
-          const directReplies = events.filter(comment => {
-            const eTag = getTagValue(comment, 'e');
-            return eTag === commentId;
-          });
-          // Sort direct replies by creation time (oldest first for threaded display)
-          return directReplies.sort((a, b) => a.created_at - b.created_at);
-        }
+        topLevelComments,
+        threadTree,
+        getDirectReplies,
+        flattenTree
       };
     },
     enabled: !!root,

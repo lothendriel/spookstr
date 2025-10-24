@@ -16,7 +16,46 @@ interface CommentsSectionProps {
   limit?: number;
 }
 
-export function CommentsSection({ 
+// Recursive component to render thread tree
+function ThreadTree({
+  nodes,
+  root,
+  limit,
+  depth = 0
+}: {
+  nodes: any[];
+  root: NostrEvent | URL;
+  limit?: number;
+  depth?: number;
+}) {
+  return (
+    <div className="space-y-4">
+      {nodes.map((node, index) => (
+        <div key={node.event.id}>
+          <Comment
+            root={root}
+            comment={node.event}
+            depth={depth}
+            limit={limit}
+            isLastInBranch={index === nodes.length - 1}
+          />
+          {node.children.length > 0 && (
+            <div className="ml-6">
+              <ThreadTree
+                nodes={node.children}
+                root={root}
+                limit={limit}
+                depth={depth + 1}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function CommentsSection({
   root,
   title = "Comments",
   emptyStateMessage = "No comments yet",
@@ -25,7 +64,8 @@ export function CommentsSection({
   limit = 500,
 }: CommentsSectionProps) {
   const { data: commentsData, isLoading, error } = useComments(root, limit);
-  const comments = commentsData?.topLevelComments || [];
+  const threadTree = commentsData?.threadTree || [];
+  const topLevelComments = commentsData?.topLevelComments || [];
 
   if (error) {
     return (
@@ -48,7 +88,7 @@ export function CommentsSection({
           <span>{title}</span>
           {!isLoading && (
             <span className="text-sm font-normal text-muted-foreground">
-              ({comments.length})
+              ({topLevelComments.length})
             </span>
           )}
         </CardTitle>
@@ -77,7 +117,7 @@ export function CommentsSection({
               </Card>
             ))}
           </div>
-        ) : comments.length === 0 ? (
+        ) : threadTree.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-30" />
             <p className="text-lg font-medium mb-2">{emptyStateMessage}</p>
@@ -85,13 +125,11 @@ export function CommentsSection({
           </div>
         ) : (
           <div className="space-y-4">
-            {comments.map((comment) => (
-              <Comment
-                key={comment.id}
-                root={root}
-                comment={comment}
-              />
-            ))}
+            <ThreadTree
+              nodes={threadTree}
+              root={root}
+              limit={limit}
+            />
           </div>
         )}
       </CardContent>

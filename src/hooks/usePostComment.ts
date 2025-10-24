@@ -1,14 +1,14 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { NKinds, type NostrEvent } from '@nostrify/nostrify';
+import { type NostrEvent } from '@nostrify/nostrify';
 
 interface PostCommentParams {
   root: NostrEvent | URL; // The root event to comment on
-  reply?: NostrEvent | URL; // Optional reply to another comment
+  reply?: NostrEvent; // Optional reply to another comment (must be NostrEvent for threading)
   content: string;
 }
 
-/** Post a NIP-22 (kind 1111) comment on an event. */
+/** Post a NIP-10 compliant comment (kind 1 text note) on an event. */
 export function usePostComment() {
   const { mutateAsync: publishEvent } = useNostrPublish();
   const queryClient = useQueryClient();
@@ -17,66 +17,28 @@ export function usePostComment() {
     mutationFn: async ({ root, reply, content }: PostCommentParams) => {
       const tags: string[][] = [];
 
-      // d-tag identifiers
-      const dRoot = root instanceof URL ? '' : root.tags.find(([name]) => name === 'd')?.[1] ?? '';
-      const dReply = reply instanceof URL ? '' : reply?.tags.find(([name]) => name === 'd')?.[1] ?? '';
-
-      // Root event tags
+      // For URL roots, we need to handle differently
       if (root instanceof URL) {
-        tags.push(['i', root.toString()]);
-      } else if (NKinds.addressable(root.kind)) {
-        tags.push(['a', `${root.kind}:${root.pubkey}:${dRoot}`]);
-      } else if (NKinds.replaceable(root.kind)) {
-        tags.push(['a', `${root.kind}:${root.pubkey}:`]);
+        // For URL-based roots, use the URL as a reference
+        tags.push(['r', root.toString()]);
       } else {
-        tags.push(['e', root.id]);
-      }
-      if (root instanceof URL) {
-        tags.push(['k', root.hostname]);
-      } else {
-        tags.push(['k', root.kind.toString()]);
+        // NIP-10 threading: Add root event reference
+        tags.push(['e', root.id, '', 'root']);
         tags.push(['p', root.pubkey]);
       }
 
-      // Reply event tags
+      // If replying to another comment, add reply reference (NIP-10)
       if (reply) {
-        if (reply instanceof URL) {
-          tags.push(['i', reply.toString()]);
-        } else if (NKinds.addressable(reply.kind)) {
-          tags.push(['a', `${reply.kind}:${reply.pubkey}:${dReply}`]);
-        } else if (NKinds.replaceable(reply.kind)) {
-          tags.push(['a', `${reply.kind}:${reply.pubkey}:`]);
-        } else {
-          tags.push(['e', reply.id]);
-        }
-        if (reply instanceof URL) {
-          tags.push(['k', reply.hostname]);
-        } else {
-          tags.push(['k', reply.kind.toString()]);
-          tags.push(['p', reply.pubkey]);
-        }
-      } else {
-        // If this is a top-level comment, use the root event's tags
-        if (root instanceof URL) {
-          tags.push(['i', root.toString()]);
-        } else if (NKinds.addressable(root.kind)) {
-          tags.push(['a', `${root.kind}:${root.pubkey}:${dRoot}`]);
-        } else if (NKinds.replaceable(root.kind)) {
-          tags.push(['a', `${root.kind}:${root.pubkey}:`]);
-        } else {
-          tags.push(['e', root.id]);
-        }
-        if (root instanceof URL) {
-          tags.push(['k', root.hostname]);
-        } else {
-          tags.push(['k', root.kind.toString()]);
-          tags.push(['p', root.pubkey]);
-        }
+        tags.push(['e', reply.id, '', 'reply']);
+        tags.push(['p', reply.pubkey]);
       }
+
+      // Add client tag for identification
+      tags.push(['client', 'spookstr']);
 
       const event = await publishEvent({
         event: {
-          kind: 1111,
+          kind: 1, // Use kind 1 for NIP-10 compliant text notes
           content,
           tags,
         }
