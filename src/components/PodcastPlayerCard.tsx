@@ -11,14 +11,13 @@ export default function PodcastPlayerCard() {
           <span>Coast to Coast AM Podcast</span>
         </CardTitle>
       </CardHeader>
-      
+
       <CardContent className="p-4">
-        <iframe 
-          title="" 
-          height="300" 
-          width="100%" 
-          src="https://www.iheart.com/podcast/coast-to-coast-18899828/?embed=true&theme=dark&ihrnetwork=true&episodeCount=10" 
-          allow="autoplay" 
+        <iframe
+          allow="autoplay"
+          width="100%"
+          height="300"
+          src="https://www.iheart.com/podcast/1100-the-best-of-coast-to-coas-18899828/?embed=true"
           frameborder="0"
         ></iframe>
       </CardContent>

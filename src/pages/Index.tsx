@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { RotateCcw, Ghost, Plus } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import PodcastPlayerCard from '@/components/PodcastPlayerCard';
+import { ParanormalPodcastsCarousel } from '@/components/ParanormalPodcastsCarousel';
 
 const Index = () => {
   useSeoMeta({
@@ -62,8 +62,6 @@ const Index = () => {
   return (
     <div className="min-h-screen">
       <SpookstrHeader />
-
-
 
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -175,6 +173,9 @@ const Index = () => {
               <DeveloperTip />
             </div>
 
+            {/* Paranormal Podcasts Carousel */}
+            <ParanormalPodcastsCarousel />
+
             <div className="border border-lime-500/20 rounded-lg p-6 bg-black/40 backdrop-blur-sm">
               <h3 className="text-lg font-semibold text-lime-400 mb-4">
                 Paranormal Categories
@@ -202,9 +203,6 @@ const Index = () => {
                 </div>
               </div>
             </div>
-
-            {/* NEW Podcast Player Card */}
-            <PodcastPlayerCard />
 
             <div className="border border-lime-500/20 rounded-lg p-4 bg-black/40 backdrop-blur-sm">
               <div className="text-center">
