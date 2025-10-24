@@ -69,6 +69,17 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
         limit: 200,
       }], { signal });
 
+      // Debug log for initial query results
+      console.log('🔍 [useRealtimeInteractions] Initial query results:', {
+        eventId,
+        totalEvents: events.length,
+        likes: events.filter(e => e.kind === 7).length,
+        reposts: events.filter(e => e.kind === 6).length,
+        zaps: events.filter(e => e.kind === 9735).length,
+        comments: events.filter(e => e.kind === 1 || e.kind === 1111).length,
+        eventKinds: events.map(e => e.kind)
+      });
+
       // Process counts in JavaScript
       return {
         likes: events.filter(e => e.kind === 7).length,
@@ -92,16 +103,28 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
     const abortController = new AbortController();
     subscriptionRef.current = abortController;
 
-    // Subscribe to new interaction events
-    const subscription = nostr.req([{
-      kinds: [6, 7, 9735, 1, 1111],
-      '#e': [eventId],
-      limit: 0, // No limit for subscription
-    }], { signal: abortController.signal });
-
-    (async () => {
+    // Subscribe to new interaction events with a more robust approach
+    const setupSubscription = async () => {
       try {
+        const subscription = nostr.req([{
+          kinds: [6, 7, 9735, 1, 1111],
+          '#e': [eventId],
+          limit: 0, // No limit for subscription
+        }], { signal: abortController.signal });
+
         for await (const event of subscription) {
+          // Debug log for received events
+          console.log('📡 [useRealtimeInteractions] Received real-time event:', {
+            kind: event.kind,
+            id: event.id,
+            eventId: eventId,
+            kindName: event.kind === 6 ? 'repost' :
+                     event.kind === 7 ? 'like' :
+                     event.kind === 9735 ? 'zap receipt' :
+                     event.kind === 1 ? 'reply' :
+                     event.kind === 1111 ? 'comment' : 'unknown'
+          });
+
           // Update the query cache with new counts from real-time events
           queryClient.setQueryData(['post-interactions', eventId], (oldData: InteractionCounts | undefined) => {
             if (!oldData) {
@@ -136,12 +159,22 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
           });
         }
       } catch (error) {
-        // Subscription was aborted or error occurred
-        if (error !== 'AbortError') {
+        // Don't log AbortError as it's expected during cleanup
+        if (error !== 'AbortError' && error.name !== 'AbortError') {
           console.error('Real-time subscription error:', error);
         }
       }
-    })();
+    };
+
+    setupSubscription();
+
+    // Set up periodic refetch as a fallback
+    const refetchInterval = setInterval(() => {
+      if (abortController.signal.aborted) return;
+
+      // Refetch the interaction counts periodically as a fallback
+      queryClient.invalidateQueries({ queryKey: ['post-interactions', eventId] });
+    }, 30000); // Refetch every 30 seconds as fallback
 
     // Cleanup function
     return () => {
@@ -149,6 +182,7 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
         subscriptionRef.current.abort();
         subscriptionRef.current = null;
       }
+      clearInterval(refetchInterval);
     };
   }, [eventId, nostr, queryClient]);
 
