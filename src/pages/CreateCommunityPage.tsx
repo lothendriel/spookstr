@@ -3,6 +3,7 @@ import { CreateCommunityDefinition } from '@/components/CreateCommunityDefinitio
 import { CommunityManagement } from '@/components/CommunityManagement';
 import { useCommunity } from '@/hooks/useCommunity';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { useNavigate, useParams } from 'react-router-dom';
 
 // Import the predefined communities data
@@ -27,7 +28,9 @@ export default function CreateCommunityPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-6">
+      <div className="min-h-screen">
+        <SpookstrHeader />
+        <div className="container mx-auto px-4 py-6">
         <div className="max-w-2xl mx-auto">
           <Card className="border-purple-500/20 bg-black/40 backdrop-blur-sm">
             <CardContent className="p-8">
@@ -36,6 +39,7 @@ export default function CreateCommunityPage() {
               <Skeleton className="h-4 w-3/4" />
             </CardContent>
           </Card>
+          </div>
         </div>
       </div>
     );
@@ -46,8 +50,10 @@ export default function CreateCommunityPage() {
 
   if (existingCommunity) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="max-w-2xl mx-auto">
+      <div className="min-h-screen">
+        <SpookstrHeader />
+        <div className="container mx-auto px-4 py-6">
+          <div className="max-w-2xl mx-auto">
           <Card className="border-purple-500/20 bg-black/40 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="text-purple-400 text-center">
@@ -71,6 +77,7 @@ export default function CreateCommunityPage() {
               </div>
             </CardContent>
           </Card>
+                  </div>
         </div>
       </div>
     );
@@ -79,8 +86,10 @@ export default function CreateCommunityPage() {
   // If no predefined community data found, show a generic creation form
   if (!predefinedCommunity) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="max-w-2xl mx-auto">
+      <div className="min-h-screen">
+        <SpookstrHeader />
+        <div className="container mx-auto px-4 py-6">
+          <div className="max-w-2xl mx-auto">
           <Card className="border-purple-500/20 bg-black/40 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="text-purple-400 text-center">
@@ -97,14 +106,18 @@ export default function CreateCommunityPage() {
               />
             </CardContent>
           </Card>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen">
+      <SpookstrHeader />
+
+      <main className="container mx-auto px-4 py-6">
+        <div className="max-w-2xl mx-auto">
         <Card className="border-purple-500/20 bg-black/40 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="text-purple-400 text-center">
@@ -123,6 +136,7 @@ export default function CreateCommunityPage() {
           </CardContent>
         </Card>
       </div>
+      </main>
     </div>
   );
 }

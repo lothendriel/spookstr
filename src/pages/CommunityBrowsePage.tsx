@@ -12,6 +12,7 @@ import { genUserName } from '@/lib/genUserName';
 import { useCommunity, CommunityDefinition } from '@/hooks/useCommunity';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
+import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { Users, Search, Plus, Ghost, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -91,8 +92,11 @@ export default function CommunityBrowsePage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen">
+      <SpookstrHeader />
+
+      <main className="container mx-auto px-4 py-6">
+        <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
@@ -214,6 +218,7 @@ export default function CommunityBrowsePage() {
           </div>
         </div>
       </div>
+      </main>
     </div>
   );
 }

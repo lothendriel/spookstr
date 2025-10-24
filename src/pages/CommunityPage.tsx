@@ -11,6 +11,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useState, useEffect } from 'react';
 import { useCommunity, useCommunityPosts, CommunityDefinition, CommunityPost } from '@/hooks/useCommunity';
+import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { MessageCircle, Settings, RefreshCw, Clock } from 'lucide-react';
 import { CommunityManagement } from '@/components/CommunityManagement';
 
@@ -86,13 +87,16 @@ export default function CommunityPage() {
 
   if (communityLoading) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto">
-          <Skeleton className="h-48 w-full mb-6" />
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full" />
-            ))}
+      <div className="min-h-screen">
+        <SpookstrHeader />
+        <div className="container mx-auto px-4 py-6">
+          <div className="max-w-4xl mx-auto">
+            <Skeleton className="h-48 w-full mb-6" />
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-32 w-full" />
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -103,8 +107,10 @@ export default function CommunityPage() {
     // Show different message if we just created the community
     if (justCreated) {
       return (
-        <div className="container mx-auto px-4 py-6">
-          <div className="max-w-4xl mx-auto text-center">
+        <div className="min-h-screen">
+          <SpookstrHeader />
+          <div className="container mx-auto px-4 py-6">
+            <div className="max-w-4xl mx-auto text-center">
             <Card className="border-purple-500/20 bg-black/40 backdrop-blur-sm">
               <CardContent className="py-12">
                 <Clock className="h-16 w-16 text-purple-500/60 mx-auto mb-4 animate-pulse" />
@@ -137,12 +143,15 @@ export default function CommunityPage() {
             </Card>
           </div>
         </div>
-      );
+      </div>
+    );
     }
 
     return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto text-center">
+      <div className="min-h-screen">
+        <SpookstrHeader />
+        <div className="container mx-auto px-4 py-6">
+          <div className="max-w-4xl mx-auto text-center">
           <Card className="border-purple-500/20 bg-black/40 backdrop-blur-sm">
             <CardContent className="py-12">
               <h1 className="text-2xl font-bold mb-4 text-purple-400">Community not found</h1>
@@ -165,14 +174,18 @@ export default function CommunityPage() {
               </div>
             </CardContent>
           </Card>
+                  </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen">
+      <SpookstrHeader />
+
+      <main className="container mx-auto px-4 py-6">
+        <div className="max-w-4xl mx-auto">
         {/* Community Header */}
         <Card className="mb-6 overflow-hidden">
           {community.image && (
@@ -277,6 +290,7 @@ export default function CommunityPage() {
           )}
         </div>
       </div>
+      </main>
     </div>
   );
 }
