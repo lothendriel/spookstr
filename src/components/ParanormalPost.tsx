@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
+import { useRealtimeInteractions } from '@/hooks/useRealtimeInteractions';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,30 +50,8 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const [isQuoteDialogOpen, setIsQuoteDialogOpen] = useState(false);
   const [quoteContent, setQuoteContent] = useState('');
 
-  // Fetch all interaction counts in a single query
-  const { nostr } = useNostr();
-
-  const { data: interactionCounts, isLoading: isLoadingCounts } = useQuery({
-    queryKey: ['post-interactions', event.id],
-    queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
-
-      // Single query with all interaction kinds
-      const events = await nostr.query([{
-        kinds: [6, 7, 9734, 1, 1111], // reposts, likes, zaps, text note replies, comments
-        '#e': [event.id],
-        limit: 200,
-      }], { signal });
-
-      // Process counts in JavaScript
-      return {
-        likes: events.filter(e => e.kind === 7).length,
-        reposts: events.filter(e => e.kind === 6).length,
-        zaps: events.filter(e => e.kind === 9734).length,
-        comments: events.filter(e => e.kind === 1 || e.kind === 1111).length,
-      };
-    },
-  });
+  // Fetch all interaction counts with real-time updates
+  const { data: interactionCounts, isLoading: isLoadingCounts } = useRealtimeInteractions(event.id);
 
   const likeCount = interactionCounts?.likes || 0;
   const repostCount = interactionCounts?.reposts || 0;
