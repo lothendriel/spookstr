@@ -27,7 +27,7 @@ export function CreatePostModal({ children }: CreatePostModalProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="p-0">
-          <CreateParanormalPost />
+          <CreateParanormalPost onSuccess={() => setOpen(false)} />
         </div>
       </DialogContent>
     </Dialog>

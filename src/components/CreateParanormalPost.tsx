@@ -28,7 +28,11 @@ const PARANORMAL_TAGS = [
   'extraterrestrial'
 ];
 
-export function CreateParanormalPost() {
+interface CreateParanormalPostProps {
+  onSuccess?: () => void;
+}
+
+export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
   const { user } = useCurrentUser();
   const { mutate: createEvent, isPending } = useNostrPublish();
   const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
@@ -162,12 +166,20 @@ export function CreateParanormalPost() {
         tags
       },
       options: postToSpookstr2Only ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
-    });
+    }, {
+      onSuccess: () => {
+        // Reset form state
+        setContent('');
+        setSelectedTags([]);
+        setUploadedFiles([]);
+        setPostToSpookstr2Only(false);
 
-    setContent('');
-    setSelectedTags([]);
-    setUploadedFiles([]);
-    setPostToSpookstr2Only(false);
+        // Call the success callback to close the modal
+        if (onSuccess) {
+          onSuccess();
+        }
+      }
+    });
   };
 
   if (!user) {
