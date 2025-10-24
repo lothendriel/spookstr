@@ -33,6 +33,28 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return new NRelay1(url);
       },
       reqRouter(filters) {
+        // For profile metadata (kind 0) and contact lists (kind 3), query from multiple relays
+        const needsMultiRelayQuery = filters.some(filter =>
+          filter.kinds?.some(kind => [0, 3].includes(kind))
+        );
+
+        if (needsMultiRelayQuery) {
+          const multiRelays = new Set<string>([relayUrl.current]);
+
+          // Add preset relays for important queries, but limit to prevent too many requests
+          for (const { url } of (presetRelays ?? [])) {
+            multiRelays.add(url);
+            if (multiRelays.size >= 3) { // Limit to 3 relays for important queries
+              break;
+            }
+          }
+
+          const kinds = filters.flatMap(f => f.kinds || []);
+          console.log(`🔍 Querying kinds [${kinds.join(', ')}] from multiple relays:`, [...multiRelays]);
+          return new Map([...multiRelays].map(url => [url, filters]));
+        }
+
+        // For all other queries, use only the selected relay
         return new Map([[relayUrl.current, filters]]);
       },
       eventRouter(_event: NostrEvent) {

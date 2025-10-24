@@ -22,16 +22,21 @@ export function useAuthor(pubkey: string | undefined) {
         return {};
       }
 
+      console.log('🔍 Fetching author profile for pubkey:', pubkey);
+
       const [event] = await nostr.query(
         [{ kinds: [0], authors: [pubkey!], limit: 1 }],
         {
-          signal: AbortSignal.any([signal, AbortSignal.timeout(3000)]),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]),
         },
       );
 
       if (!event) {
+        console.warn('⚠️ No profile event found for pubkey:', pubkey);
         return {};
       }
+
+      console.log('✅ Profile event found for pubkey:', pubkey, 'Event ID:', event.id);
 
       try {
         const metadata = n.json().pipe(n.metadata()).parse(event.content);
@@ -41,8 +46,10 @@ export function useAuthor(pubkey: string | undefined) {
           const cacheKey = `author-${pubkey}`;
           localStorage.setItem(cacheKey, JSON.stringify(result));
         }
+        console.log('✅ Profile metadata parsed successfully for:', pubkey);
         return result;
-      } catch {
+      } catch (error) {
+        console.error('❌ Failed to parse profile metadata for:', pubkey, error);
         // Return event without metadata if parsing fails
         return { event };
       }
