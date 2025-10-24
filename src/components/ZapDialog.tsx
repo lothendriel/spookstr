@@ -339,6 +339,14 @@ export const ZapDialog = memo(({ target, children, className }: ZapDialogProps) 
 
       // Invalidate zap queries to refresh counts
       queryClient.invalidateQueries({ queryKey: ['zaps'] });
+
+      // Trigger optimistic update for interaction counts
+      queryClient.setQueryData(['post-interactions', target.id], (oldData: any) => {
+        if (!oldData) {
+          return { likes: 0, reposts: 0, zaps: 1, comments: 0 };
+        }
+        return { ...oldData, zaps: oldData.zaps + 1 };
+      });
     } catch (error) {
       console.error('WebLN payment failed:', error);
       setIsPaying(false);

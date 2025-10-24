@@ -648,6 +648,14 @@ export function useZaps(
             // Invalidate zap queries to refresh counts
             queryClient.invalidateQueries({ queryKey: ['zaps'] });
 
+            // Trigger optimistic update for interaction counts
+            queryClient.setQueryData(['post-interactions', actualTarget.id], (oldData: any) => {
+              if (!oldData) {
+                return { likes: 0, reposts: 0, zaps: 1, comments: 0 };
+              }
+              return { ...oldData, zaps: oldData.zaps + 1 };
+            });
+
             // Close dialog last to ensure clean state
             onZapSuccess?.();
             return;
@@ -691,6 +699,14 @@ export function useZaps(
 
             // Invalidate zap queries to refresh counts
             queryClient.invalidateQueries({ queryKey: ['zaps'] });
+
+            // Trigger optimistic update for interaction counts
+            queryClient.setQueryData(['post-interactions', actualTarget.id], (oldData: any) => {
+              if (!oldData) {
+                return { likes: 0, reposts: 0, zaps: 1, comments: 0 };
+              }
+              return { ...oldData, zaps: oldData.zaps + 1 };
+            });
 
             // Close dialog last to ensure clean state
             onZapSuccess?.();

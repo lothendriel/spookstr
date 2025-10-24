@@ -29,7 +29,7 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
         return {
           likes: kind === 7 ? increment : 0,
           reposts: kind === 6 ? increment : 0,
-          zaps: kind === 9734 ? increment : 0,
+          zaps: kind === 9735 ? increment : 0,
           comments: (kind === 1 || kind === 1111) ? increment : 0,
         };
       }
@@ -43,7 +43,7 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
         case 6: // Repost
           newCounts.reposts += increment;
           break;
-        case 9734: // Zap
+        case 9735: // Zap
           newCounts.zaps += increment;
           break;
         case 1: // Text note reply
@@ -64,7 +64,7 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
 
       // Single query with all interaction kinds
       const events = await nostr.query([{
-        kinds: [6, 7, 9734, 1, 1111], // reposts, likes, zaps, text note replies, comments
+        kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps (9735), text note replies, comments
         '#e': [eventId],
         limit: 200,
       }], { signal });
@@ -73,7 +73,7 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
       return {
         likes: events.filter(e => e.kind === 7).length,
         reposts: events.filter(e => e.kind === 6).length,
-        zaps: events.filter(e => e.kind === 9734).length,
+        zaps: events.filter(e => e.kind === 9735).length,
         comments: events.filter(e => e.kind === 1 || e.kind === 1111).length,
       };
     },
@@ -94,7 +94,7 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
 
     // Subscribe to new interaction events
     const subscription = nostr.req([{
-      kinds: [6, 7, 9734, 1, 1111],
+      kinds: [6, 7, 9735, 1, 1111],
       '#e': [eventId],
       limit: 0, // No limit for subscription
     }], { signal: abortController.signal });
@@ -109,7 +109,7 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
               return {
                 likes: event.kind === 7 ? 1 : 0,
                 reposts: event.kind === 6 ? 1 : 0,
-                zaps: event.kind === 9734 ? 1 : 0,
+                zaps: event.kind === 9735 ? 1 : 0,
                 comments: (event.kind === 1 || event.kind === 1111) ? 1 : 0,
               };
             }
@@ -123,7 +123,7 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
               case 6: // Repost
                 newCounts.reposts += 1;
                 break;
-              case 9734: // Zap
+              case 9735: // Zap
                 newCounts.zaps += 1;
                 break;
               case 1: // Text note reply
