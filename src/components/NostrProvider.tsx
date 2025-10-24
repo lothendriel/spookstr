@@ -33,17 +33,17 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return new NRelay1(url);
       },
       reqRouter(filters) {
-        // For profile metadata, community definitions, and interaction events, query multiple relays
+        // For profile metadata, community definitions, and interaction events with specific event references, query multiple relays
         const isMultiRelayQuery = filters.some(filter =>
           filter.kinds?.includes(0) || // Profile metadata
           filter.kinds?.includes(10000) || // Contact list
           filter.kinds?.includes(10002) || // Relay list
           filter.kinds?.includes(34550) || // Community definitions
-          filter.kinds?.includes(6) || // Reposts
-          filter.kinds?.includes(7) || // Likes
-          filter.kinds?.includes(9735) || // Zap receipts
-          filter.kinds?.includes(1) || // Text note replies
-          filter.kinds?.includes(1111) // Comments
+          (filter.kinds?.includes(6) && filter['#e']) || // Reposts with event reference
+          (filter.kinds?.includes(7) && filter['#e']) || // Likes with event reference
+          (filter.kinds?.includes(9735) && filter['#e']) || // Zap receipts with event reference
+          (filter.kinds?.includes(1) && filter['#e']) || // Text note replies with event reference
+          (filter.kinds?.includes(1111) && filter['#e']) // Comments with event reference
         );
 
         if (isMultiRelayQuery) {
@@ -63,7 +63,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
           return relayMap;
         }
 
-        // For other queries, use only the selected relay
+        // For other queries (including main feed), use only the selected relay
         return new Map([[relayUrl.current, filters]]);
       },
       eventRouter(_event: NostrEvent) {
