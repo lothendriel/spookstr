@@ -2,18 +2,16 @@ import { useState } from 'react';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { useParanormalReplies } from '@/hooks/useParanormalFeed';
-import { ParanormalPost } from './ParanormalPost';
 import { NoteContent } from '@/components/NoteContent';
 import { ZapButton } from '@/components/ZapButton';
 import { ZapDialog } from '@/components/ZapDialog';
-import { ArrowLeft, Send, Heart, Repeat, MessageCircle, Zap } from 'lucide-react';
+import { CommentsSection } from '@/components/comments/CommentsSection';
+import { ArrowLeft, Heart, Repeat, MessageCircle, Zap } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { genUserName } from '@/lib/genUserName';
 import { useNavigate } from 'react-router-dom';
@@ -29,10 +27,8 @@ interface PostDetailViewProps {
 export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const author = useAuthor(event.pubkey);
   const { user } = useCurrentUser();
-  const { mutate: createEvent, isPending } = useNostrPublish();
-  const { data: replies = [] } = useParanormalReplies(event.id);
+  const { mutate: createEvent } = useNostrPublish();
   const navigate = useNavigate();
-  const [replyContent, setReplyContent] = useState('');
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
 
@@ -100,22 +96,8 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
     setReposted(true);
   };
 
-  const handleReply = () => {
-    if (!user || !replyContent.trim()) return;
-
-    createEvent({
-      event: {
-        kind: 1,
-        content: replyContent.trim(),
-        tags: [['e', event.id], ['p', event.pubkey]]
-      }
-    });
-
-    setReplyContent('');
-  };
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center space-x-4">
         <Button
           variant="ghost"
@@ -202,7 +184,7 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
                   className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
                 >
                   <MessageCircle className="h-4 w-4" />
-                  <span className="text-xs">{replies.length}</span>
+                  <span className="text-xs">{interactionCounts?.comments || 0}</span>
                 </Button>
 
                 {hasLightningAddress ? (
@@ -231,56 +213,15 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
         </CardContent>
       </Card>
 
-      {/* Reply Form */}
-      {user && (
-        <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm">
-          <CardContent className="p-4">
-            <div className="space-y-3">
-              <Textarea
-                placeholder="Share your thoughts on this paranormal experience..."
-                value={replyContent}
-                onChange={(e) => setReplyContent(e.target.value)}
-                className="bg-black/20 border-lime-500/30 text-lime-100 placeholder:text-lime-500/50 resize-none"
-                rows={3}
-              />
-
-              <div className="flex justify-end">
-                <Button
-                  onClick={handleReply}
-                  disabled={!replyContent.trim() || isPending}
-                  className="bg-lime-500 hover:bg-lime-400 text-black font-semibold"
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  {isPending ? 'Posting...' : 'Reply'}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Replies */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-lime-400">
-          Replies ({replies.length})
-        </h3>
-
-        {replies.length === 0 ? (
-          <Card className="border-dashed border-lime-500/20 bg-black/20">
-            <CardContent className="p-6 text-center">
-              <p className="text-lime-500/60">No replies yet. Be the first to share your thoughts!</p>
-            </CardContent>
-          </Card>
-        ) : (
-          replies.map((reply) => (
-            <ParanormalPost
-              key={reply.id}
-              event={reply}
-              showActions={true}
-            />
-          ))
-        )}
-      </div>
+      {/* Threaded Comments Section */}
+      <CommentsSection
+        root={event}
+        title="Discussion"
+        emptyStateMessage="No replies yet. Be the first to share your thoughts on this paranormal experience!"
+        emptyStateSubtitle="Start the conversation..."
+        className="border-lime-500/20 bg-black/40 backdrop-blur-sm"
+        limit={100}
+      />
     </div>
   );
 }

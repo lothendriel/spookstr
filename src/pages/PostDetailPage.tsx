@@ -1,30 +1,22 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { NoteContent } from '@/components/NoteContent';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useNostr } from '@/hooks/useNostr';
-import { useState } from 'react';
-import { useCommunity, useCommunityComments, CommunityPost } from '@/hooks/useCommunity';
-import { ArrowLeft, MessageCircle, Send } from 'lucide-react';
-import { Textarea } from '@/components/ui/textarea';
+import { useCommunity } from '@/hooks/useCommunity';
+import { ArrowLeft } from 'lucide-react';
+import { CommentsSection } from '@/components/comments/CommentsSection';
+import type { NostrEvent } from '@nostrify/nostrify';
 
 export default function PostDetailPage() {
   const { communityId, postId } = useParams<{ communityId: string; postId: string }>();
   const navigate = useNavigate();
-  const { user } = useCurrentUser();
-  const { mutate: createEvent } = useNostrPublish();
   const { nostr } = useNostr();
-  const [commentContent, setCommentContent] = useState('');
-  const [isReplying, setIsReplying] = useState(false);
-  const [replyTo, setReplyTo] = useState<CommunityPost | null>(null);
 
   // Fetch community definition
   const { data: community, isLoading: communityLoading } = useCommunity(communityId);
@@ -48,61 +40,10 @@ export default function PostDetailPage() {
         throw new Error('Post not found');
       }
 
-      const event = events[0];
-      return {
-        id: event.id,
-        pubkey: event.pubkey,
-        content: event.content,
-        created_at: event.created_at,
-        tags: event.tags
-      } as CommunityPost;
+      return events[0];
     },
     enabled: !!postId
   });
-
-  // Fetch comments for this post
-  const { data: comments, isLoading: commentsLoading } = useCommunityComments(postId);
-
-  const handleComment = async (content: string, parentPost?: CommunityPost) => {
-    if (!user || !community || !content.trim() || !post) return;
-
-    try {
-      const tags = [
-        // Primary community association (NIP-72 standard)
-        ['a', `34550:${community.author}:${community.id}`],
-
-        // Community categorization
-        ['t', 'community'],
-        ['t', 'spookstr'],
-        ['t', community.id],
-        ['t', 'paranormal'],
-
-        // NIP-10 threading: root post reference
-        ['e', post.id, '', 'root', post.pubkey],
-        ['p', post.pubkey],
-
-        // NIP-10 threading: parent post reference (if replying to a comment)
-        ...(parentPost ? [
-          ['e', parentPost.id, '', 'reply', parentPost.pubkey],
-          ['p', parentPost.pubkey]
-        ] : [])
-      ];
-
-      await createEvent({
-        event: {
-          kind: 1, // Use kind 1 for replies to kind 1 posts (NIP-10)
-          content: content.trim(),
-          tags
-        }
-      });
-
-      setCommentContent('');
-      setReplyTo(null);
-      setIsReplying(false);
-    } catch (error) {
-      console.error('Failed to create comment:', error);
-    }
-  };
 
   if (communityLoading || postLoading) {
     return (
@@ -146,83 +87,22 @@ export default function PostDetailPage() {
         {/* Main Post */}
         <PostCard post={post} isMainPost={true} />
 
-        {/* Comment Section */}
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <MessageCircle className="h-5 w-5" />
-              <span>Comments</span>
-              <Badge variant="secondary">{comments?.length || 0}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Comment Input */}
-            {user && (
-              <div className="space-y-3">
-                <Textarea
-                  value={commentContent}
-                  onChange={(e) => setCommentContent(e.target.value)}
-                  placeholder={replyTo ? `Replying to @${replyTo.pubkey.slice(0, 8)}...` : 'Add a comment...'}
-                  className="min-h-[80px]"
-                />
-                <div className="flex justify-end space-x-2">
-                  {replyTo && (
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setReplyTo(null);
-                        setCommentContent('');
-                      }}
-                    >
-                      Cancel Reply
-                    </Button>
-                  )}
-                  <Button
-                    onClick={() => handleComment(commentContent, replyTo)}
-                    disabled={!commentContent.trim()}
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    {replyTo ? 'Reply' : 'Comment'}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Comments List */}
-            {commentsLoading ? (
-              <div className="space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <Skeleton key={i} className="h-24 w-full" />
-                ))}
-              </div>
-            ) : comments && comments.length > 0 ? (
-              <div className="space-y-4">
-                {comments.map((comment) => (
-                  <CommentCard
-                    key={comment.id}
-                    comment={comment}
-                    onReply={(comment) => {
-                      setReplyTo(comment);
-                      setIsReplying(true);
-                      setCommentContent(`@${comment.pubkey.slice(0, 8)} `);
-                    }}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No comments yet. Be the first to share your thoughts!
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Threaded Comments Section */}
+        <CommentsSection
+          root={post}
+          title="Discussion"
+          emptyStateMessage="No comments yet. Be the first to share your thoughts!"
+          emptyStateSubtitle="Start the conversation..."
+          className="mt-6 border-lime-500/20 bg-black/40 backdrop-blur-sm"
+          limit={100}
+        />
       </div>
     </div>
   );
 }
 
 interface PostCardProps {
-  post: CommunityPost;
+  post: NostrEvent;
   isMainPost?: boolean;
 }
 
@@ -234,7 +114,7 @@ function PostCard({ post, isMainPost = false }: PostCardProps) {
   const profileImage = metadata?.picture;
 
   return (
-    <Card className={isMainPost ? 'border-lime-500/30' : ''}>
+    <Card className={isMainPost ? 'border-lime-500/30 bg-black/50 backdrop-blur-sm' : ''}>
       <CardHeader>
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
@@ -242,8 +122,8 @@ function PostCard({ post, isMainPost = false }: PostCardProps) {
             <AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div>
-            <div className="font-medium">{displayName}</div>
-            <div className="text-sm text-muted-foreground">
+            <div className="font-medium text-lime-400">{displayName}</div>
+            <div className="text-sm text-lime-500/60">
               {new Date(post.created_at * 1000).toLocaleDateString()} at{' '}
               {new Date(post.created_at * 1000).toLocaleTimeString()}
             </div>
@@ -251,77 +131,13 @@ function PostCard({ post, isMainPost = false }: PostCardProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="whitespace-pre-wrap break-words">
+        <div className="whitespace-pre-wrap break-words text-lime-100">
           <NoteContent
-            event={{
-              id: post.id,
-              pubkey: post.pubkey,
-              content: post.content,
-              created_at: post.created_at,
-              tags: post.tags,
-              kind: 1111,
-              sig: ''
-            }}
+            event={post}
             className="text-base"
           />
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-interface CommentCardProps {
-  comment: CommunityPost;
-  onReply: (comment: CommunityPost) => void;
-}
-
-function CommentCard({ comment, onReply }: CommentCardProps) {
-  const author = useAuthor(comment.pubkey);
-  const metadata = author.data?.metadata;
-
-  const displayName = metadata?.name || genUserName(comment.pubkey);
-  const profileImage = metadata?.picture;
-
-  return (
-    <div className="flex gap-3">
-      <Avatar className="h-8 w-8 flex-shrink-0">
-        <AvatarImage src={profileImage} alt={displayName} />
-        <AvatarFallback className="text-xs">
-          {displayName.charAt(0).toUpperCase()}
-        </AvatarFallback>
-      </Avatar>
-      <div className="flex-1">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="font-medium text-sm">{displayName}</span>
-          <span className="text-xs text-muted-foreground">
-            {new Date(comment.created_at * 1000).toLocaleString()}
-          </span>
-        </div>
-        <div className="bg-muted/50 rounded-lg p-3 mb-2">
-          <div className="whitespace-pre-wrap break-words text-sm">
-            <NoteContent
-              event={{
-                id: comment.id,
-                pubkey: comment.pubkey,
-                content: comment.content,
-                created_at: comment.created_at,
-                tags: comment.tags,
-                kind: 1111,
-                sig: ''
-              }}
-              className="text-sm"
-            />
-          </div>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onReply(comment)}
-          className="text-xs h-6 px-2"
-        >
-          Reply
-        </Button>
-      </div>
-    </div>
   );
 }
