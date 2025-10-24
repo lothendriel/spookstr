@@ -103,9 +103,17 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
     const abortController = new AbortController();
     subscriptionRef.current = abortController;
 
+    console.log('📡 [useRealtimeInteractions] Setting up real-time subscription for event:', eventId);
+
     // Subscribe to new interaction events with a more robust approach
     const setupSubscription = async () => {
       try {
+        console.log('🔍 [useRealtimeInteractions] Creating subscription with filters:', {
+          kinds: [6, 7, 9735, 1, 1111],
+          '#e': [eventId],
+          limit: 0
+        });
+
         const subscription = nostr.req([{
           kinds: [6, 7, 9735, 1, 1111],
           '#e': [eventId],
@@ -161,7 +169,9 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
       } catch (error) {
         // Don't log AbortError as it's expected during cleanup
         if (error !== 'AbortError' && error.name !== 'AbortError') {
-          console.error('Real-time subscription error:', error);
+          console.error('❌ [useRealtimeInteractions] Real-time subscription error:', error);
+        } else {
+          console.log('🛑 [useRealtimeInteractions] Subscription aborted (expected cleanup)');
         }
       }
     };

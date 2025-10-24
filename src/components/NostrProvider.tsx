@@ -33,12 +33,17 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return new NRelay1(url);
       },
       reqRouter(filters) {
-        // For profile metadata (kind 0) and community definitions (kind 34550), query multiple relays to increase chances of finding data
+        // For profile metadata, community definitions, and interaction events, query multiple relays
         const isMultiRelayQuery = filters.some(filter =>
           filter.kinds?.includes(0) || // Profile metadata
           filter.kinds?.includes(10000) || // Contact list
           filter.kinds?.includes(10002) || // Relay list
-          filter.kinds?.includes(34550) // Community definitions
+          filter.kinds?.includes(34550) || // Community definitions
+          filter.kinds?.includes(6) || // Reposts
+          filter.kinds?.includes(7) || // Likes
+          filter.kinds?.includes(9735) || // Zap receipts
+          filter.kinds?.includes(1) || // Text note replies
+          filter.kinds?.includes(1111) // Comments
         );
 
         if (isMultiRelayQuery) {
