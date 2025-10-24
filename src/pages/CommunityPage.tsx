@@ -45,18 +45,17 @@ export default function CommunityPage() {
     try {
       await createEvent({
         event: {
-          kind: 1111,
+          kind: 1, // Use kind 1 for regular posts so they appear in all clients
           content: postContent,
           tags: [
-            // Community references (uppercase for root scope)
-            ['A', `34550:${community.author}:${community.id}`],
-            ['P', community.author],
-            ['K', '34550'],
+            // Community categorization using t tags (standard Nostr practice)
+            ['t', 'community'],
+            ['t', 'spookstr'],
+            ['t', community.id],
+            ['t', 'paranormal'],
 
-            // Same community references (lowercase for parent scope)
-            ['a', `34550:${community.author}:${community.id}`],
-            ['p', community.author],
-            ['k', '34550']
+            // Community reference for Spookstr-specific functionality
+            ['a', `34550:${community.author}:${community.id}`]
           ]
         }
       });

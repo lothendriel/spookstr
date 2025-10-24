@@ -37,9 +37,10 @@ export default function PostDetailPage() {
 
       const signal = AbortSignal.timeout(5000);
 
-      // Query for the specific post by ID
+      // Query for the specific post by ID (kind 1)
       const events = await nostr.query([{
         ids: [postId],
+        kinds: [1],
         limit: 1
       }], { signal });
 
@@ -67,20 +68,26 @@ export default function PostDetailPage() {
 
     try {
       const tags = [
-        // Community references (uppercase for root scope)
-        ['A', `34550:${community.author}:${community.id}`],
-        ['P', community.author],
-        ['K', '34550'],
+        // Community categorization
+        ['t', 'community'],
+        ['t', 'spookstr'],
+        ['t', community.id],
+        ['t', 'paranormal'],
 
-        // Parent post reference
-        ['e', parentPost?.id || post.id],
-        ['p', parentPost?.pubkey || post.pubkey],
-        ['k', parentPost?.tags?.find(tag => tag[0] === 'k')?.[1] || '1111']
+        // NIP-10 threading: root post reference
+        ['e', post.id, '', 'root', post.pubkey],
+        ['p', post.pubkey],
+
+        // NIP-10 threading: parent post reference (if replying to a comment)
+        ...(parentPost ? [
+          ['e', parentPost.id, '', 'reply', parentPost.pubkey],
+          ['p', parentPost.pubkey]
+        ] : [])
       ];
 
       await createEvent({
         event: {
-          kind: 1111,
+          kind: 1, // Use kind 1 for replies to kind 1 posts (NIP-10)
           content: content.trim(),
           tags
         }

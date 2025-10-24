@@ -32,9 +32,9 @@ export function useCommunity(communityId?: string) {
     queryKey: ['community', communityId],
     queryFn: async () => {
       if (!communityId) throw new Error('No community ID provided');
-      
+
       const signal = AbortSignal.timeout(5000);
-      
+
       // Query for community definition (kind 34550)
       const events = await nostr.query([{
         kinds: [34550],
@@ -96,11 +96,11 @@ export function useCommunityPosts(communityId?: string, communityAuthor?: string
       if (!communityId || !communityAuthor) return [];
 
       const signal = AbortSignal.timeout(5000);
-      
-      // Query for community posts (kind 1111 with community a tag)
+
+      // Query for community posts (kind 1 with community t tags)
       const events = await nostr.query([{
-        kinds: [1111],
-        '#a': [`34550:${communityAuthor}:${communityId}`],
+        kinds: [1],
+        '#t': [communityId], // Filter by community ID
         limit: 50
       }], { signal });
 
@@ -125,10 +125,10 @@ export function useCommunityComments(parentEventId?: string, parentEventAuthor?:
       if (!parentEventId) return [];
 
       const signal = AbortSignal.timeout(5000);
-      
-      // Query for comments/replies (kind 1111 with e tag pointing to parent)
+
+      // Query for comments/replies (kind 1 with e tag pointing to parent)
       const events = await nostr.query([{
-        kinds: [1111],
+        kinds: [1],
         '#e': [parentEventId],
         limit: 100
       }], { signal });
