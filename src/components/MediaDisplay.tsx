@@ -708,7 +708,7 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
         };
 
         return (
-          <div className="relative rounded-lg overflow-hidden bg-black">
+          <div className="relative rounded-lg overflow-hidden bg-black group">
             <div className="relative" style={{ paddingBottom: '0' }}>
               <iframe
                 className="w-full rounded-lg"
@@ -721,11 +721,11 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
                 onError={handleMediaError}
               />
             </div>
-            <div className="absolute bottom-2 right-2">
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-8 w-8 p-0 text-white hover:bg-white/20 bg-black/60"
+                className="h-8 w-8 p-0 text-white hover:bg-white/20 bg-black/60 backdrop-blur-sm"
                 onClick={() => window.open(media.url, '_blank')}
               >
                 <ExternalLink className="h-4 w-4" />

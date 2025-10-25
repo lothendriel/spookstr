@@ -11,13 +11,29 @@ import { NoteContent } from '@/components/NoteContent';
 import { ZapButton } from '@/components/ZapButton';
 import { ZapDialog } from '@/components/ZapDialog';
 import { CommentsSection } from '@/components/comments/CommentsSection';
-import { ArrowLeft, Heart, Repeat, MessageCircle, Zap } from 'lucide-react';
+import { ArrowLeft, Heart, Repeat, MessageCircle, Zap, Quote, RadioTower } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { genUserName } from '@/lib/genUserName';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface PostDetailViewProps {
   event: NostrEvent;
@@ -31,6 +47,9 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const navigate = useNavigate();
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
+  const [isQuoteDialogOpen, setIsQuoteDialogOpen] = useState(false);
+  const [quoteContent, setQuoteContent] = useState('');
+  const [postToSpookstr2Only, setPostToSpookstr2Only] = useState(false);
 
   // Fetch all interaction counts in a single query
   const { nostr } = useNostr();
@@ -89,26 +108,53 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
     createEvent({
       event: {
         kind: 6,
-        content: '',
+        content: JSON.stringify(event),
         tags: [['e', event.id], ['p', event.pubkey]]
       }
     });
     setReposted(true);
   };
 
+  const handleQuoteRepost = () => {
+    if (!user) return;
+    setIsQuoteDialogOpen(true);
+  };
+
+  const handleQuoteSubmit = () => {
+    if (!user || !quoteContent.trim()) return;
+
+    // Create quote repost with q tag
+    createEvent({
+      event: {
+        kind: 1,
+        content: `${quoteContent}\n\nnostr:${nip19.noteEncode(event.id)}`,
+        tags: [
+          ['q', event.id, '', event.pubkey],
+          ['p', event.pubkey]
+        ]
+      },
+      options: postToSpookstr2Only ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
+    });
+    setQuoteContent('');
+    setIsQuoteDialogOpen(false);
+    setReposted(true);
+    setPostToSpookstr2Only(false); // Reset the checkbox
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <Button
-          variant="ghost"
-          onClick={onBack}
-          className="text-lime-400 hover:text-lime-300 hover:bg-lime-500/10"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back
-        </Button>
-        <h2 className="text-xl font-bold text-lime-400">Post Details</h2>
-      </div>
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center space-x-4">
+          <Button
+            variant="ghost"
+            onClick={onBack}
+            className="text-lime-400 hover:text-lime-300 hover:bg-lime-500/10"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
+          <h2 className="text-xl font-bold text-lime-400">Post Details</h2>
+        </div>
 
       {/* Main Post */}
       <Card className="border-lime-500/30 bg-black/50 backdrop-blur-sm">
@@ -167,16 +213,35 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
                   <span className="text-xs">{likeCount}</span>
                 </Button>
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRepost}
-                  disabled={!user}
-                  className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
-                >
-                  <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
-                  <span className="text-xs">{repostCount}</span>
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={!user}
+                      className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
+                    >
+                      <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
+                      <span className="text-xs">{repostCount}</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem
+                      onClick={handleRepost}
+                      className="flex items-center space-x-2"
+                    >
+                      <Repeat className="h-4 w-4" />
+                      <span>Repost</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={handleQuoteRepost}
+                      className="flex items-center space-x-2"
+                    >
+                      <Quote className="h-4 w-4" />
+                      <span>Quote Repost</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 <Button
                   variant="ghost"
@@ -213,15 +278,87 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
         </CardContent>
       </Card>
 
-      {/* Threaded Comments Section */}
-      <CommentsSection
-        root={event}
-        title="Discussion"
-        emptyStateMessage="No replies yet. Be the first to share your thoughts on this paranormal experience!"
-        emptyStateSubtitle="Start the conversation..."
-        className="border-lime-500/20 bg-black/40 backdrop-blur-sm"
-        limit={100}
-      />
-    </div>
+        {/* Threaded Comments Section */}
+        <CommentsSection
+          root={event}
+          title="Discussion"
+          emptyStateMessage="No replies yet. Be the first to share your thoughts on this paranormal experience!"
+          emptyStateSubtitle="Start the conversation..."
+          className="border-lime-500/20 bg-black/40 backdrop-blur-sm"
+          limit={100}
+        />
+      </div>
+
+      {/* Quote Repost Dialog */}
+      <Dialog open={isQuoteDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsQuoteDialogOpen(false);
+          setPostToSpookstr2Only(false); // Reset checkbox when dialog is closed
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Quote Repost</DialogTitle>
+            <DialogDescription>
+              Add your thoughts about this post. The original post will be quoted below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              placeholder="What do you think about this post?"
+              value={quoteContent}
+              onChange={(e) => setQuoteContent(e.target.value)}
+              className="min-h-[100px] resize-none"
+            />
+            <div className="p-3 bg-lime-500/10 rounded-lg border border-lime-500/20">
+              <p className="text-xs text-lime-500/60 mb-1">Original post:</p>
+              <p className="text-sm text-lime-100 line-clamp-3">
+                {event.content.substring(0, 150)}
+                {event.content.length > 150 && '...'}
+              </p>
+            </div>
+
+            {/* Spookstr2 Relay Option */}
+            <div className="flex items-start space-x-3 p-4 border border-lime-500/20 rounded-lg bg-black/10">
+              <div className="flex items-center h-5">
+                <Checkbox
+                  id="spookstr2-only-quote"
+                  checked={postToSpookstr2Only}
+                  onCheckedChange={(checked) => setPostToSpookstr2Only(checked as boolean)}
+                  className="border-lime-500/50 data-[state=checked]:bg-lime-500 data-[state=checked]:border-lime-500"
+                />
+              </div>
+              <div className="flex-1 space-y-1">
+                <label htmlFor="spookstr2-only-quote" className="text-sm font-medium text-lime-300 cursor-pointer flex items-center gap-2">
+                  <RadioTower className="h-4 w-4" />
+                  Post to Spookstr2 Relay Only
+                </label>
+                <p className="text-xs text-lime-500/60">
+                  When checked, your quote repost will only be published to the Spookstr2 relay. Uncheck to publish to all relays.
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsQuoteDialogOpen(false);
+                setPostToSpookstr2Only(false); // Reset checkbox when canceled
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleQuoteSubmit}
+              disabled={!quoteContent.trim()}
+              className="bg-lime-500 hover:bg-lime-600 text-black"
+            >
+              Quote Repost
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
