@@ -113,7 +113,7 @@ export function PopOutPodcastPlayer() {
 
         {/* Content */}
         <CardContent className="p-0">
-          <div id="popout-iframe-container" className="scale-90 origin-top">
+          <div id="popout-iframe-container" className="scale-90 origin-top h-[120px]">
             {/* Iframe will be moved here from main container */}
           </div>
         </CardContent>

@@ -51,34 +51,45 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   };
 
   const moveIframeToPopout = (currentIndex: number) => {
-    if (iframeRef.current) {
-      const iframe = iframeRef.current;
-      const popoutContainer = document.getElementById('popout-iframe-container');
-      if (popoutContainer && iframe.parentNode !== popoutContainer) {
-        // Make iframe visible again
-        iframe.classList.remove('invisible');
-        // Clone the iframe to preserve its state
-        const clonedIframe = iframe.cloneNode(true) as HTMLIFrameElement;
-        iframeRef.current = clonedIframe;
-        popoutContainer.innerHTML = '';
-        popoutContainer.appendChild(clonedIframe);
-      }
+    const originalIframe = document.querySelector(`iframe[data-podcast-index="${currentIndex}"]`) as HTMLIFrameElement;
+    const popoutContainer = document.getElementById('popout-iframe-container');
+
+    if (originalIframe && popoutContainer && originalIframe.parentNode !== popoutContainer) {
+      // Store the original parent for later
+      const originalParent = originalIframe.parentNode;
+
+      // Move the iframe to popout
+      originalIframe.classList.remove('invisible');
+      originalIframe.style.height = '120px'; // Set minimal height for popout
+      popoutContainer.innerHTML = '';
+      popoutContainer.appendChild(originalIframe);
+
+      // Update reference
+      iframeRef.current = originalIframe;
+
+      // Store original parent and height for return
+      (originalIframe as any)._originalParent = originalParent;
+      (originalIframe as any)._originalHeight = '400px';
     }
   };
 
   const moveIframeToMain = (currentIndex: number) => {
-    if (iframeRef.current) {
-      const iframe = iframeRef.current;
-      const originalIframe = document.querySelector(`iframe[data-podcast-index="${currentIndex}"]`) as HTMLIFrameElement;
-      if (originalIframe && originalIframe !== iframe) {
-        // Replace the original iframe with the popped out one to preserve state
-        const parent = originalIframe.parentNode;
-        if (parent) {
-          parent.replaceChild(iframe, originalIframe);
-          // Update the data attribute
-          iframe.setAttribute('data-podcast-index', currentIndex.toString());
-        }
-      }
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const originalParent = (iframe as any)._originalParent;
+    const originalHeight = (iframe as any)._originalHeight;
+
+    if (originalParent && iframe.parentNode !== originalParent) {
+      // Restore original height
+      iframe.style.height = originalHeight || '400px';
+
+      // Move back to original position
+      originalParent.appendChild(iframe);
+
+      // Clean up stored data
+      delete (iframe as any)._originalParent;
+      delete (iframe as any)._originalHeight;
     }
   };
 

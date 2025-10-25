@@ -61,11 +61,9 @@ export function ParanormalPodcastsCarousel() {
       moveIframeToMain(currentIndex);
       togglePopOut();
     } else {
-      // If not popped out, open popout
-      setTimeout(() => {
-        moveIframeToPopout(currentIndex);
-        togglePopOut();
-      }, 100); // Small delay to ensure iframe is available
+      // If not popped out, open popout immediately
+      moveIframeToPopout(currentIndex);
+      togglePopOut();
     }
   };
 
