@@ -7,6 +7,7 @@ import { genUserName } from '@/lib/genUserName';
 import { cn } from '@/lib/utils';
 import { parseMediaFromContent } from '@/lib/mediaParser';
 import { MediaDisplay } from '@/components/MediaDisplay';
+import { shouldBlockPost } from '@/lib/contentFilter';
 
 interface NoteContentProps {
   event: NostrEvent;
@@ -18,16 +19,24 @@ export function NoteContent({
   event,
   className,
 }: NoteContentProps) {
-  // Process the content to render mentions, links, media, and hashtags
+  // Check if post should be blocked due to prohibited hashtags
+  const blockCheck = shouldBlockPost(event.content);
+  if (blockCheck.shouldBlock) {
+    return (
+      <div className={cn("text-muted-foreground italic p-4 border border-red-200 bg-red-50 rounded-lg", className)}>
+        This post has been hidden due to prohibited content.
+      </div>
+    );
+  }
+
+  // Process content to render mentions, links, media, and hashtags
   const content = useMemo(() => {
     const text = event.content;
 
-    // First, extract media items from the content
+    // First, extract media items from content
     const mediaItems = parseMediaFromContent(text);
 
-
-
-    // If no media found, use the original logic
+    // If no media found, use original logic
     if (mediaItems.length === 0) {
       return processTextContent(text);
     }
@@ -40,168 +49,155 @@ export function NoteContent({
     // Create a Set of URLs that are being handled as media or links
     const skipUrls = new Set(mediaItems.map(item => item.url));
 
-    // Sort media items by their position in the text (earlier first)
+    // Sort media items by their position in text (earlier first)
     const sortedMedia = [...mediaItems].sort((a, b) => {
       const indexA = text.indexOf(a.url);
       const indexB = text.indexOf(b.url);
       return indexA - indexB;
     });
 
-    // Process each media item and the text around it
-    sortedMedia.forEach((media) => {
-      const mediaIndex = processedText.indexOf(media.url);
+    // Process each media item
+    for (const mediaItem of sortedMedia) {
+      const url = mediaItem.url;
+      const urlIndex = processedText.indexOf(url);
 
-      if (mediaIndex > 0) {
-        // Add text before the media URL
-        const beforeText = processedText.substring(0, mediaIndex);
-        parts.push(...processTextContent(beforeText, keyCounter, skipUrls));
-        keyCounter += beforeText.split(/\s+/).length; // Rough estimate for key increment
+      if (urlIndex !== -1) {
+        // Add text before the URL
+        const beforeText = processedText.substring(0, urlIndex);
+        if (beforeText) {
+          parts.push(processTextContent(beforeText, keyCounter++));
+        }
+
+        // Add the media display
+        parts.push(<MediaDisplay key={`media-${keyCounter++}`} media={mediaItem} />);
+
+        // Remove the processed part
+        processedText = processedText.substring(urlIndex + url.length);
       }
+    }
 
-      // Add the media display component
-      parts.push(
-        <MediaDisplay
-          key={`media-${keyCounter++}`}
-          media={media}
-        />
-      );
-
-      // Remove the processed part from the text
-      processedText = processedText.substring(mediaIndex + media.url.length);
-    });
-
-    // Add any remaining text
-    if (processedText.trim()) {
-      parts.push(...processTextContent(processedText, keyCounter, skipUrls));
+    // Add remaining text
+    if (processedText) {
+      parts.push(processTextContent(processedText, keyCounter++));
     }
 
     return parts;
   }, [event]);
 
-  return (
-    <div className={cn("whitespace-pre-wrap break-words", className)}>
-      {content.length > 0 ? content : event.content}
-    </div>
-  );
+  return <div className={cn("break-words", className)}>{content}</div>;
 }
 
-// Helper function to process text content (URLs, mentions, hashtags)
-function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> = new Set()): React.ReactNode[] {
+/**
+ * Processes text content to render mentions, hashtags, and links
+ */
+function processTextContent(text: string, keyOffset = 0): React.ReactNode {
   const parts: React.ReactNode[] = [];
-
-  // Regex to find URLs, Nostr references, and hashtags
-  const regex = /(https?:\/\/[^\s]+)|(nostr:(npub1|note1|nprofile1|nevent1)[023456789acdefghjklmnpqrstuvwxyz]+)|(#\w+)/g;
-
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
+  let currentText = text;
   let keyCounter = keyOffset;
 
-  while ((match = regex.exec(text)) !== null) {
-    const fullMatch = match[0];
-    const url = match[1];
-    const nostrRef = match[2];
-    const hashtag = match[4]; // Group 4 is the hashtag
-    const index = match.index;
+  // Process mentions (nostr:npub1...)
+  const mentionRegex = /nostr:(npub1[a-z0-9]{58})/gi;
+  let mentionMatch;
+  while ((mentionMatch = mentionRegex.exec(currentText)) !== null) {
+    const [fullMatch, npub] = mentionMatch;
+    const matchIndex = mentionMatch.index!;
 
-    // Add text before this match
-    if (index > lastIndex) {
-      parts.push(text.substring(lastIndex, index));
+    // Add text before the mention
+    if (matchIndex > 0) {
+      const beforeText = currentText.substring(0, matchIndex);
+      parts.push(beforeText);
     }
 
-    if (url) {
-      // Skip URLs that are already handled as media or links
-      if (skipUrls.has(url)) {
-        parts.push(url);
-      } else {
-        // Handle URLs
-        parts.push(
-          <a
-            key={`url-${keyCounter++}`}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-500 hover:underline"
-          >
-            {url}
-          </a>
-        );
-      }
-    } else if (nostrRef) {
-      // Handle Nostr references
-      try {
-        // Remove the "nostr:" prefix
-        const nostrId = nostrRef.substring(6);
-        const decoded = nip19.decode(nostrId);
+    // Add the mention link
+    try {
+      const hex = nip19.decode(npub);
+      parts.push(
+        <Link
+          key={`mention-${keyCounter++}`}
+          to={`/${npub}`}
+          className="text-blue-500 hover:text-blue-600 font-medium"
+        >
+          @{genUserName(hex)}
+        </Link>
+      );
+    } catch {
+      // If mention is invalid, just show the raw text
+      parts.push(fullMatch);
+    }
 
-        if (decoded.type === 'npub') {
-          const pubkey = decoded.data;
-          parts.push(
-            <NostrMention key={`mention-${keyCounter++}`} pubkey={pubkey} />
-          );
-        } else {
-          // For other types, just show as a link
-          parts.push(
-            <Link
-              key={`nostr-${keyCounter++}`}
-              to={`/${nostrId}`}
-              className="text-blue-500 hover:underline"
-            >
-              {fullMatch}
-            </Link>
-          );
-        }
-      } catch {
-        // If decoding fails, just render as text
-        parts.push(fullMatch);
-      }
-    } else if (hashtag) {
-      // Handle hashtags
-      const tag = hashtag.slice(1); // Remove the #
+    // Remove the processed part
+    currentText = currentText.substring(matchIndex + fullMatch.length);
+  }
+
+  // Process hashtags (#hashtag)
+  const hashtagRegex = /#([a-zA-Z0-9_]+)/g;
+  let hashtagMatch;
+  const processedHashtags = new Set<string>();
+  while ((hashtagMatch = hashtagRegex.exec(currentText)) !== null) {
+    const [fullMatch, hashtag] = hashtagMatch;
+    const matchIndex = hashtagMatch.index!;
+
+    // Add text before the hashtag
+    if (matchIndex > 0) {
+      const beforeText = currentText.substring(0, matchIndex);
+      parts.push(beforeText);
+    }
+
+    // Add the hashtag link (only if not already processed)
+    const hashtagLower = hashtag.toLowerCase();
+    if (!processedHashtags.has(hashtagLower)) {
+      processedHashtags.add(hashtagLower);
       parts.push(
         <Link
           key={`hashtag-${keyCounter++}`}
-          to={`/t/${tag}`}
-          className="text-blue-500 hover:underline"
+          to={`/t/${hashtag}`}
+          className="text-blue-500 hover:text-blue-600 font-medium"
         >
-          {hashtag}
+          #{hashtag}
         </Link>
       );
+    } else {
+      parts.push(fullMatch);
     }
 
-    lastIndex = index + fullMatch.length;
+    // Remove the processed part
+    currentText = currentText.substring(matchIndex + fullMatch.length);
   }
 
-  // Add any remaining text
-  if (lastIndex < text.length) {
-    parts.push(text.substring(lastIndex));
+  // Process URLs (http/https)
+  const urlRegex = /https?:\/\/[^\s]+/gi;
+  let urlMatch;
+  while ((urlMatch = urlRegex.exec(currentText)) !== null) {
+    const [fullMatch, url] = urlMatch;
+    const matchIndex = urlMatch.index!;
+
+    // Add text before the URL
+    if (matchIndex > 0) {
+      const beforeText = currentText.substring(0, matchIndex);
+      parts.push(beforeText);
+    }
+
+    // Add the URL link
+    parts.push(
+      <a
+        key={`url-${keyCounter++}`}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-500 hover:text-blue-600 underline"
+      >
+        {url}
+      </a>
+    );
+
+    // Remove the processed part
+    currentText = currentText.substring(matchIndex + fullMatch.length);
   }
 
-  // If no special content was found, just use the plain text
-  if (parts.length === 0) {
-    parts.push(text);
+  // Add remaining text
+  if (currentText) {
+    parts.push(currentText);
   }
 
-  return parts;
-}
-
-// Helper component to display user mentions
-function NostrMention({ pubkey }: { pubkey: string }) {
-  const author = useAuthor(pubkey);
-  const npub = nip19.npubEncode(pubkey);
-  const hasRealName = !!author.data?.metadata?.name;
-  const displayName = author.data?.metadata?.name ?? genUserName(pubkey);
-
-  return (
-    <Link
-      to={`/${npub}`}
-      className={cn(
-        "font-medium hover:underline",
-        hasRealName
-          ? "text-blue-500"
-          : "text-gray-500 hover:text-gray-700"
-      )}
-    >
-      @{displayName}
-    </Link>
-  );
+  return <>{parts}</>;
 }

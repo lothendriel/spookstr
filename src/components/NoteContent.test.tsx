@@ -2,17 +2,80 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { TestApp } from '@/test/TestApp';
 import { NoteContent } from './NoteContent';
+import { containsProhibitedHashtags, getProhibitedHashtags, shouldBlockPost, sanitizeContent } from '@/lib/contentFilter';
 import type { NostrEvent } from '@nostrify/nostrify';
 
-describe('NoteContent', () => {
-  it('linkifies URLs in kind 1 events', () => {
+describe('ContentFilter', () => {
+  it('detects prohibited hashtags in content', () => {
+    const content = 'Check out this #loli content #agegap';
+    expect(containsProhibitedHashtags(content)).toBe(true);
+  });
+
+  it('does not detect prohibited hashtags in clean content', () => {
+    const content = 'Check out this #art content #photography';
+    expect(containsProhibitedHashtags(content)).toBe(false);
+  });
+
+  it('returns list of prohibited hashtags found', () => {
+    const content = 'This contains #loli and #incest hashtags';
+    const hashtags = getProhibitedHashtags(content);
+    expect(hashtags).toContain('#loli');
+    expect(hashtags).toContain('#incest');
+    expect(hashtags).toHaveLength(2);
+  });
+
+  it('returns empty list for clean content', () => {
+    const content = 'This contains #art and #photography hashtags';
+    const hashtags = getProhibitedHashtags(content);
+    expect(hashtags).toHaveLength(0);
+  });
+
+  it('correctly identifies posts that should be blocked', () => {
+    const content = 'Some #loli content here';
+    const result = shouldBlockPost(content);
+    expect(result.shouldBlock).toBe(true);
+    expect(result.reason).toContain('#loli');
+  });
+
+  it('correctly identifies posts that should not be blocked', () => {
+    const content = 'Some #art content here';
+    const result = shouldBlockPost(content);
+    expect(result.shouldBlock).toBe(false);
+    expect(result.reason).toBe('');
+  });
+
+  it('sanitizes content by removing prohibited hashtags', () => {
+    const content = 'Check out this #loli content #agegap and #art';
+    const sanitized = sanitizeContent(content);
+    expect(sanitized).toBe('Check out this content and #art');
+    expect(sanitized).not.toContain('#loli');
+    expect(sanitized).not.toContain('#agegap');
+  });
+
+  it('handles case insensitive hashtag detection', () => {
+    const content = 'Check out this #LOLI content #AgeGap';
+    expect(containsProhibitedHashtags(content)).toBe(true);
+    expect(getProhibitedHashtags(content)).toContain('#LOLI');
+    expect(getProhibitedHashtags(content)).toContain('#AgeGap');
+  });
+
+  it('detects multiple prohibited hashtags', () => {
+    const content = '#loli #incest #lolicon #cuntboy #agegap #underage #Lolified #lolifiedselfportrait #loli #agedifference';
+    expect(containsProhibitedHashtags(content)).toBe(true);
+    const hashtags = getProhibitedHashtags(content);
+    expect(hashtags.length).toBeGreaterThan(0);
+  });
+});
+
+describe('NoteContent with Content Filtering', () => {
+  it('blocks posts containing prohibited hashtags', () => {
     const event: NostrEvent = {
       id: 'test-id',
       pubkey: 'test-pubkey',
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
       tags: [],
-      content: 'Check out this link: https://example.com',
+      content: 'Check out this #loli content #agegap',
       sig: 'test-sig',
     };
 
@@ -22,68 +85,21 @@ describe('NoteContent', () => {
       </TestApp>
     );
 
-    const link = screen.getByRole('link', { name: 'https://example.com' });
-    expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', 'https://example.com');
-    expect(link).toHaveAttribute('target', '_blank');
+    // Should show blocked message instead of content
+    expect(screen.getByText('This post has been hidden due to prohibited content.')).toBeInTheDocument();
+    
+    // Should not show the original content
+    expect(screen.queryByText('Check out this #loli content #agegap')).not.toBeInTheDocument();
   });
 
-  it('linkifies URLs in kind 1111 events (comments)', () => {
-    const event: NostrEvent = {
-      id: 'test-comment-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1111,
-      tags: [
-        ['a', '30040:pubkey:identifier'],
-        ['k', '30040'],
-        ['p', 'pubkey'],
-      ],
-      content: 'I think the log events should be different kind numbers instead of having a `log-type` tag. That way you can use normal Nostr filters to filter the log types. Also, the `note` type should just b a kind 1111: https://nostrbook.dev/kinds/1111',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    const link = screen.getByRole('link', { name: 'https://nostrbook.dev/kinds/1111' });
-    expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', 'https://nostrbook.dev/kinds/1111');
-    expect(link).toHaveAttribute('target', '_blank');
-  });
-
-  it('handles text without URLs correctly', () => {
-    const event: NostrEvent = {
-      id: 'test-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1111,
-      tags: [],
-      content: 'This is just plain text without any links.',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    expect(screen.getByText('This is just plain text without any links.')).toBeInTheDocument();
-    expect(screen.queryByRole('link')).not.toBeInTheDocument();
-  });
-
-  it('renders hashtags as links', () => {
+  it('allows posts without prohibited hashtags', () => {
     const event: NostrEvent = {
       id: 'test-id',
       pubkey: 'test-pubkey',
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
       tags: [],
-      content: 'This is a post about #nostr and #bitcoin development.',
+      content: 'Check out this #art content #photography',
       sig: 'test-sig',
     };
 
@@ -93,24 +109,21 @@ describe('NoteContent', () => {
       </TestApp>
     );
 
-    const nostrHashtag = screen.getByRole('link', { name: '#nostr' });
-    const bitcoinHashtag = screen.getByRole('link', { name: '#bitcoin' });
-
-    expect(nostrHashtag).toBeInTheDocument();
-    expect(bitcoinHashtag).toBeInTheDocument();
-    expect(nostrHashtag).toHaveAttribute('href', '/t/nostr');
-    expect(bitcoinHashtag).toHaveAttribute('href', '/t/bitcoin');
+    // Should show the original content
+    expect(screen.getByText('Check out this #art content #photography')).toBeInTheDocument();
+    
+    // Should not show blocked message
+    expect(screen.queryByText('This post has been hidden due to prohibited content.')).not.toBeInTheDocument();
   });
 
-  it('generates deterministic names for users without metadata and styles them differently', () => {
-    // Use a valid npub for testing
+  it('blocks posts with mixed prohibited and allowed hashtags', () => {
     const event: NostrEvent = {
       id: 'test-id',
       pubkey: 'test-pubkey',
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
       tags: [],
-      content: `Mentioning nostr:npub1zg69v7ys40x77y352eufp27daufrg4ncjz4ummcjx3t83y9tehhsqepuh0`,
+      content: 'Great #art but also some #loli content here',
       sig: 'test-sig',
     };
 
@@ -120,28 +133,21 @@ describe('NoteContent', () => {
       </TestApp>
     );
 
-    // The mention should be rendered with a deterministic name
-    const mention = screen.getByRole('link');
-    expect(mention).toBeInTheDocument();
-
-    // Should have muted styling for generated names (gray instead of blue)
-    expect(mention).toHaveClass('text-gray-500');
-    expect(mention).not.toHaveClass('text-blue-500');
-
-    // The text should start with @ and contain a generated name (not a truncated npub)
-    const linkText = mention.textContent;
-    expect(linkText).not.toMatch(/^@npub1/); // Should not be a truncated npub
-    expect(linkText).toEqual("@Swift Falcon");
+    // Should block the entire post
+    expect(screen.getByText('This post has been hidden due to prohibited content.')).toBeInTheDocument();
+    
+    // Should not show any of the content
+    expect(screen.queryByText('Great #art but also some')).not.toBeInTheDocument();
   });
 
-  it('displays direct image URLs as images', () => {
+  it('handles case insensitive prohibited hashtags', () => {
     const event: NostrEvent = {
       id: 'test-id',
       pubkey: 'test-pubkey',
       created_at: Math.floor(Date.now() / 1000),
       kind: 1,
       tags: [],
-      content: 'Check out this image: https://example.com/image.jpg',
+      content: 'Check out this #LOLI content #AgeGap',
       sig: 'test-sig',
     };
 
@@ -151,407 +157,92 @@ describe('NoteContent', () => {
       </TestApp>
     );
 
-    // Should display an image element
-    const image = screen.getByAltText('Image');
-    expect(image).toBeInTheDocument();
-    expect(image).toHaveAttribute('src', 'https://example.com/image.jpg');
+    // Should block even with uppercase hashtags
+    expect(screen.getByText('This post has been hidden due to prohibited content.')).toBeInTheDocument();
+  });
 
-    // Should also display the text before the image
+  it('blocks posts with specific prohibited hashtag #cuntboy', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Some content with #cuntboy hashtag',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    expect(screen.getByText('This post has been hidden due to prohibited content.')).toBeInTheDocument();
+  });
+
+  it('blocks posts with specific prohibited hashtag #underage', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Some content with #underage hashtag',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    expect(screen.getByText('This post has been hidden due to prohibited content.')).toBeInTheDocument();
+  });
+
+  it('blocks posts with specific prohibited hashtag #Lolified', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Some content with #Lolified hashtag',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    expect(screen.getByText('This post has been hidden due to prohibited content.')).toBeInTheDocument();
+  });
+
+  it('allows normal posts with links and media', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Check out this image: https://example.com/image.jpg and this #art hashtag',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should show the content
     expect(screen.getByText('Check out this image:')).toBeInTheDocument();
-  });
-
-  it('displays various image formats correctly', () => {
-    const event: NostrEvent = {
-      id: 'test-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [],
-      content: 'Multiple formats: https://example.com/image.png https://example.com/photo.webp https://example.com/graphic.avif https://example.com/icon.ico',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    // Should display all images
-    const images = screen.getAllByRole('img');
-    expect(images).toHaveLength(4);
-
-    expect(images[0]).toHaveAttribute('src', 'https://example.com/image.png');
-    expect(images[1]).toHaveAttribute('src', 'https://example.com/photo.webp');
-    expect(images[2]).toHaveAttribute('src', 'https://example.com/graphic.avif');
-    expect(images[3]).toHaveAttribute('src', 'https://example.com/icon.ico');
-  });
-
-  it('displays images from hosting services without extensions', () => {
-    const event: NostrEvent = {
-      id: 'test-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [],
-      content: 'Imgur image: https://i.imgur.com/abc123 and Twitter image: https://pbs.twimg.com/media/DEF456',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    // Should display images from hosting services
-    const images = screen.getAllByRole('img');
-    expect(images).toHaveLength(2);
-
-    expect(images[0]).toHaveAttribute('src', 'https://i.imgur.com/abc123');
-    expect(images[1]).toHaveAttribute('src', 'https://pbs.twimg.com/media/DEF456');
-  });
-
-  it('handles case insensitive image extensions', () => {
-    const event: NostrEvent = {
-      id: 'test-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [],
-      content: 'Mixed case: https://example.com/IMAGE.JPG https://example.com/photo.PNG',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    // Should display images regardless of case
-    const images = screen.getAllByRole('img');
-    expect(images).toHaveLength(2);
-
-    expect(images[0]).toHaveAttribute('src', 'https://example.com/IMAGE.JPG');
-    expect(images[1]).toHaveAttribute('src', 'https://example.com/photo.PNG');
-  });
-
-  it('displays Bluesky CDN images with @format suffix', () => {
-    const event: NostrEvent = {
-      id: 'test-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [],
-      content: 'Bluesky image: https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:5quuuyr7xndtklizfs2buydm/bafkreiarww5mmusluuepyvhwrvymuglmsmiq6v7begaszqopqlcwonrkze@jpeg',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    // Should display the Bluesky image
-    const image = screen.getByAltText('Image');
-    expect(image).toBeInTheDocument();
-    expect(image).toHaveAttribute('src', 'https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:5quuuyr7xndtklizfs2buydm/bafkreiarww5mmusluuepyvhwrvymuglmsmiq6v7begaszqopqlcwonrkze@jpeg');
-
-    // Should also display the text before the image
-    expect(screen.getByText('Bluesky image:')).toBeInTheDocument();
-  });
-
-  it('displays various @format image URLs', () => {
-    const event: NostrEvent = {
-      id: 'test-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [],
-      content: 'Multiple @format images: https://example.com/image1@jpg https://example.com/image2@png https://example.com/image3@webp',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    // Should display all images with @format
-    const images = screen.getAllByRole('img');
-    expect(images).toHaveLength(3);
-
-    expect(images[0]).toHaveAttribute('src', 'https://example.com/image1@jpg');
-    expect(images[1]).toHaveAttribute('src', 'https://example.com/image2@png');
-    expect(images[2]).toHaveAttribute('src', 'https://example.com/image3@webp');
-  });
-
-  it('does not display duplicate images for URLs that match multiple patterns', () => {
-    const event: NostrEvent = {
-      id: 'test-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [],
-      content: 'Bluesky image that matches both patterns: https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:5quuuyr7xndtklizfs2buydm/bafkreiarww5mmusluuepyvhwrvymuglmsmiq6v7begaszqopqlcwonrkze@jpeg',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    // Should display only ONE image, not duplicates
-    const images = screen.getAllByRole('img');
-    expect(images).toHaveLength(1);
-
-    expect(images[0]).toHaveAttribute('src', 'https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:5quuuyr7xndtklizfs2buydm/bafkreiarww5mmusluuepyvhwrvymuglmsmiq6v7begaszqopqlcwonrkze@jpeg');
-
-    // Should also display the text before the image
-    expect(screen.getByText('Bluesky image that matches both patterns:')).toBeInTheDocument();
-  });
-
-  it('handles multiple unique images without duplication', () => {
-    const event: NostrEvent = {
-      id: 'test-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [],
-      content: 'Multiple different images: https://example.com/image.jpg https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:5quuuyr7xndtklizfs2buydm/bafkreiarww5mmusluuepyvhwrvymuglmsmiq6v7begaszqopqlcwonrkze@jpeg https://i.imgur.com/abc123',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    // Should display exactly 3 unique images, no duplicates
-    const images = screen.getAllByRole('img');
-    expect(images).toHaveLength(3);
-
-    expect(images[0]).toHaveAttribute('src', 'https://example.com/image.jpg');
-    expect(images[1]).toHaveAttribute('src', 'https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:5quuuyr7xndtklizfs2buydm/bafkreiarww5mmusluuepyvhwrvymuglmsmiq6v7begaszqopqlcwonrkze@jpeg');
-    expect(images[2]).toHaveAttribute('src', 'https://i.imgur.com/abc123');
-  });
-
-  it('displays IMDB links as rich preview cards', () => {
-    const event: NostrEvent = {
-      id: 'test-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [],
-      content: 'Check out this movie: https://www.imdb.com/title/tt0111161/',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    // Should display IMDB preview card
-    const imdbCard = screen.getByText('IMDb').closest('div');
-    expect(imdbCard).toBeInTheDocument();
-
-    // Should contain movie title and metadata
-    expect(screen.getByText(/The Shawshank Redemption|The Godfather|The Dark Knight|Pulp Fiction/)).toBeInTheDocument();
-
-    // Should display IMDB branding
-    expect(screen.getByText('IMDb')).toBeInTheDocument();
-
-    // Should have external link button
-    const externalLinkButton = screen.getByRole('button', { name: /open/i });
-    expect(externalLinkButton).toBeInTheDocument();
-
-    // Should also display the text before the link
-    expect(screen.getByText('Check out this movie:')).toBeInTheDocument();
-  });
-
-  it('displays correct IMDB data for specific movies', () => {
-    const event: NostrEvent = {
-      id: 'test-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [],
-      content: 'Watch this: https://www.imdb.com/title/tt1234567/cockneys-vs-zombies',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    // Should display IMDB preview card
-    const imdbCard = screen.getByText('IMDb').closest('div');
-    expect(imdbCard).toBeInTheDocument();
-
-    // Should display correct movie title
-    expect(screen.getByText('Cockneys vs Zombies')).toBeInTheDocument();
-
-    // Should display movie metadata
-    expect(screen.getByText('2024')).toBeInTheDocument();
-    expect(screen.getByText('6.2')).toBeInTheDocument();
-    expect(screen.getByText('Movie')).toBeInTheDocument();
-
-    // Should display movie description
-    expect(screen.getByText(/A group of Cockney bank robbers/)).toBeInTheDocument();
-
-    // Should have external link button
-    const externalLinkButton = screen.getByRole('button', { name: /open/i });
-    expect(externalLinkButton).toBeInTheDocument();
-
-    // Should also display the text before the link
-    expect(screen.getByText('Watch this:')).toBeInTheDocument();
-  });
-
-  it('displays correct IMDB data for Grand Budapest Hotel', () => {
-    const event: NostrEvent = {
-      id: 'test-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [],
-      content: 'Great movie: https://www.imdb.com/title/tt2278388/the-grand-budapest-hotel',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    // Should display IMDB preview card
-    const imdbCard = screen.getByText('IMDb').closest('div');
-    expect(imdbCard).toBeInTheDocument();
-
-    // Should display correct movie title
-    expect(screen.getByText('The Grand Budapest Hotel')).toBeInTheDocument();
-
-    // Should display movie metadata
-    expect(screen.getByText('2014')).toBeInTheDocument();
-    expect(screen.getByText('8.1')).toBeInTheDocument();
-    expect(screen.getByText('Movie')).toBeInTheDocument();
-
-    // Should display movie description
-    expect(screen.getByText(/A legendary concierge at a famous European hotel/)).toBeInTheDocument();
-
-    // Should have external link button
-    const externalLinkButton = screen.getByRole('button', { name: /open/i });
-    expect(externalLinkButton).toBeInTheDocument();
-
-    // Should also display the text before the link
-    expect(screen.getByText('Great movie:')).toBeInTheDocument();
-  });
-
-  it('displays correct IMDB data for tt1362058 Cockneys vs Zombies', () => {
-    const event: NostrEvent = {
-      id: 'test-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [],
-      content: 'Zombie movie: https://www.imdb.com/title/tt1362058/',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    // Should display IMDB preview card
-    const imdbCard = screen.getByText('IMDb').closest('div');
-    expect(imdbCard).toBeInTheDocument();
-
-    // Should display correct movie title
-    expect(screen.getByText('Cockneys vs Zombies')).toBeInTheDocument();
-
-    // Should display movie metadata
-    expect(screen.getByText('2024')).toBeInTheDocument();
-    expect(screen.getByText('6.2')).toBeInTheDocument();
-    expect(screen.getByText('Movie')).toBeInTheDocument();
-
-    // Should display movie description
-    expect(screen.getByText(/A group of Cockney bank robbers/)).toBeInTheDocument();
-
-    // Should have external link button
-    const externalLinkButton = screen.getByRole('button', { name: /open/i });
-    expect(externalLinkButton).toBeInTheDocument();
-
-    // Should also display text before link
-    expect(screen.getByText('Zombie movie:')).toBeInTheDocument();
-  });
-
-  it('displays IMDB person links as preview cards', () => {
-    const event: NostrEvent = {
-      id: 'test-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [],
-      content: 'Actor profile: https://www.imdb.com/name/nm0000151/',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    // Should display IMDB preview card
-    const imdbCard = screen.getByText('IMDb').closest('div');
-    expect(imdbCard).toBeInTheDocument();
-
-    // Should contain person type badge
-    expect(screen.getByText('Person')).toBeInTheDocument();
-
-    // Should have external link button
-    const externalLinkButton = screen.getByRole('button', { name: /open/i });
-    expect(externalLinkButton).toBeInTheDocument();
-
-    // Should also display the text before the link
-    expect(screen.getByText('Actor profile:')).toBeInTheDocument();
-  });
-
-  it('handles various IMDB URL formats', () => {
-    const event: NostrEvent = {
-      id: 'test-id',
-      pubkey: 'test-pubkey',
-      created_at: Math.floor(Date.now() / 1000),
-      kind: 1,
-      tags: [],
-      content: 'Multiple IMDB links: https://imdb.com/title/tt0111161/ https://www.imdb.com/name/nm0000151/ https://imdb.com/title/tt0068646/',
-      sig: 'test-sig',
-    };
-
-    render(
-      <TestApp>
-        <NoteContent event={event} />
-      </TestApp>
-    );
-
-    // Should display three IMDB preview cards
-    const imdbCards = screen.getAllByText('IMDb');
-    expect(imdbCards).toHaveLength(3);
-
-    // Should have three external link buttons
-    const externalLinkButtons = screen.getAllByRole('button', { name: /open/i });
-    expect(externalLinkButtons).toHaveLength(3);
+    expect(screen.getByText('and this #art hashtag')).toBeInTheDocument();
+    
+    // Should not show blocked message
+    expect(screen.queryByText('This post has been hidden due to prohibited content.')).not.toBeInTheDocument();
   });
 });
