@@ -13,7 +13,6 @@ import { AppProvider } from '@/components/AppProvider';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { PodcastProvider } from '@/contexts/PodcastContext';
 import { AppConfig } from '@/contexts/AppContext';
-import { RelayComputer } from '@/components/RelayComputer';
 import AppRouter from './AppRouter';
 
 import { ScrollToTop } from '@/components/ScrollToTop';
@@ -63,9 +62,6 @@ export function App() {
                     <Suspense>
                       <AppRouter />
                     </Suspense>
-
-                    {/* Relay computer for computing relays based on user profile */}
-                    <RelayComputer />
 
                     {/* Global pop-out podcast player */}
                     <PopOutPodcastPlayer />
