@@ -15,8 +15,8 @@ interface PodcastContextType {
   togglePopOut: () => void;
   closePopOut: () => void;
   iframeRef: React.RefObject<HTMLIFrameElement | null>;
-  moveIframeToPopout: () => void;
-  moveIframeToMain: () => void;
+  moveIframeToPopout: (currentIndex: number) => void;
+  moveIframeToMain: (currentIndex: number) => void;
 }
 
 const PodcastContext = createContext<PodcastContextType | undefined>(undefined);
@@ -50,7 +50,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     setCurrentPodcast(null);
   };
 
-  const moveIframeToPopout = () => {
+  const moveIframeToPopout = (currentIndex: number) => {
     if (iframeRef.current) {
       const iframe = iframeRef.current;
       const popoutContainer = document.getElementById('popout-iframe-container');
@@ -66,7 +66,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const moveIframeToMain = () => {
+  const moveIframeToMain = (currentIndex: number) => {
     if (iframeRef.current) {
       const iframe = iframeRef.current;
       const originalIframe = document.querySelector(`iframe[data-podcast-index="${currentIndex}"]`) as HTMLIFrameElement;

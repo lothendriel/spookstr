@@ -88,7 +88,20 @@ export function PopOutPodcastPlayer() {
               variant="ghost"
               size="icon"
               onClick={() => {
-                moveIframeToMain();
+                // Find the current podcast index from the carousel
+                const currentPodcastTitle = currentPodcast?.title;
+                const podcastEmbeds = [
+                  { title: "Coast to Coast AM" },
+                  { title: "Sasquatch Chronicles" },
+                  { title: "Strange Familiars" },
+                  { title: "The Confessionals" },
+                  { title: "Bigfoot and Beyond" }
+                ];
+                const currentIndex = podcastEmbeds.findIndex(p => p.title === currentPodcastTitle);
+
+                if (currentIndex !== -1) {
+                  moveIframeToMain(currentIndex);
+                }
                 closePopOut();
               }}
               className="h-6 w-6 text-red-400 hover:text-red-300 hover:bg-red-500/20"
