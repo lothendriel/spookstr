@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useState } from "react";
 
 export default function EventForm() {
@@ -90,7 +91,13 @@ export default function EventForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="space-y-6">
+      <Alert>
+        <AlertDescription>
+          If you would like to share your event with the paranormal community here on Spookstr, please make sure you have the Spookstr relay chosen before posting your event
+        </AlertDescription>
+      </Alert>
+      <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <Label htmlFor="title">Event Title</Label>
         <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
@@ -156,5 +163,6 @@ export default function EventForm() {
         {isPending ? "Creating Event..." : "Create Event"}
       </Button>
     </form>
+    </div>
   );
 }
