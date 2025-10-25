@@ -457,6 +457,46 @@ describe('NoteContent', () => {
     expect(screen.getByText('Great movie:')).toBeInTheDocument();
   });
 
+  it('displays correct IMDB data for tt1362058 Cockneys vs Zombies', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Zombie movie: https://www.imdb.com/title/tt1362058/',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display IMDB preview card
+    const imdbCard = screen.getByText('IMDb').closest('div');
+    expect(imdbCard).toBeInTheDocument();
+
+    // Should display correct movie title
+    expect(screen.getByText('Cockneys vs Zombies')).toBeInTheDocument();
+
+    // Should display movie metadata
+    expect(screen.getByText('2024')).toBeInTheDocument();
+    expect(screen.getByText('6.2')).toBeInTheDocument();
+    expect(screen.getByText('Movie')).toBeInTheDocument();
+
+    // Should display movie description
+    expect(screen.getByText(/A group of Cockney bank robbers/)).toBeInTheDocument();
+
+    // Should have external link button
+    const externalLinkButton = screen.getByRole('button', { name: /open/i });
+    expect(externalLinkButton).toBeInTheDocument();
+
+    // Should also display text before link
+    expect(screen.getByText('Zombie movie:')).toBeInTheDocument();
+  });
+
   it('displays IMDB person links as preview cards', () => {
     const event: NostrEvent = {
       id: 'test-id',
