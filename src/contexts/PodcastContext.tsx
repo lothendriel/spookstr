@@ -55,8 +55,13 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
       const iframe = iframeRef.current;
       const popoutContainer = document.getElementById('popout-iframe-container');
       if (popoutContainer && iframe.parentNode !== popoutContainer) {
+        // Make iframe visible again
+        iframe.classList.remove('invisible');
+        // Clone the iframe to preserve its state
+        const clonedIframe = iframe.cloneNode(true) as HTMLIFrameElement;
+        iframeRef.current = clonedIframe;
         popoutContainer.innerHTML = '';
-        popoutContainer.appendChild(iframe);
+        popoutContainer.appendChild(clonedIframe);
       }
     }
   };
@@ -64,10 +69,15 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   const moveIframeToMain = () => {
     if (iframeRef.current) {
       const iframe = iframeRef.current;
-      const mainContainer = document.getElementById('main-iframe-container');
-      if (mainContainer && iframe.parentNode !== mainContainer) {
-        mainContainer.innerHTML = '';
-        mainContainer.appendChild(iframe);
+      const originalIframe = document.querySelector(`iframe[data-podcast-index="${currentIndex}"]`) as HTMLIFrameElement;
+      if (originalIframe && originalIframe !== iframe) {
+        // Replace the original iframe with the popped out one to preserve state
+        const parent = originalIframe.parentNode;
+        if (parent) {
+          parent.replaceChild(iframe, originalIframe);
+          // Update the data attribute
+          iframe.setAttribute('data-podcast-index', currentIndex.toString());
+        }
       }
     }
   };

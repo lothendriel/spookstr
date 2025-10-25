@@ -52,7 +52,7 @@ export function ParanormalPodcastsCarousel() {
 
   const handlePlayAndPopOut = () => {
     if (!isCurrentPodcastPlaying) {
-      // If we're starting a new podcast, create the iframe
+      // If we're starting a new podcast, set it as current
       playPodcast(currentPodcastData);
     }
 
@@ -62,36 +62,22 @@ export function ParanormalPodcastsCarousel() {
       togglePopOut();
     } else {
       // If not popped out, open popout
-      moveIframeToPopout();
-      togglePopOut();
+      setTimeout(() => {
+        moveIframeToPopout();
+        togglePopOut();
+      }, 100); // Small delay to ensure iframe is available
     }
   };
 
-  // Initialize iframe when podcast is selected
+  // Find and set reference to the current podcast iframe
   useEffect(() => {
-    if (currentPodcast && !iframeRef.current) {
-      const iframe = document.createElement('iframe');
-      iframe.allow = 'autoplay';
-      iframe.width = '100%';
-      iframe.height = '400';
-      iframe.src = currentPodcast.src;
-      iframe.frameBorder = '0';
-      iframeRef.current = iframe;
-
-      const mainContainer = document.getElementById('main-iframe-container');
-      if (mainContainer) {
-        mainContainer.innerHTML = '';
-        mainContainer.appendChild(iframe);
+    if (currentPodcast) {
+      const iframe = document.querySelector(`iframe[data-podcast-index="${currentIndex}"]`) as HTMLIFrameElement;
+      if (iframe && iframe !== iframeRef.current) {
+        iframeRef.current = iframe;
       }
     }
-  }, [currentPodcast, iframeRef]);
-
-  // Clean up iframe when podcast changes
-  useEffect(() => {
-    if (currentPodcast && iframeRef.current && iframeRef.current.src !== currentPodcast.src) {
-      iframeRef.current.src = currentPodcast.src;
-    }
-  }, [currentPodcast, iframeRef]);
+  }, [currentPodcast, currentIndex, iframeRef]);
 
   return (
     <div className="border border-lime-500/20 rounded-lg p-4 bg-black/40 backdrop-blur-sm">
@@ -147,8 +133,28 @@ export function ParanormalPodcastsCarousel() {
           </div>
         ) : (
           // Show iframe player when not popped out
-          <div id="main-iframe-container" className="overflow-x-hidden">
-            {/* Iframe will be dynamically inserted here */}
+          <div className="overflow-x-hidden whitespace-nowrap">
+            <div
+              className="inline-flex transition-transform duration-300 ease-in-out"
+              style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+            >
+              {podcastEmbeds.map((podcast, index) => (
+                <div
+                  key={index}
+                  className="w-[100%] min-w-[100%] inline-block align-top"
+                >
+                  <iframe
+                    allow="autoplay"
+                    width="100%"
+                    height="400"
+                    src={podcast.src}
+                    frameBorder="0"
+                    data-podcast-index={index}
+                    className={currentPodcast?.title === podcast.title && isPoppedOut ? 'invisible' : ''}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
