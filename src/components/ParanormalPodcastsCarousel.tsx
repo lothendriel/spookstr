@@ -94,10 +94,24 @@ export function ParanormalPodcastsCarousel() {
                 key={index}
                 className="w-[100%] min-w-[100%] inline-block align-top"
               >
-                <div
-                  dangerouslySetInnerHTML={{ __html: podcast.embedCode }}
-                  className="mt-2"
-                />
+                {isPoppedOut ? (
+                  <div className="mt-2 h-[400px] flex items-center justify-center border border-lime-500/20 rounded-lg bg-black/20">
+                    <div className="text-center space-y-2">
+                      <div className="w-2 h-2 bg-lime-400 rounded-full animate-pulse mx-auto"></div>
+                      <p className="text-lime-400 text-sm font-medium">
+                        Player in popout mode
+                      </p>
+                      <p className="text-lime-300/60 text-xs">
+                        Close popout to restore player here
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    dangerouslySetInnerHTML={{ __html: podcast.embedCode }}
+                    className="mt-2"
+                  />
+                )}
               </div>
             ))}
           </div>
