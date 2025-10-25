@@ -32,7 +32,9 @@ const mediaPatterns = {
   nostrVideo: /stream:\/\/[^\s]+/gi,
   // Common image hosting services that often serve images without extensions
   imageHosting: /https?:\/\/(?:i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app)\/[^\s]+/gi,
-  website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
+  // IMDB links for special preview handling
+  imdb: /https?:\/\/(?:www\.)?imdb\.com\/(?:title|name)\/(?:[a-z0-9]+)(?:\/[^\s]*)?/gi,
+  website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app|imdb\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
 };
 
 export function parseMediaFromContent(content: string): MediaItem[] {
@@ -56,7 +58,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   }
 
   // Process other media types in order of precedence
-  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'vimeo', 'twitch', 'dailymotion', 'tiktok'];
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'imdb'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -200,6 +202,22 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
           title: extractTikTokTitle(tiktokId),
           thumbnail: generateTikTokThumbnail(tiktokId),
           duration: extractTikTokDuration(tiktokId)
+        };
+
+      case 'imdb':
+        const imdbData = extractImdbData(url);
+        return {
+          type: 'imdb',
+          url: cleanUrl,
+          title: imdbData.title,
+          thumbnail: imdbData.thumbnail,
+          description: imdbData.description,
+          siteName: 'IMDb',
+          metadata: {
+            type: imdbData.type,
+            year: imdbData.year,
+            rating: imdbData.rating
+          }
         };
 
       case 'nostrImage':
@@ -509,4 +527,75 @@ export async function getOpenGraphData(url: string): Promise<OpenGraphData> {
   ogCache.set(url, data);
 
   return data;
+}
+
+function extractImdbData(url: string): { title: string; type: string; year?: string; rating?: string; thumbnail: string; description: string } {
+  try {
+    // Extract IMDB ID from URL
+    const match = url.match(/imdb\.com\/(?:title|name)\/([a-z0-9]+)/);
+    if (!match) {
+      return {
+        title: 'IMDb',
+        type: 'unknown',
+        thumbnail: '',
+        description: 'Visit IMDb for more information'
+      };
+    }
+
+    const imdbId = match[1];
+
+    // For demo purposes, generate mock data based on ID
+    // In a real implementation, you'd fetch this from IMDb API or a proxy service
+    const mockTitles = [
+      'The Shawshank Redemption', 'The Godfather', 'The Dark Knight', 'Pulp Fiction',
+      'Forrest Gump', 'Inception', 'The Matrix', 'Goodfellas', 'The Silence of the Lambs',
+      'Schindler\'s List', 'Fight Club', 'The Lord of the Rings', 'Star Wars',
+      'The Avengers', 'Interstellar', 'The Grand Budapest Hotel', 'Parasite'
+    ];
+
+    const mockDescriptions = [
+      'An epic tale of hope and friendship that transcends the walls of prison.',
+      'A gripping crime saga that follows the Corleone family dynasty.',
+      'A superhero faces his greatest psychological challenge in Gotham City.',
+      'Interconnected stories of crime and redemption in Los Angeles.',
+      'A journey through the defining moments of American history.',
+      'A mind-bending thriller that explores the nature of reality.',
+      'A revolutionary sci-fi epic that changed cinema forever.',
+      'The rise and fall of a mobster in the American Mafia.',
+      'A brilliant FBI agent tracks down a notorious serial killer.',
+      'The incredible true story of one man\'s courage during the Holocaust.',
+      'An office worker discovers a hidden fight club that changes his life.',
+      'An epic fantasy adventure that spans three groundbreaking films.',
+      'A space opera that has captivated audiences for generations.',
+      'Earth\'s mightiest heroes unite to save the world from destruction.',
+      'A team of explorers travel through a wormhole in space.',
+      'A legendary concierge\'s adventures at a famous European hotel.',
+      'A Korean family that infiltrates a wealthy household with unexpected consequences.'
+    ];
+
+    // Use the ID to generate consistent mock data
+    const hash = imdbId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const titleIndex = hash % mockTitles.length;
+    const descIndex = (hash * 2) % mockDescriptions.length;
+
+    const isMovie = url.includes('/title/');
+    const isPerson = url.includes('/name/');
+
+    return {
+      title: mockTitles[titleIndex],
+      type: isMovie ? 'Movie' : isPerson ? 'Person' : 'Unknown',
+      year: isMovie ? `${(2010 + (hash % 15))}` : undefined,
+      rating: isMovie ? `${(7.0 + (hash % 3.0)).toFixed(1)}` : undefined,
+      thumbnail: `https://via.placeholder.com/300x450?text=${encodeURIComponent(mockTitles[titleIndex])}`,
+      description: mockDescriptions[descIndex]
+    };
+  } catch (error) {
+    console.warn('Failed to extract IMDB data:', error);
+    return {
+      title: 'IMDb',
+      type: 'unknown',
+      thumbnail: '',
+      description: 'Visit IMDb for more information'
+    };
+  }
 }

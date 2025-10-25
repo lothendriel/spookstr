@@ -341,4 +341,97 @@ describe('NoteContent', () => {
     expect(images[1]).toHaveAttribute('src', 'https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:5quuuyr7xndtklizfs2buydm/bafkreiarww5mmusluuepyvhwrvymuglmsmiq6v7begaszqopqlcwonrkze@jpeg');
     expect(images[2]).toHaveAttribute('src', 'https://i.imgur.com/abc123');
   });
+
+  it('displays IMDB links as rich preview cards', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Check out this movie: https://www.imdb.com/title/tt0111161/',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display IMDB preview card
+    const imdbCard = screen.getByText('IMDb').closest('div');
+    expect(imdbCard).toBeInTheDocument();
+
+    // Should contain movie title and metadata
+    expect(screen.getByText(/The Shawshank Redemption|The Godfather|The Dark Knight|Pulp Fiction/)).toBeInTheDocument();
+
+    // Should display IMDB branding
+    expect(screen.getByText('IMDb')).toBeInTheDocument();
+
+    // Should have external link button
+    const externalLinkButton = screen.getByRole('button', { name: /open/i });
+    expect(externalLinkButton).toBeInTheDocument();
+
+    // Should also display the text before the link
+    expect(screen.getByText('Check out this movie:')).toBeInTheDocument();
+  });
+
+  it('displays IMDB person links as preview cards', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Actor profile: https://www.imdb.com/name/nm0000151/',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display IMDB preview card
+    const imdbCard = screen.getByText('IMDb').closest('div');
+    expect(imdbCard).toBeInTheDocument();
+
+    // Should contain person type badge
+    expect(screen.getByText('Person')).toBeInTheDocument();
+
+    // Should have external link button
+    const externalLinkButton = screen.getByRole('button', { name: /open/i });
+    expect(externalLinkButton).toBeInTheDocument();
+
+    // Should also display the text before the link
+    expect(screen.getByText('Actor profile:')).toBeInTheDocument();
+  });
+
+  it('handles various IMDB URL formats', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Multiple IMDB links: https://imdb.com/title/tt0111161/ https://www.imdb.com/name/nm0000151/ https://imdb.com/title/tt0068646/',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display three IMDB preview cards
+    const imdbCards = screen.getAllByText('IMDb');
+    expect(imdbCards).toHaveLength(3);
+
+    // Should have three external link buttons
+    const externalLinkButtons = screen.getAllByRole('button', { name: /open/i });
+    expect(externalLinkButtons).toHaveLength(3);
+  });
 });

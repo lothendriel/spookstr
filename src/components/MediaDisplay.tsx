@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { MediaItem } from '@/lib/mediaParser';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, Volume2, VolumeX, Maximize, ExternalLink, Minimize, SkipBack, SkipForward, Settings, PictureInPicture2 } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, ExternalLink, Minimize, SkipBack, SkipForward, Settings, PictureInPicture2, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LinkPreview } from '@/components/LinkPreview';
 
@@ -652,6 +652,77 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
           </div>
         );
 
+      case 'imdb':
+        return (
+          <Card className="bg-gradient-to-br from-yellow-900/20 via-amber-900/10 to-transparent border-amber-500/20 hover:border-amber-500/40 transition-all duration-200 overflow-hidden">
+            <CardContent className="p-0">
+              <div className="flex">
+                {/* Poster/Thumbnail */}
+                <div className="flex-shrink-0 w-24 h-36 bg-amber-500/10 flex items-center justify-center">
+                  {media.thumbnail ? (
+                    <img
+                      src={media.thumbnail}
+                      alt={media.title}
+                      className="w-full h-full object-cover"
+                      onError={handleMediaError}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 flex items-center justify-center">
+                      <Star className="h-8 w-8 text-amber-500/60" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 p-4 min-w-0">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-amber-100 truncate mb-1">
+                        {media.title}
+                      </h3>
+                      <div className="flex items-center space-x-2 text-xs text-amber-500/60">
+                        {media.metadata?.type && (
+                          <span className="bg-amber-500/20 px-2 py-1 rounded">
+                            {media.metadata.type}
+                          </span>
+                        )}
+                        {media.metadata?.year && (
+                          <span>{media.metadata.year}</span>
+                        )}
+                        {media.metadata?.rating && (
+                          <span className="flex items-center space-x-1">
+                            <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                            <span>{media.metadata.rating}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2 ml-2">
+                      <div className="text-xs text-amber-500/60 font-medium">
+                        IMDb
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
+                        onClick={() => window.open(media.url, '_blank')}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {media.description && (
+                    <p className="text-sm text-amber-200/80 line-clamp-2 leading-relaxed">
+                      {media.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+
       case 'link':
         return <LinkPreview media={media} />;
 
@@ -749,5 +820,11 @@ function extractDailymotionId(url: string): string {
 
 function extractTikTokId(url: string): string {
   const match = url.match(/(?:tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/)([a-zA-Z0-9]+)/);
+  return match ? match[1] : '';
+}
+
+// Helper function to extract IMDB ID from URL
+function extractImdbId(url: string): string {
+  const match = url.match(/imdb\.com\/(?:title|name)\/([a-z0-9]+)/);
   return match ? match[1] : '';
 }
