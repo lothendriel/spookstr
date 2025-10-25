@@ -236,4 +236,56 @@ describe('NoteContent', () => {
     expect(images[0]).toHaveAttribute('src', 'https://example.com/IMAGE.JPG');
     expect(images[1]).toHaveAttribute('src', 'https://example.com/photo.PNG');
   });
+
+  it('displays Bluesky CDN images with @format suffix', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Bluesky image: https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:5quuuyr7xndtklizfs2buydm/bafkreiarww5mmusluuepyvhwrvymuglmsmiq6v7begaszqopqlcwonrkze@jpeg',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display the Bluesky image
+    const image = screen.getByAltText('Image');
+    expect(image).toBeInTheDocument();
+    expect(image).toHaveAttribute('src', 'https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:5quuuyr7xndtklizfs2buydm/bafkreiarww5mmusluuepyvhwrvymuglmsmiq6v7begaszqopqlcwonrkze@jpeg');
+
+    // Should also display the text before the image
+    expect(screen.getByText('Bluesky image:')).toBeInTheDocument();
+  });
+
+  it('displays various @format image URLs', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Multiple @format images: https://example.com/image1@jpg https://example.com/image2@png https://example.com/image3@webp',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display all images with @format
+    const images = screen.getAllByRole('img');
+    expect(images).toHaveLength(3);
+
+    expect(images[0]).toHaveAttribute('src', 'https://example.com/image1@jpg');
+    expect(images[1]).toHaveAttribute('src', 'https://example.com/image2@png');
+    expect(images[2]).toHaveAttribute('src', 'https://example.com/image3@webp');
+  });
 });
