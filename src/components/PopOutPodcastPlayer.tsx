@@ -11,25 +11,13 @@ export function PopOutPodcastPlayer() {
     isPoppedOut,
     togglePlayPause,
     togglePopOut,
-    closePopOut
+    closePopOut,
+    moveIframeToMain
   } = usePodcast();
 
   const [position, setPosition] = useState({ x: 20, y: 20 });
   const [isDragging, setIsDragging] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
-
-  // Handle iframe messaging for play/pause state
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      // Handle messages from the iframe if needed
-      if (event.data.type === 'podcast-state') {
-        // Update local state based on iframe messages
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
 
   // Handle drag functionality
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -99,7 +87,10 @@ export function PopOutPodcastPlayer() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={closePopOut}
+              onClick={() => {
+                moveIframeToMain();
+                closePopOut();
+              }}
               className="h-6 w-6 text-red-400 hover:text-red-300 hover:bg-red-500/20"
             >
               <X className="h-3 w-3" />
@@ -109,10 +100,9 @@ export function PopOutPodcastPlayer() {
 
         {/* Content */}
         <CardContent className="p-0">
-          <div
-            dangerouslySetInnerHTML={{ __html: currentPodcast.embedCode.replace('height="400"', 'height="120"') }}
-            className="scale-90 origin-top"
-          />
+          <div id="popout-iframe-container" className="scale-90 origin-top">
+            {/* Iframe will be moved here from main container */}
+          </div>
         </CardContent>
       </Card>
     </div>

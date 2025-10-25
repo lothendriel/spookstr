@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Maximize2, Play } from 'lucide-react';
 import { usePodcast } from '@/contexts/PodcastContext';
@@ -6,29 +6,37 @@ import { usePodcast } from '@/contexts/PodcastContext';
 const podcastEmbeds = [
   {
     title: "Coast to Coast AM",
-    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/1100-the-best-of-coast-to-coas-18899828/?embed=true" frameborder="0"></iframe>`
+    src: "https://www.iheart.com/podcast/1100-the-best-of-coast-to-coas-18899828/?embed=true"
   },
   {
     title: "Sasquatch Chronicles",
-    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/267-sasquatch-chronicles-29414973/?embed=true" frameborder="0"></iframe>`
+    src: "https://www.iheart.com/podcast/267-sasquatch-chronicles-29414973/?embed=true"
   },
   {
     title: "Strange Familiars",
-    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/269-strange-familiars-88536416/?embed=true" frameborder="0"></iframe>`
+    src: "https://www.iheart.com/podcast/269-strange-familiars-88536416/?embed=true"
   },
   {
     title: "The Confessionals",
-    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/267-the-confessionals-29768844/?embed=true" frameborder="0"></iframe>`
+    src: "https://www.iheart.com/podcast/267-the-confessionals-29768844/?embed=true"
   },
   {
     title: "Bigfoot and Beyond",
-    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/267-bigfoot-and-beyond-with-cl-63055511/?embed=true" frameborder="0"></iframe>`
+    src: "https://www.iheart.com/podcast/267-bigfoot-and-beyond-with-cl-63055511/?embed=true"
   }
 ];
 
 export function ParanormalPodcastsCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const { playPodcast, togglePopOut, currentPodcast, isPoppedOut } = usePodcast();
+  const {
+    playPodcast,
+    togglePopOut,
+    currentPodcast,
+    isPoppedOut,
+    iframeRef,
+    moveIframeToPopout,
+    moveIframeToMain
+  } = usePodcast();
 
   const goToPrevious = () => {
     setCurrentIndex((prev) => (prev === 0 ? podcastEmbeds.length - 1 : prev - 1));
@@ -40,18 +48,50 @@ export function ParanormalPodcastsCarousel() {
 
   const currentPodcastData = podcastEmbeds[currentIndex];
 
+  const isCurrentPodcastPlaying = currentPodcast?.title === currentPodcastData.title && isPoppedOut;
+
   const handlePlayAndPopOut = () => {
-    playPodcast(currentPodcastData);
+    if (!isCurrentPodcastPlaying) {
+      // If we're starting a new podcast, create the iframe
+      playPodcast(currentPodcastData);
+    }
+
     if (isCurrentPodcastPlaying) {
       // If already popped out, close popout to return to main player
+      moveIframeToMain();
       togglePopOut();
     } else {
       // If not popped out, open popout
+      moveIframeToPopout();
       togglePopOut();
     }
   };
 
-  const isCurrentPodcastPlaying = currentPodcast?.title === currentPodcastData.title && isPoppedOut;
+  // Initialize iframe when podcast is selected
+  useEffect(() => {
+    if (currentPodcast && !iframeRef.current) {
+      const iframe = document.createElement('iframe');
+      iframe.allow = 'autoplay';
+      iframe.width = '100%';
+      iframe.height = '400';
+      iframe.src = currentPodcast.src;
+      iframe.frameBorder = '0';
+      iframeRef.current = iframe;
+
+      const mainContainer = document.getElementById('main-iframe-container');
+      if (mainContainer) {
+        mainContainer.innerHTML = '';
+        mainContainer.appendChild(iframe);
+      }
+    }
+  }, [currentPodcast, iframeRef]);
+
+  // Clean up iframe when podcast changes
+  useEffect(() => {
+    if (currentPodcast && iframeRef.current && iframeRef.current.src !== currentPodcast.src) {
+      iframeRef.current.src = currentPodcast.src;
+    }
+  }, [currentPodcast, iframeRef]);
 
   return (
     <div className="border border-lime-500/20 rounded-lg p-4 bg-black/40 backdrop-blur-sm">
@@ -107,23 +147,8 @@ export function ParanormalPodcastsCarousel() {
           </div>
         ) : (
           // Show iframe player when not popped out
-          <div className="overflow-x-hidden whitespace-nowrap">
-            <div
-              className="inline-flex transition-transform duration-300 ease-in-out"
-              style={{ transform: `translateX(-${currentIndex * 100}%)` }}
-            >
-              {podcastEmbeds.map((podcast, index) => (
-                <div
-                  key={index}
-                  className="w-[100%] min-w-[100%] inline-block align-top"
-                >
-                  <div
-                    dangerouslySetInnerHTML={{ __html: podcast.embedCode }}
-                    className="mt-2"
-                  />
-                </div>
-              ))}
-            </div>
+          <div id="main-iframe-container" className="overflow-x-hidden">
+            {/* Iframe will be dynamically inserted here */}
           </div>
         )}
       </div>

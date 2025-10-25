@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useRef } from 'react';
 
 interface Podcast {
   title: string;
-  embedCode: string;
+  src: string;
 }
 
 interface PodcastContextType {
@@ -14,6 +14,9 @@ interface PodcastContextType {
   togglePlayPause: () => void;
   togglePopOut: () => void;
   closePopOut: () => void;
+  iframeRef: React.RefObject<HTMLIFrameElement | null>;
+  moveIframeToPopout: () => void;
+  moveIframeToMain: () => void;
 }
 
 const PodcastContext = createContext<PodcastContextType | undefined>(undefined);
@@ -22,6 +25,7 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   const [currentPodcast, setCurrentPodcast] = useState<Podcast | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPoppedOut, setIsPoppedOut] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   const playPodcast = (podcast: Podcast) => {
     setCurrentPodcast(podcast);
@@ -46,6 +50,28 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     setCurrentPodcast(null);
   };
 
+  const moveIframeToPopout = () => {
+    if (iframeRef.current) {
+      const iframe = iframeRef.current;
+      const popoutContainer = document.getElementById('popout-iframe-container');
+      if (popoutContainer && iframe.parentNode !== popoutContainer) {
+        popoutContainer.innerHTML = '';
+        popoutContainer.appendChild(iframe);
+      }
+    }
+  };
+
+  const moveIframeToMain = () => {
+    if (iframeRef.current) {
+      const iframe = iframeRef.current;
+      const mainContainer = document.getElementById('main-iframe-container');
+      if (mainContainer && iframe.parentNode !== mainContainer) {
+        mainContainer.innerHTML = '';
+        mainContainer.appendChild(iframe);
+      }
+    }
+  };
+
   return (
     <PodcastContext.Provider value={{
       currentPodcast,
@@ -56,6 +82,9 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
       togglePlayPause,
       togglePopOut,
       closePopOut,
+      iframeRef,
+      moveIframeToPopout,
+      moveIframeToMain,
     }}>
       {children}
     </PodcastContext.Provider>
