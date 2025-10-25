@@ -1,7 +1,7 @@
 import { type NostrEvent } from '@nostrify/nostrify';
 
 export interface MediaItem {
-  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'external' | 'link';
+  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'external' | 'link';
   url: string;
   alt?: string;
   title?: string;
@@ -21,13 +21,16 @@ export interface MediaItem {
 // Media detection patterns
 const mediaPatterns = {
   directImage: /https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp|svg|bmp)(?:\?[^\s]*)?/gi,
-  directVideo: /https?:\/\/[^\s]+\.(mp4|webm|mov|avi|mkv|flv|ogv|3gp)(?:\?[^\s]*)?/gi,
-  directAudio: /https?:\/\/[^\s]+\.(mp3|wav|ogg|flac|m4a|aac|opus)(?:\?[^\s]*)?/gi,
+  directVideo: /https?:\/\/[^\s]+\.(mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid)(?:\?[^\s]*)?/gi,
+  directAudio: /https?:\/\/[^\s]+\.(mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts)(?:\?[^\s]*)?/gi,
   youtube: /(?:youtube\.com\/watch[?]v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/gi,
   vimeo: /vimeo\.com\/(\d+)(?:\/[\w-]+)?/gi,
+  twitch: /(?:twitch\.tv\/videos\/|twitch\.tv\/)(\w+)(?:\/videos\/(\d+))?/gi,
+  dailymotion: /(?:dailymotion\.com\/video\/|dai\.ly\/)([a-zA-Z0-9]+)/gi,
+  tiktok: /(?:tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/)([a-zA-Z0-9]+)/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
-  website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|mp4|webm|mov|avi|mkv|flv|ogv|3gp|mp3|wav|ogg|flac|m4a|aac|opus))(?:\?[^\s]*)?/gi,
+  website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
 };
 
 export function parseMediaFromContent(content: string): MediaItem[] {
@@ -47,7 +50,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   }
 
   // Process other media types
-  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'vimeo'];
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'vimeo', 'twitch', 'dailymotion', 'tiktok'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -137,6 +140,37 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
           title: extractVimeoTitle(vimeoId),
           thumbnail: generateVimeoThumbnail(vimeoId),
           duration: extractVimeoDuration(vimeoId)
+        };
+
+      case 'twitch':
+        const twitchChannel = match[1];
+        const twitchVideoId = match[2];
+        return {
+          type: 'twitch',
+          url: cleanUrl,
+          title: extractTwitchTitle(twitchChannel, twitchVideoId),
+          thumbnail: generateTwitchThumbnail(twitchChannel, twitchVideoId),
+          duration: extractTwitchDuration(twitchVideoId)
+        };
+
+      case 'dailymotion':
+        const dailymotionId = match[1];
+        return {
+          type: 'dailymotion',
+          url: cleanUrl,
+          title: extractDailymotionTitle(dailymotionId),
+          thumbnail: generateDailymotionThumbnail(dailymotionId),
+          duration: extractDailymotionDuration(dailymotionId)
+        };
+
+      case 'tiktok':
+        const tiktokId = match[1];
+        return {
+          type: 'tiktok',
+          url: cleanUrl,
+          title: extractTikTokTitle(tiktokId),
+          thumbnail: generateTikTokThumbnail(tiktokId),
+          duration: extractTikTokDuration(tiktokId)
         };
 
       case 'nostrImage':
@@ -284,6 +318,52 @@ function generateVimeoThumbnail(videoId: string): string {
 function extractVimeoDuration(videoId: string): number {
   // Would fetch from Vimeo API in real implementation
   return 0;
+}
+
+function extractTwitchTitle(channel: string, videoId?: string): string {
+  if (videoId) {
+    return `Twitch Video: ${channel}`;
+  }
+  return `Twitch Stream: ${channel}`;
+}
+
+function generateTwitchThumbnail(channel: string, videoId?: string): string {
+  if (videoId) {
+    return `https://static-cdn.jtvnw.net/cf_vods/d2nvs31859zcd8/${channel}/${videoId}/thumb/thumb0-%{width}x%{height}.jpg`;
+  }
+  return `https://static-cdn.jtvnw.net/previews-ttv/live_user_${channel}-440x248.jpg`;
+}
+
+function extractTwitchDuration(videoId?: string): number {
+  // Would fetch from Twitch API in real implementation
+  return videoId ? 0 : 0; // 0 for live streams
+}
+
+function extractDailymotionTitle(videoId: string): string {
+  return `Dailymotion Video (${videoId})`;
+}
+
+function generateDailymotionThumbnail(videoId: string): string {
+  return `https://www.dailymotion.com/thumbnail/video/${videoId}`;
+}
+
+function extractDailymotionDuration(videoId: string): number {
+  // Would fetch from Dailymotion API in real implementation
+  return 0;
+}
+
+function extractTikTokTitle(videoId: string): string {
+  return `TikTok Video (${videoId})`;
+}
+
+function generateTikTokThumbnail(videoId: string): string {
+  // TikTok doesn't provide direct thumbnail URLs, this would need server-side processing
+  return '';
+}
+
+function extractTikTokDuration(videoId: string): number {
+  // TikTok videos are typically short
+  return 60; // Default to 1 minute
 }
 
 // Open Graph metadata fetching
