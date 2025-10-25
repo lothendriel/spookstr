@@ -28,9 +28,8 @@ export function SpookstrHeader() {
 
           <div className="flex items-center space-x-4">
             <CreatePostModal>
-              <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold">
+              <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold" size="icon">
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline ml-2">Post</span>
               </Button>
             </CreatePostModal>
             <Button variant="outline" onClick={() => navigate('/communities')}>
