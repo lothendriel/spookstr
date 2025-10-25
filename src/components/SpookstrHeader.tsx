@@ -30,7 +30,7 @@ export function SpookstrHeader() {
             <CreatePostModal>
               <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold">
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline ml-2">Post</span>
+
               </Button>
             </CreatePostModal>
             <Button variant="outline" onClick={() => navigate('/communities')}>
