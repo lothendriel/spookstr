@@ -14,7 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppContext } from "@/hooks/useAppContext";
 
 interface RelaySelectorProps {
@@ -24,10 +24,17 @@ interface RelaySelectorProps {
 export function RelaySelector(props: RelaySelectorProps) {
   const { className } = props;
   const { config, updateConfig, presetRelays = [] } = useAppContext();
-  
+
   const selectedRelay = config.relayUrl;
   const setSelectedRelay = (relay: string) => {
-    updateConfig((current) => ({ ...current, relayUrl: relay }));
+    try {
+      if (relay && relay.trim()) {
+        updateConfig((current) => ({ ...current, relayUrl: relay }));
+      }
+    } catch (error) {
+      console.error('Error updating relay URL:', error);
+      // Don't throw the error to prevent component crashes
+    }
   };
 
   const [open, setOpen] = useState(false);
@@ -35,34 +42,62 @@ export function RelaySelector(props: RelaySelectorProps) {
 
   const selectedOption = presetRelays.find((option) => option.url === selectedRelay);
 
+  // Ensure selectedRelay is always valid
+  useEffect(() => {
+    try {
+      if (!selectedRelay || !selectedRelay.trim()) {
+        // Fallback to first preset relay or default
+        const fallbackRelay = presetRelays[0]?.url || "wss://relay.primal.net";
+        setSelectedRelay(fallbackRelay);
+      }
+    } catch (error) {
+      console.error('Error in relay validation effect:', error);
+      // Don't throw the error to prevent component crashes
+    }
+  }, [selectedRelay, presetRelays]);
+
   // Function to normalize relay URL by adding wss:// if no protocol is present
   const normalizeRelayUrl = (url: string): string => {
+    if (!url || typeof url !== 'string') return '';
+
     const trimmed = url.trim();
-    if (!trimmed) return trimmed;
-    
+    if (!trimmed) return '';
+
     // Check if it already has a protocol
     if (trimmed.includes('://')) {
       return trimmed;
     }
-    
+
     // Add wss:// prefix
     return `wss://${trimmed}`;
   };
 
   // Handle adding a custom relay
   const handleAddCustomRelay = (url: string) => {
-    setSelectedRelay?.(normalizeRelayUrl(url));
-    setOpen(false);
-    setInputValue("");
+    try {
+      const normalizedUrl = normalizeRelayUrl(url);
+      if (normalizedUrl && normalizedUrl.trim()) {
+        setSelectedRelay(normalizedUrl);
+        setOpen(false);
+        setInputValue("");
+      }
+    } catch (error) {
+      console.error('Error adding custom relay:', error);
+      // Don't throw the error to prevent component crashes
+    }
   };
 
   // Check if input value looks like a valid relay URL
   const isValidRelayInput = (value: string): boolean => {
+    if (!value || typeof value !== 'string') return false;
+
     const trimmed = value.trim();
     if (!trimmed) return false;
-    
+
     // Basic validation - should contain at least a domain-like structure
     const normalized = normalizeRelayUrl(trimmed);
+    if (!normalized) return false;
+
     try {
       new URL(normalized);
       return true;
@@ -83,11 +118,8 @@ export function RelaySelector(props: RelaySelectorProps) {
           <div className="flex items-center gap-2">
             <Wifi className="h-4 w-4" />
             <span className="truncate">
-              {selectedOption 
-                ? selectedOption.name 
-                : selectedRelay 
-                  ? selectedRelay.replace(/^wss?:\/\//, '')
-                  : "Select relay..."
+              {selectedOption?.name ||
+                (selectedRelay ? selectedRelay.replace(/^wss?:\/\//, '') : "Select relay...")
               }
             </span>
           </div>
@@ -96,8 +128,8 @@ export function RelaySelector(props: RelaySelectorProps) {
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0">
         <Command>
-          <CommandInput 
-            placeholder="Search relays or type URL..." 
+          <CommandInput
+            placeholder="Search relays or type URL..."
             value={inputValue}
             onValueChange={setInputValue}
           />
@@ -124,8 +156,8 @@ export function RelaySelector(props: RelaySelectorProps) {
             </CommandEmpty>
             <CommandGroup>
               {presetRelays
-                .filter((option) => 
-                  !inputValue || 
+                .filter((option) =>
+                  !inputValue ||
                   option.name.toLowerCase().includes(inputValue.toLowerCase()) ||
                   option.url.toLowerCase().includes(inputValue.toLowerCase())
                 )
@@ -134,9 +166,16 @@ export function RelaySelector(props: RelaySelectorProps) {
                     key={option.url}
                     value={option.url}
                     onSelect={(currentValue) => {
-                      setSelectedRelay(normalizeRelayUrl(currentValue));
-                      setOpen(false);
-                      setInputValue("");
+                      try {
+                        if (currentValue && currentValue.trim()) {
+                          setSelectedRelay(normalizeRelayUrl(currentValue));
+                          setOpen(false);
+                          setInputValue("");
+                        }
+                      } catch (error) {
+                        console.error('Error selecting relay:', error);
+                        // Don't throw the error to prevent component crashes
+                      }
                     }}
                   >
                     <Check
@@ -153,7 +192,14 @@ export function RelaySelector(props: RelaySelectorProps) {
                 ))}
               {inputValue && isValidRelayInput(inputValue) && (
                 <CommandItem
-                  onSelect={() => handleAddCustomRelay(inputValue)}
+                  onSelect={() => {
+                    try {
+                      handleAddCustomRelay(inputValue);
+                    } catch (error) {
+                      console.error('Error in custom relay selection:', error);
+                      // Don't throw the error to prevent component crashes
+                    }
+                  }}
                   className="cursor-pointer border-t"
                 >
                   <Plus className="mr-2 h-4 w-4" />
