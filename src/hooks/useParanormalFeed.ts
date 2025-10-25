@@ -1,6 +1,8 @@
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
+import { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
+import { nip19 } from 'nostr-tools';
 
 const PARANORMAL_TAGS = [
   'paranormal',
@@ -89,6 +91,20 @@ const PARANORMAL_TAGS = [
   'magick'
 ];
 
+// List of blocked pubkeys (hex format) to filter out from the feed
+const BLOCKED_PUBKEYS = [
+  '0155373ac79b7ffb0f586c3e68396f9e82d46f7afe7016d46ed9ca46ba3e1bed', // npub1uhen8835huh3dhgrcck266ad3fxj02dhwmeh6eg3txp7yz2j64xs7nh4p0
+];
+
+/**
+ * Filters out events from blocked users
+ * @param events Array of Nostr events to filter
+ * @returns Array of events that aren't from blocked users
+ */
+export function filterBlockedUsers(events: NostrEvent[]): NostrEvent[] {
+  return events.filter(event => !BLOCKED_PUBKEYS.includes(event.pubkey));
+}
+
 export function useParanormalFeed() {
   const { nostr } = useNostr();
 
@@ -105,7 +121,10 @@ export function useParanormalFeed() {
       }], { signal });
 
       // Filter out NSFW content
-      const filteredEvents = filterNSFWContent(events);
+      let filteredEvents = filterNSFWContent(events);
+
+      // Filter out blocked users
+      filteredEvents = filterBlockedUsers(filteredEvents);
 
       return filteredEvents;
     },
@@ -129,7 +148,10 @@ export function useParanormalReplies(noteId: string) {
       }], { signal });
 
       // Filter out NSFW content from replies as well
-      const filteredEvents = filterNSFWContent(events);
+      let filteredEvents = filterNSFWContent(events);
+
+      // Filter out blocked users from replies
+      filteredEvents = filterBlockedUsers(filteredEvents);
 
       return filteredEvents;
     },

@@ -45,7 +45,7 @@ export default function Profile({ pubkey }: ProfileProps) {
 
   const handleCopyPubkey = async () => {
     try {
-      await navigator.clipboard.writeText(pubkey);
+      await navigator.clipboard.writeText(npub);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
