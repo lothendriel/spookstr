@@ -55,38 +55,28 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     const popoutContainer = document.getElementById('popout-iframe-container');
 
     if (originalIframe && popoutContainer) {
-      // Store the original parent and next sibling for proper reinsertion
-      const originalParent = originalIframe.parentNode;
-      const nextSibling = originalIframe.nextSibling;
+      // Hide the original iframe in the carousel
+      originalIframe.classList.add('invisible');
 
-      // Create a new iframe with the same src to maintain playback state
-      const newIframe = document.createElement('iframe');
-      newIframe.allow = 'autoplay';
-      newIframe.width = '100%';
-      newIframe.height = '120'; // Minimal height for popout
-      newIframe.src = originalIframe.src;
-      newIframe.frameBorder = '0';
-      newIframe.setAttribute('data-podcast-index', currentIndex.toString());
+      // Create a new iframe for the popout with the same source
+      const popoutIframe = document.createElement('iframe');
+      popoutIframe.allow = 'autoplay';
+      popoutIframe.width = '100%';
+      popoutIframe.height = '120';
+      popoutIframe.src = originalIframe.src;
+      popoutIframe.frameBorder = '0';
+      popoutIframe.style.backgroundColor = 'transparent';
 
-      // Replace the original iframe with the new one in the carousel
-      if (originalParent) {
-        originalParent.removeChild(originalIframe);
-        originalParent.insertBefore(newIframe, nextSibling);
-      }
-
-      // Add the original iframe to popout (this maintains playback state)
-      originalIframe.style.height = '120px';
-      originalIframe.classList.remove('invisible');
+      // Clear and add to popout container
       popoutContainer.innerHTML = '';
-      popoutContainer.appendChild(originalIframe);
+      popoutContainer.appendChild(popoutIframe);
 
       // Update reference
-      iframeRef.current = originalIframe;
+      iframeRef.current = popoutIframe;
 
-      // Store original position info for return
-      (originalIframe as any)._originalParent = originalParent;
-      (originalIframe as any)._nextSibling = nextSibling;
-      (originalIframe as any)._originalHeight = '400px';
+      // Store reference to original iframe and index
+      (popoutIframe as any)._originalIframe = originalIframe;
+      (popoutIframe as any)._currentIndex = currentIndex;
     }
   };
 
@@ -94,27 +84,21 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     const iframe = iframeRef.current;
     if (!iframe) return;
 
-    const originalParent = (iframe as any)._originalParent;
-    const nextSibling = (iframe as any)._nextSibling;
-    const originalHeight = (iframe as any)._originalHeight;
+    const originalIframe = (iframe as any)._originalIframe;
+    const storedIndex = (iframe as any)._currentIndex;
 
-    if (originalParent) {
-      // Find the replacement iframe in the carousel
-      const replacementIframe = originalParent.querySelector(`iframe[data-podcast-index="${currentIndex}"]`) as HTMLIFrameElement;
+    if (originalIframe && storedIndex === currentIndex) {
+      // Show the original iframe again
+      originalIframe.classList.remove('invisible');
 
-      if (replacementIframe && replacementIframe !== iframe) {
-        // Restore original height
-        iframe.style.height = originalHeight || '400px';
-
-        // Replace the replacement iframe with the original (maintaining playback state)
-        originalParent.removeChild(replacementIframe);
-        originalParent.insertBefore(iframe, nextSibling);
-
-        // Clean up stored data
-        delete (iframe as any)._originalParent;
-        delete (iframe as any)._nextSibling;
-        delete (iframe as any)._originalHeight;
+      // Clear the popout container
+      const popoutContainer = document.getElementById('popout-iframe-container');
+      if (popoutContainer) {
+        popoutContainer.innerHTML = '';
       }
+
+      // Reset reference
+      iframeRef.current = null;
     }
   };
 
