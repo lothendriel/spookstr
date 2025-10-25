@@ -653,6 +653,87 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
           </div>
         );
 
+      case 'spotify':
+        const spotifyData = extractSpotifyData(media.url);
+        if (!spotifyData) {
+          return (
+            <Card className="bg-lime-500/5 border-lime-500/20 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-lime-500/20 rounded-lg flex items-center justify-center">
+                      <ExternalLink className="h-6 w-6 text-lime-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-lime-100">
+                      Invalid Spotify URL
+                    </p>
+                    <p className="text-xs text-lime-500/60 truncate max-w-xs">
+                      {media.url}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-lime-500/30 text-lime-400 hover:bg-lime-500/10"
+                  onClick={() => window.open(media.url, '_blank')}
+                >
+                  Open
+                </Button>
+              </div>
+            </Card>
+          );
+        }
+
+        // Determine iframe height based on Spotify content type
+        const getSpotifyHeight = (type: string) => {
+          switch (type) {
+            case 'track':
+              return '152'; // Single track
+            case 'episode':
+              return '152'; // Single episode
+            case 'artist':
+              return '380'; // Artist top tracks
+            case 'album':
+              return '380'; // Album tracks
+            case 'playlist':
+              return '380'; // Playlist tracks
+            case 'show':
+              return '232'; // Podcast show
+            default:
+              return '380';
+          }
+        };
+
+        return (
+          <div className="relative rounded-lg overflow-hidden bg-black">
+            <div className="relative" style={{ paddingBottom: '0' }}>
+              <iframe
+                className="w-full rounded-lg"
+                src={`https://open.spotify.com/embed/${spotifyData.type}/${spotifyData.id}?utm_source=generator&theme=0`}
+                title={media.title || `Spotify ${spotifyData.type}`}
+                frameBorder="0"
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                loading="lazy"
+                style={{ height: `${getSpotifyHeight(spotifyData.type)}px` }}
+                onError={handleMediaError}
+              />
+            </div>
+            <div className="absolute bottom-2 right-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 text-white hover:bg-white/20 bg-black/60"
+                onClick={() => window.open(media.url, '_blank')}
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+
       case 'imdb':
         return <IMDBPreview url={media.url} />;
 
@@ -754,6 +835,17 @@ function extractDailymotionId(url: string): string {
 function extractTikTokId(url: string): string {
   const match = url.match(/(?:tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/)([a-zA-Z0-9]+)/);
   return match ? match[1] : '';
+}
+
+function extractSpotifyData(url: string): { type: string; id: string } | null {
+  const match = url.match(/open\.spotify\.com\/(track|album|playlist|artist|show|episode)\/([a-zA-Z0-9]+)/);
+  if (match && match[1] && match[2]) {
+    return {
+      type: match[1],
+      id: match[2]
+    };
+  }
+  return null;
 }
 
 // Helper function to extract IMDB ID from URL

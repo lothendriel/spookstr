@@ -1,7 +1,7 @@
 import { type NostrEvent } from '@nostrify/nostrify';
 
 export interface MediaItem {
-  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'external' | 'link';
+  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link';
   url: string;
   alt?: string;
   title?: string;
@@ -15,6 +15,8 @@ export interface MediaItem {
     format?: string;
     bitrate?: number;
     fps?: number;
+    spotifyType?: 'track' | 'album' | 'playlist' | 'artist' | 'show' | 'episode';
+    spotifyId?: string;
   };
 }
 
@@ -28,13 +30,14 @@ const mediaPatterns = {
   twitch: /(?:twitch\.tv\/videos\/|twitch\.tv\/)(\w+)(?:\/videos\/(\d+))?/gi,
   dailymotion: /(?:dailymotion\.com\/video\/|dai\.ly\/)([a-zA-Z0-9]+)/gi,
   tiktok: /(?:tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/)([a-zA-Z0-9]+)/gi,
+  spotify: /(?:open\.spotify\.com\/)(track|album|playlist|artist|show|episode)\/([a-zA-Z0-9]+)/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
   // Common image hosting services that often serve images without extensions
   imageHosting: /https?:\/\/(?:i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app)\/[^\s]+/gi,
   // IMDB links for special preview handling
   imdb: /https?:\/\/(?:www\.)?imdb\.com\/(?:title|name)\/(?:[a-z0-9]+)(?:\/[^\s]*)?/gi,
-  website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app|imdb\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
+  website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app|imdb\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
 };
 
 export function parseMediaFromContent(content: string): MediaItem[] {
@@ -58,7 +61,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   }
 
   // Process other media types in order of precedence
-  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'imdb'];
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'imdb'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -202,6 +205,20 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
           title: extractTikTokTitle(tiktokId),
           thumbnail: generateTikTokThumbnail(tiktokId),
           duration: extractTikTokDuration(tiktokId)
+        };
+
+      case 'spotify':
+        const spotifyType = match[1] as 'track' | 'album' | 'playlist' | 'artist' | 'show' | 'episode';
+        const spotifyId = match[2];
+        return {
+          type: 'spotify',
+          url: cleanUrl,
+          title: extractSpotifyTitle(spotifyType, spotifyId),
+          thumbnail: generateSpotifyThumbnail(spotifyType, spotifyId),
+          metadata: {
+            spotifyType,
+            spotifyId
+          }
         };
 
       case 'imdb':
@@ -411,6 +428,25 @@ function generateTikTokThumbnail(videoId: string): string {
 function extractTikTokDuration(videoId: string): number {
   // TikTok videos are typically short
   return 60; // Default to 1 minute
+}
+
+function extractSpotifyTitle(type: 'track' | 'album' | 'playlist' | 'artist' | 'show' | 'episode', id: string): string {
+  const typeNames = {
+    track: 'Track',
+    album: 'Album',
+    playlist: 'Playlist',
+    artist: 'Artist',
+    show: 'Podcast',
+    episode: 'Episode'
+  };
+
+  return `Spotify ${typeNames[type]} (${id})`;
+}
+
+function generateSpotifyThumbnail(type: 'track' | 'album' | 'playlist' | 'artist' | 'show' | 'episode', id: string): string {
+  // Spotify doesn't provide direct thumbnail URLs from IDs alone
+  // The embed will handle showing the artwork
+  return '';
 }
 
 // Open Graph metadata fetching
