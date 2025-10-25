@@ -95,7 +95,7 @@ describe('NoteContent', () => {
 
     const nostrHashtag = screen.getByRole('link', { name: '#nostr' });
     const bitcoinHashtag = screen.getByRole('link', { name: '#bitcoin' });
-    
+
     expect(nostrHashtag).toBeInTheDocument();
     expect(bitcoinHashtag).toBeInTheDocument();
     expect(nostrHashtag).toHaveAttribute('href', '/t/nostr');
@@ -123,14 +123,117 @@ describe('NoteContent', () => {
     // The mention should be rendered with a deterministic name
     const mention = screen.getByRole('link');
     expect(mention).toBeInTheDocument();
-    
+
     // Should have muted styling for generated names (gray instead of blue)
     expect(mention).toHaveClass('text-gray-500');
     expect(mention).not.toHaveClass('text-blue-500');
-    
+
     // The text should start with @ and contain a generated name (not a truncated npub)
     const linkText = mention.textContent;
     expect(linkText).not.toMatch(/^@npub1/); // Should not be a truncated npub
     expect(linkText).toEqual("@Swift Falcon");
+  });
+
+  it('displays direct image URLs as images', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Check out this image: https://example.com/image.jpg',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display an image element
+    const image = screen.getByAltText('Image');
+    expect(image).toBeInTheDocument();
+    expect(image).toHaveAttribute('src', 'https://example.com/image.jpg');
+
+    // Should also display the text before the image
+    expect(screen.getByText('Check out this image:')).toBeInTheDocument();
+  });
+
+  it('displays various image formats correctly', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Multiple formats: https://example.com/image.png https://example.com/photo.webp https://example.com/graphic.avif https://example.com/icon.ico',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display all images
+    const images = screen.getAllByRole('img');
+    expect(images).toHaveLength(4);
+
+    expect(images[0]).toHaveAttribute('src', 'https://example.com/image.png');
+    expect(images[1]).toHaveAttribute('src', 'https://example.com/photo.webp');
+    expect(images[2]).toHaveAttribute('src', 'https://example.com/graphic.avif');
+    expect(images[3]).toHaveAttribute('src', 'https://example.com/icon.ico');
+  });
+
+  it('displays images from hosting services without extensions', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Imgur image: https://i.imgur.com/abc123 and Twitter image: https://pbs.twimg.com/media/DEF456',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display images from hosting services
+    const images = screen.getAllByRole('img');
+    expect(images).toHaveLength(2);
+
+    expect(images[0]).toHaveAttribute('src', 'https://i.imgur.com/abc123');
+    expect(images[1]).toHaveAttribute('src', 'https://pbs.twimg.com/media/DEF456');
+  });
+
+  it('handles case insensitive image extensions', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Mixed case: https://example.com/IMAGE.JPG https://example.com/photo.PNG',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display images regardless of case
+    const images = screen.getAllByRole('img');
+    expect(images).toHaveLength(2);
+
+    expect(images[0]).toHaveAttribute('src', 'https://example.com/IMAGE.JPG');
+    expect(images[1]).toHaveAttribute('src', 'https://example.com/photo.PNG');
   });
 });
