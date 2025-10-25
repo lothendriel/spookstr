@@ -2,7 +2,7 @@ import { usePodcast } from '@/contexts/PodcastContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 
 const podcastEmbeds = [
   {
@@ -36,10 +36,6 @@ export function PopOutPodcastPlayer() {
   } = usePodcast();
 
   const [currentPodcastIndex, setCurrentPodcastIndex] = useState(0);
-  const [position, setPosition] = useState({ x: 20, y: 20 });
-  const [isDragging, setIsDragging] = useState(false);
-  const dragOffset = useRef({ x: 0, y: 0 });
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Handle iframe messaging for play/pause state
   useEffect(() => {
@@ -54,46 +50,7 @@ export function PopOutPodcastPlayer() {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  // Handle drag functionality
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    dragOffset.current = {
-      x: e.clientX - position.x,
-      y: e.clientY - position.y
-    };
-  };
 
-  const handleMouseMove = (e: MouseEvent) => {
-    if (isDragging) {
-      const newX = e.clientX - dragOffset.current.x;
-      const newY = e.clientY - dragOffset.current.y;
-
-      // Keep within viewport bounds
-      const maxX = window.innerWidth - 320; // 320px is approximate width
-      const maxY = window.innerHeight - 200; // 200px is approximate height
-
-      setPosition({
-        x: Math.max(0, Math.min(newX, maxX)),
-        y: Math.max(0, Math.min(newY, maxY))
-      });
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging]);
 
   // Find current podcast index
   useEffect(() => {
@@ -121,19 +78,15 @@ export function PopOutPodcastPlayer() {
 
   return (
     <div
-      className="fixed z-50 shadow-2xl border border-lime-500/30 rounded-lg overflow-hidden"
+      className="fixed z-50 shadow-2xl border border-lime-500/30 rounded-lg overflow-hidden bottom-4 left-4"
       style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`,
         width: '320px',
-        cursor: isDragging ? 'grabbing' : 'default',
       }}
     >
       <Card className="border-0 bg-black/95 backdrop-blur-md">
-        {/* Minimal Draggable Header with Navigation */}
+        {/* Stationary Header with Navigation */}
         <CardHeader
-          className="pb-1 pt-2 cursor-grab active:cursor-grabbing bg-gradient-to-r from-lime-600/20 to-lime-400/20"
-          onMouseDown={handleMouseDown}
+          className="pb-1 pt-2 bg-gradient-to-r from-lime-600/20 to-lime-400/20"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 flex-1 min-w-0">
