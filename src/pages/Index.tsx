@@ -173,8 +173,10 @@ const Index = () => {
               <DeveloperTip />
             </div>
 
-            {/* Paranormal Podcasts Carousel */}
-            <ParanormalPodcastsCarousel />
+            {/* Paranormal Podcasts Carousel - Hidden on mobile */}
+            <div className="hidden lg:block">
+              <ParanormalPodcastsCarousel />
+            </div>
 
             <div className="border border-lime-500/20 rounded-lg p-6 bg-black/40 backdrop-blur-sm">
               <h3 className="text-lg font-semibold text-lime-400 mb-4">
