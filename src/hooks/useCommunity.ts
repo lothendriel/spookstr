@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from './useNostr';
 import { nip19 } from 'nostr-tools';
+import { filterNSFWContent } from '@/lib/nsfwFilter';
 
 export interface CommunityDefinition {
   id: string;
@@ -104,7 +105,10 @@ export function useCommunityPosts(communityId?: string, communityAuthor?: string
         limit: 50
       }], { signal });
 
-      return events.map(event => ({
+      // Filter out NSFW content from community posts
+      const filteredEvents = filterNSFWContent(events);
+
+      return filteredEvents.map(event => ({
         id: event.id,
         pubkey: event.pubkey,
         content: event.content,
@@ -133,7 +137,10 @@ export function useCommunityComments(parentEventId?: string, parentEventAuthor?:
         limit: 100
       }], { signal });
 
-      return events.map(event => ({
+      // Filter out NSFW content from community comments
+      const filteredEvents = filterNSFWContent(events);
+
+      return filteredEvents.map(event => ({
         id: event.id,
         pubkey: event.pubkey,
         content: event.content,

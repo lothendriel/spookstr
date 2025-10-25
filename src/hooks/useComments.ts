@@ -1,6 +1,7 @@
 import { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
+import { filterNSFWContent } from '@/lib/nsfwFilter';
 
 interface ThreadNode {
   event: NostrEvent;
@@ -32,7 +33,10 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
       const events = await nostr.query([filter], { signal });
 
-      console.log('📥 [useComments] Query returned events:', events.length);
+      // Filter out NSFW content from comments
+      const filteredEvents = filterNSFWContent(events);
+
+      console.log('📥 [useComments] Query returned events:', filteredEvents.length);
       console.log('📋 [useComments] Root event:', {
         id: root instanceof URL ? root.toString() : root.id,
         kind: root instanceof URL ? 'URL' : root.kind,
@@ -58,7 +62,7 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
         });
 
         // Build parent-child relationships
-        events.forEach(event => {
+        filteredEvents.forEach(event => {
           const eTags = getETags(event);
 
           // Find the parent based on NIP-10 rules
@@ -104,7 +108,7 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
           };
         };
 
-        events.forEach(event => {
+        filteredEvents.forEach(event => {
           if (processed.has(event.id)) return;
 
           const eTags = getETags(event);
@@ -145,7 +149,7 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
 
       // Helper function to get direct replies to a specific comment
       const getDirectReplies = (commentId: string): NostrEvent[] => {
-        const replies = events.filter(event => {
+        const replies = filteredEvents.filter(event => {
           const eTags = getETags(event);
           return eTags.some(tag =>
             tag.id === commentId &&
@@ -160,13 +164,13 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
       const topLevelComments = threadTree.map(node => node.event);
 
       console.log('✅ [useComments] Thread tree built:', {
-        totalEvents: events.length,
+        totalEvents: filteredEvents.length,
         rootNodes: threadTree.length,
         topLevelComments: topLevelComments.length
       });
 
       return {
-        allComments: events,
+        allComments: filteredEvents,
         topLevelComments,
         threadTree,
         getDirectReplies,

@@ -3,6 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useAppContext } from './useAppContext';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { filterNSFWContent } from '@/lib/nsfwFilter';
 
 export interface Notification {
   id: string;
@@ -65,8 +66,17 @@ export function useNotifications() {
         new Map(otherUserInteractions.map(event => [event.id, event])).values()
       );
 
+      // Filter out NSFW content from comments (kind 1 events only)
+      const filteredInteractions = uniqueInteractions.filter(event => {
+        // Only filter kind 1 events (comments) - other kinds (likes, reposts, zaps) are metadata
+        if (event.kind === 1) {
+          return !filterNSFWContent([event]).length === 0; // Keep if not NSFW
+        }
+        return true; // Keep all other interaction types
+      });
+
       // Convert to notifications
-      const notifications: Notification[] = uniqueInteractions.map(event => {
+      const notifications: Notification[] = filteredInteractions.map(event => {
         let type: Notification['type'];
 
         if (event.kind === 7) {

@@ -1,5 +1,6 @@
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
+import { filterNSFWContent } from '@/lib/nsfwFilter';
 
 const PARANORMAL_TAGS = [
   'paranormal',
@@ -103,7 +104,10 @@ export function useParanormalFeed() {
         limit: 50,
       }], { signal });
 
-      return events;
+      // Filter out NSFW content
+      const filteredEvents = filterNSFWContent(events);
+
+      return filteredEvents;
     },
     refetchOnWindowFocus: false,
     staleTime: 30000, // 30 seconds
@@ -124,7 +128,10 @@ export function useParanormalReplies(noteId: string) {
         limit: 100,
       }], { signal });
 
-      return events;
+      // Filter out NSFW content from replies as well
+      const filteredEvents = filterNSFWContent(events);
+
+      return filteredEvents;
     },
     enabled: !!noteId,
     refetchOnWindowFocus: false,
