@@ -36,7 +36,7 @@ const MOVIE_DATABASE: Record<string, IMDBData> = {
     type: 'Movie',
     year: '2024',
     rating: '6.2',
-    thumbnail: 'https://m.media-amazon.com/images/M/V5BZjgxOTBiM2QtZmYzYy00YjRlLWE0MDYtZjI3YjRiXkEyXkFqcGdeQXVyMTQxNzMzNDI@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+    thumbnail: 'https://picsum.photos/300/450?random=cockneys',
     description: 'A group of Cockney bank robbers find themselves battling through zombie apocalypse of East London.'
   },
   // The Grand Budapest Hotel
@@ -72,7 +72,7 @@ const MOVIE_DATABASE: Record<string, IMDBData> = {
     type: 'Movie',
     year: '2008',
     rating: '9.0',
-    thumbnail: 'https://m.media-amazon.com/images/M/V5BMTMxNTUwNjY2M2QtZjY2Yy00YzJlLWE2ZjQtMDQ3YzQxZGE2XkEyXkFqcGdeQXVyMTQxNzMzNDI@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+    thumbnail: 'https://picsum.photos/300/450?random=darkknight',
     description: 'When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.'
   },
   // Inception
@@ -132,7 +132,7 @@ export function IMDBPreview({ url, className }: IMDBPreviewProps) {
               type: 'Movie',
               year: '2024',
               rating: '6.2',
-              thumbnail: 'https://m.media-amazon.com/images/M/V5BZjgxOTBiM2QtZmYzYy00YjRlLWE0MDYtZjI3YjRiXkEyXkFqcGdeQXVyMTQxNzMzNDI@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+              thumbnail: 'https://picsum.photos/300/450?random=zombies',
               description: 'A group of Cockney bank robbers find themselves battling through zombie apocalypse of East London.'
             };
           } else if (urlPath.includes('grand') && urlPath.includes('budapest')) {
@@ -141,7 +141,7 @@ export function IMDBPreview({ url, className }: IMDBPreviewProps) {
               type: 'Movie',
               year: '2014',
               rating: '8.1',
-              thumbnail: 'https://m.media-amazon.com/images/M/V5BMzM5NjUxOTkyMV5BMl5BanBnXkFtZTgwOTE5NzU1ODE@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+              thumbnail: 'https://picsum.photos/300/450?random=budapest',
               description: 'A legendary concierge at a famous European hotel between the wars and his protégé become involved in a story involving the theft of a priceless painting.'
             };
           } else if (urlPath.includes('shawshank')) {
@@ -150,7 +150,7 @@ export function IMDBPreview({ url, className }: IMDBPreviewProps) {
               type: 'Movie',
               year: '1994',
               rating: '9.3',
-              thumbnail: 'https://m.media-amazon.com/images/M/V5BMDFkYjJiNmUtZDZiYzAwYzJlZGE3MjU3NzQwN2E3ZmNlXkEyXkFqcGdeQXVyMTMxODk2OTU@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+              thumbnail: 'https://picsum.photos/300/450?random=shawshank',
               description: 'Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.'
             };
           } else if (urlPath.includes('godfather')) {
@@ -159,7 +159,7 @@ export function IMDBPreview({ url, className }: IMDBPreviewProps) {
               type: 'Movie',
               year: '1972',
               rating: '9.2',
-              thumbnail: 'https://m.media-amazon.com/images/M/V5BM2MyNjYxZGUyMGMtN2Q5Yy00Y2YzLWE2ZjQtMDQ3YzQxZGE2XkEyXkFqcGdeQXVyMTQxNzMzNDI@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+              thumbnail: 'https://picsum.photos/300/450?random=godfather',
               description: 'The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.'
             };
           } else if (urlPath.includes('dark') && urlPath.includes('knight')) {
@@ -168,7 +168,7 @@ export function IMDBPreview({ url, className }: IMDBPreviewProps) {
               type: 'Movie',
               year: '2008',
               rating: '9.0',
-              thumbnail: 'https://m.media-amazon.com/images/M/V5BMTMxNTUwNjY2M2QtZjY2Yy00YzJlLWE2ZjQtMDQ3YzQxZGE2XkEyXkFqcGdeQXVyMTQxNzMzNDI@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+              thumbnail: 'https://picsum.photos/300/450?random=darkknight',
               description: 'When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.'
             };
           }
@@ -252,14 +252,18 @@ export function IMDBPreview({ url, className }: IMDBPreviewProps) {
       <CardContent className="p-0">
         <div className="flex">
           {/* Poster/Thumbnail */}
-          <div className="flex-shrink-0 w-24 h-36 bg-amber-500/10 flex items-center justify-center">
+          <div className="flex-shrink-0 w-24 h-36 bg-amber-500/10 flex items-center justify-center overflow-hidden">
             {data.thumbnail ? (
               <img
                 src={data.thumbnail}
                 alt={data.title}
                 className="w-full h-full object-cover"
                 onError={(e) => {
+                  console.warn('Failed to load IMDB poster:', data.thumbnail);
                   e.currentTarget.src = `https://via.placeholder.com/300x450?text=${encodeURIComponent(data.title)}`;
+                }}
+                onLoad={() => {
+                  console.log('Successfully loaded IMDB poster:', data.thumbnail);
                 }}
               />
             ) : (
