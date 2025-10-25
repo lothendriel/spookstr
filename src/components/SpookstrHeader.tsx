@@ -32,11 +32,11 @@ export function SpookstrHeader() {
                 <Plus className="h-4 w-4" />
               </Button>
             </CreatePostModal>
-            <Button variant="outline" onClick={() => navigate('/communities')}>
+            <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold" onClick={() => navigate('/communities')}>
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">Communities</span>
             </Button>
-            <Button variant="outline" onClick={() => navigate('/calendar')}>
+            <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold" onClick={() => navigate('/calendar')}>
               <Calendar className="h-4 w-4 mr-0" />
               <span className="hidden sm:inline ml-2">Events</span>
             </Button>
