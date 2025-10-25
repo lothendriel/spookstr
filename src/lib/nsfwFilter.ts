@@ -22,6 +22,11 @@ const NSFW_KEYWORDS = [
   'horny',
   'lewds',
   'lewd',
+  'loli',
+  'incest',
+  'lolicon',
+  'underage',
+  'agedifference',
 ];
 
 const NSFW_TAGS = [
@@ -39,6 +44,15 @@ const NSFW_TAGS = [
   'bdsm',
   'lewds',
   'lewd',
+  'loli',
+  'incest',
+  'lolicon',
+  'cuntboy',
+  'agegap',
+  'underage',
+  'lolified',
+  'lolifiedselfportrait',
+  'agedifference',
 ];
 
 /**
@@ -49,7 +63,7 @@ const NSFW_TAGS = [
 export function isNSFWContent(event: NostrEvent): boolean {
   // Check content for NSFW keywords (case insensitive)
   const contentLower = event.content.toLowerCase();
-  const hasNSFWKeyword = NSFW_KEYWORDS.some(keyword => 
+  const hasNSFWKeyword = NSFW_KEYWORDS.some(keyword =>
     contentLower.includes(keyword.toLowerCase())
   );
 
@@ -61,7 +75,7 @@ export function isNSFWContent(event: NostrEvent): boolean {
   const hasNSFWTag = event.tags.some(tag => {
     if (tag.length >= 2 && tag[0] === 't') {
       const tagValue = tag[1].toLowerCase();
-      return NSFW_TAGS.some(nsfwTag => 
+      return NSFW_TAGS.some(nsfwTag =>
         tagValue.includes(nsfwTag.toLowerCase())
       );
     }
@@ -77,10 +91,10 @@ export function isNSFWContent(event: NostrEvent): boolean {
     if (tag.length >= 2) {
       const tagName = tag[0].toLowerCase();
       const tagValue = tag[1].toLowerCase();
-      
+
       // Check common metadata fields that might contain NSFW indicators
       if (['subject', 'title', 'description', 'summary', 'alt'].includes(tagName)) {
-        return NSFW_KEYWORDS.some(keyword => 
+        return NSFW_KEYWORDS.some(keyword =>
           tagValue.includes(keyword.toLowerCase())
         );
       }
