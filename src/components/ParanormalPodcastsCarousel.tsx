@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Maximize2, Play } from 'lucide-react';
 import { usePodcast } from '@/contexts/PodcastContext';
@@ -6,37 +6,29 @@ import { usePodcast } from '@/contexts/PodcastContext';
 const podcastEmbeds = [
   {
     title: "Coast to Coast AM",
-    src: "https://www.iheart.com/podcast/1100-the-best-of-coast-to-coas-18899828/?embed=true"
+    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/1100-the-best-of-coast-to-coas-18899828/?embed=true" frameborder="0"></iframe>`
   },
   {
     title: "Sasquatch Chronicles",
-    src: "https://www.iheart.com/podcast/267-sasquatch-chronicles-29414973/?embed=true"
+    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/267-sasquatch-chronicles-29414973/?embed=true" frameborder="0"></iframe>`
   },
   {
     title: "Strange Familiars",
-    src: "https://www.iheart.com/podcast/269-strange-familiars-88536416/?embed=true"
+    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/269-strange-familiars-88536416/?embed=true" frameborder="0"></iframe>`
   },
   {
     title: "The Confessionals",
-    src: "https://www.iheart.com/podcast/267-the-confessionals-29768844/?embed=true"
+    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/267-the-confessionals-29768844/?embed=true" frameborder="0"></iframe>`
   },
   {
     title: "Bigfoot and Beyond",
-    src: "https://www.iheart.com/podcast/267-bigfoot-and-beyond-with-cl-63055511/?embed=true"
+    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/267-bigfoot-and-beyond-with-cl-63055511/?embed=true" frameborder="0"></iframe>`
   }
 ];
 
 export function ParanormalPodcastsCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const {
-    playPodcast,
-    togglePopOut,
-    currentPodcast,
-    isPoppedOut,
-    iframeRef,
-    moveIframeToPopout,
-    moveIframeToMain
-  } = usePodcast();
+  const { playPodcast, togglePopOut, currentPodcast, isPoppedOut } = usePodcast();
 
   const goToPrevious = () => {
     setCurrentIndex((prev) => (prev === 0 ? podcastEmbeds.length - 1 : prev - 1));
@@ -48,25 +40,14 @@ export function ParanormalPodcastsCarousel() {
 
   const currentPodcastData = podcastEmbeds[currentIndex];
 
-  const isCurrentPodcastPlaying = currentPodcast?.title === currentPodcastData.title && isPoppedOut;
-
   const handlePlayAndPopOut = () => {
-    if (!isCurrentPodcastPlaying) {
-      // If we're starting a new podcast, set it as current
-      playPodcast(currentPodcastData);
-      // Give a moment for the podcast to load, then pop out
-      setTimeout(() => {
-        moveIframeToPopout(currentIndex);
-        togglePopOut();
-      }, 500);
-    } else {
-      // If already popped out, close popout to return to main player
-      moveIframeToMain(currentIndex);
+    playPodcast(currentPodcastData);
+    if (!isPoppedOut) {
       togglePopOut();
     }
   };
 
-
+  const isCurrentPodcastPlaying = currentPodcast?.title === currentPodcastData.title && isPoppedOut;
 
   return (
     <div className="border border-lime-500/20 rounded-lg p-4 bg-black/40 backdrop-blur-sm">
@@ -103,49 +84,24 @@ export function ParanormalPodcastsCarousel() {
       </div>
 
       <div className="relative">
-        {isCurrentPodcastPlaying ? (
-          // Show placeholder when podcast is popped out
-          <div className="bg-black/20 border-2 border-dashed border-lime-500/30 rounded-lg p-8 text-center">
-            <div className="space-y-3">
-              <div className="flex justify-center">
-                <div className="w-12 h-12 bg-lime-500/20 rounded-full flex items-center justify-center">
-                  <Maximize2 className="h-6 w-6 text-lime-400" />
-                </div>
-              </div>
-              <p className="text-lime-400 font-medium">
-                Now playing in popout player
-              </p>
-              <p className="text-lime-200/70 text-sm">
-                {currentPodcastData.title}
-              </p>
-            </div>
-          </div>
-        ) : (
-          // Show iframe player when not popped out
-          <div className="overflow-x-hidden whitespace-nowrap">
-            <div
-              className="inline-flex transition-transform duration-300 ease-in-out"
-              style={{ transform: `translateX(-${currentIndex * 100}%)` }}
-            >
-              {podcastEmbeds.map((podcast, index) => (
+        <div className="overflow-x-hidden whitespace-nowrap">
+          <div
+            className="inline-flex transition-transform duration-300 ease-in-out"
+            style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+          >
+            {podcastEmbeds.map((podcast, index) => (
+              <div
+                key={index}
+                className="w-[100%] min-w-[100%] inline-block align-top"
+              >
                 <div
-                  key={index}
-                  className="w-[100%] min-w-[100%] inline-block align-top"
-                >
-                  <iframe
-                    allow="autoplay"
-                    width="100%"
-                    height="400"
-                    src={podcast.src}
-                    frameBorder="0"
-                    data-podcast-index={index}
-                    className={currentPodcast?.title === podcast.title && isPoppedOut ? 'invisible' : ''}
-                  />
-                </div>
-              ))}
-            </div>
+                  dangerouslySetInnerHTML={{ __html: podcast.embedCode }}
+                  className="mt-2"
+                />
+              </div>
+            ))}
           </div>
-        )}
+        </div>
       </div>
 
       <div className="flex items-center justify-between mt-3">
@@ -161,7 +117,7 @@ export function ParanormalPodcastsCarousel() {
           {isCurrentPodcastPlaying ? (
             <>
               <Maximize2 className="h-3 w-3" />
-              <span className="text-xs">Return to Player</span>
+              <span className="text-xs">Pop-out</span>
             </>
           ) : (
             <>
