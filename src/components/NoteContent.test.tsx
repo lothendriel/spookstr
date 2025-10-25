@@ -288,4 +288,57 @@ describe('NoteContent', () => {
     expect(images[1]).toHaveAttribute('src', 'https://example.com/image2@png');
     expect(images[2]).toHaveAttribute('src', 'https://example.com/image3@webp');
   });
+
+  it('does not display duplicate images for URLs that match multiple patterns', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Bluesky image that matches both patterns: https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:5quuuyr7xndtklizfs2buydm/bafkreiarww5mmusluuepyvhwrvymuglmsmiq6v7begaszqopqlcwonrkze@jpeg',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display only ONE image, not duplicates
+    const images = screen.getAllByRole('img');
+    expect(images).toHaveLength(1);
+
+    expect(images[0]).toHaveAttribute('src', 'https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:5quuuyr7xndtklizfs2buydm/bafkreiarww5mmusluuepyvhwrvymuglmsmiq6v7begaszqopqlcwonrkze@jpeg');
+
+    // Should also display the text before the image
+    expect(screen.getByText('Bluesky image that matches both patterns:')).toBeInTheDocument();
+  });
+
+  it('handles multiple unique images without duplication', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Multiple different images: https://example.com/image.jpg https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:5quuuyr7xndtklizfs2buydm/bafkreiarww5mmusluuepyvhwrvymuglmsmiq6v7begaszqopqlcwonrkze@jpeg https://i.imgur.com/abc123',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display exactly 3 unique images, no duplicates
+    const images = screen.getAllByRole('img');
+    expect(images).toHaveLength(3);
+
+    expect(images[0]).toHaveAttribute('src', 'https://example.com/image.jpg');
+    expect(images[1]).toHaveAttribute('src', 'https://cdn.bsky.app/img/feed_fullsize/plain/did:plc:5quuuyr7xndtklizfs2buydm/bafkreiarww5mmusluuepyvhwrvymuglmsmiq6v7begaszqopqlcwonrkze@jpeg');
+    expect(images[2]).toHaveAttribute('src', 'https://i.imgur.com/abc123');
+  });
 });

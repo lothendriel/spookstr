@@ -37,6 +37,7 @@ const mediaPatterns = {
 
 export function parseMediaFromContent(content: string): MediaItem[] {
   const mediaItems: MediaItem[] = [];
+  const processedUrls = new Set<string>(); // Track URLs we've already processed
 
   // Process YouTube URLs first
   let youtubeMatch;
@@ -45,14 +46,17 @@ export function parseMediaFromContent(content: string): MediaItem[] {
 
   while ((youtubeMatch = youtubeRegex.exec(content)) !== null) {
     const url = youtubeMatch[0];
-    const mediaItem = createMediaItem(url, 'youtube', youtubeMatch);
-    if (mediaItem) {
-      mediaItems.push(mediaItem);
+    if (!processedUrls.has(url)) {
+      const mediaItem = createMediaItem(url, 'youtube', youtubeMatch);
+      if (mediaItem) {
+        mediaItems.push(mediaItem);
+        processedUrls.add(url);
+      }
     }
   }
 
-  // Process other media types
-  const mediaTypes = ['directImage', 'imageHosting', 'directVideo', 'directAudio', 'vimeo', 'twitch', 'dailymotion', 'tiktok'];
+  // Process other media types in order of precedence
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'vimeo', 'twitch', 'dailymotion', 'tiktok'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -60,12 +64,31 @@ export function parseMediaFromContent(content: string): MediaItem[] {
     let match;
     while ((match = pattern.exec(content)) !== null) {
       const url = match[0];
-      const mediaItem = createMediaItem(url, type, match);
-      if (mediaItem) {
-        mediaItems.push(mediaItem);
+      if (!processedUrls.has(url)) {
+        const mediaItem = createMediaItem(url, type, match);
+        if (mediaItem) {
+          mediaItems.push(mediaItem);
+          processedUrls.add(url);
+        }
       }
     }
   });
+
+  // Process image hosting services last (only if not already caught by directImage)
+  const imageHostingPattern = mediaPatterns.imageHosting;
+  if (imageHostingPattern) {
+    let match;
+    while ((match = imageHostingPattern.exec(content)) !== null) {
+      const url = match[0];
+      if (!processedUrls.has(url)) {
+        const mediaItem = createMediaItem(url, 'imageHosting', match);
+        if (mediaItem) {
+          mediaItems.push(mediaItem);
+          processedUrls.add(url);
+        }
+      }
+    }
+  }
 
   // Process website links last (excluding YouTube)
   const websitePattern = mediaPatterns.website;
@@ -76,9 +99,12 @@ export function parseMediaFromContent(content: string): MediaItem[] {
       // Skip if this URL was already processed as YouTube
       if (url.includes('youtube.com') || url.includes('youtu.be')) continue;
 
-      const mediaItem = createMediaItem(url, 'website', match);
-      if (mediaItem) {
-        mediaItems.push(mediaItem);
+      if (!processedUrls.has(url)) {
+        const mediaItem = createMediaItem(url, 'website', match);
+        if (mediaItem) {
+          mediaItems.push(mediaItem);
+          processedUrls.add(url);
+        }
       }
     }
   }
@@ -101,13 +127,6 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
 
     switch (type) {
       case 'directImage':
-        return {
-          type: 'image',
-          url: cleanUrl,
-          alt: extractAltText(url, match),
-          metadata: extractImageMetadata(cleanUrl)
-        };
-
       case 'imageHosting':
         return {
           type: 'image',
