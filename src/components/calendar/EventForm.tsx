@@ -93,8 +93,8 @@ export default function EventForm() {
   return (
     <div className="space-y-6">
       <Alert>
-        <AlertDescription>
-          If you would like to share your event with the paranormal community here on Spookstr, please make sure you have the Spookstr relay chosen before posting your event
+        <AlertDescription className="font-bold text-orange-600">
+          If you would like to share your event with the paranormal community here on Spookstr ONLY, please make sure you have the Spookstr relay chosen before posting your event
         </AlertDescription>
       </Alert>
       <form onSubmit={handleSubmit} className="space-y-6">
