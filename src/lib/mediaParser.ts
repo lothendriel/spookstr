@@ -529,6 +529,114 @@ export async function getOpenGraphData(url: string): Promise<OpenGraphData> {
   return data;
 }
 
+// IMDB data extraction from HTML content
+async function extractImdbDataFromHtml(html: string, url: string): Promise<{ title: string; type: string; year?: string; rating?: string; thumbnail: string; description: string }> {
+  try {
+    // Create a DOM parser to extract data from HTML
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    const isMovie = url.includes('/title/');
+    const isPerson = url.includes('/name/');
+
+    if (isMovie) {
+      // Extract movie data
+      const titleElement = doc.querySelector('h1[data-testid="hero-title-block__title"]');
+      const title = titleElement?.textContent?.trim() || 'Unknown Movie';
+
+      const yearElement = doc.querySelector('.sc-8c396aa-2.jGRxWM');
+      const year = yearElement?.textContent?.trim() || '';
+
+      const ratingElement = doc.querySelector('[data-testid="hero-rating-bar__aggregate-rating__score"] span');
+      const rating = ratingElement?.textContent?.trim() || '';
+
+      const descriptionElement = doc.querySelector('[data-testid="plot-xl"]');
+      const description = descriptionElement?.textContent?.trim() || 'No description available.';
+
+      // Extract poster image - try multiple selectors
+      const posterElement = doc.querySelector('img.ipc-image') ||
+                          doc.querySelector('.ipc-poster') ||
+                          doc.querySelector('[data-testid="hero-image__portrait"]') ||
+                          doc.querySelector('meta[property="og:image"]');
+
+      let thumbnail = '';
+      if (posterElement) {
+        if (posterElement.tagName === 'META') {
+          thumbnail = posterElement.getAttribute('content') || '';
+        } else {
+          thumbnail = posterElement.getAttribute('src') || '';
+        }
+
+        // Convert to high resolution if possible
+        if (thumbnail && !thumbnail.includes('@._')) {
+          // IMDB uses @._ for different resolutions, try to get higher quality
+          const baseUrl = thumbnail.split('@._')[0];
+          if (baseUrl) {
+            thumbnail = `${baseUrl}@._V1_UX600_CR0,0,600,900_AL_.jpg`;
+          }
+        }
+      }
+
+      return {
+        title,
+        type: 'Movie',
+        year: year || undefined,
+        rating: rating || undefined,
+        thumbnail,
+        description
+      };
+    } else if (isPerson) {
+      // Extract person data
+      const nameElement = doc.querySelector('h1[data-testid="hero-title-block__title"]');
+      const name = nameElement?.textContent?.trim() || 'Unknown Person';
+
+      const jobElement = doc.querySelector('[data-testid="hero-subnav-bar-section-anchor"]');
+      const job = jobElement?.textContent?.trim() || '';
+
+      // Extract person image
+      const imageElement = doc.querySelector('img.ipc-image') ||
+                         doc.querySelector('[data-testid="hero-image__portrait"]') ||
+                         doc.querySelector('meta[property="og:image"]');
+
+      let thumbnail = '';
+      if (imageElement) {
+        if (imageElement.tagName === 'META') {
+          thumbnail = imageElement.getAttribute('content') || '';
+        } else {
+          thumbnail = imageElement.getAttribute('src') || '';
+        }
+      }
+
+      // Get bio or description
+      const bioElement = doc.querySelector('[data-testid="biography"]') ||
+                        doc.querySelector('.ipc-html-content-inner-div');
+      const description = bioElement?.textContent?.trim() || `${job} - Visit IMDb for full biography.`;
+
+      return {
+        title: name,
+        type: 'Person',
+        thumbnail,
+        description
+      };
+    } else {
+      return {
+        title: 'IMDb',
+        type: 'unknown',
+        thumbnail: '',
+        description: 'Visit IMDb for more information'
+      };
+    }
+  } catch (error) {
+    console.warn('Failed to parse IMDB HTML:', error);
+    return {
+      title: 'IMDb',
+      type: 'unknown',
+      thumbnail: '',
+      description: 'Visit IMDb for more information'
+    };
+  }
+}
+
 function extractImdbData(url: string): { title: string; type: string; year?: string; rating?: string; thumbnail: string; description: string } {
   try {
     // Extract IMDB ID from URL
@@ -544,50 +652,15 @@ function extractImdbData(url: string): { title: string; type: string; year?: str
 
     const imdbId = match[1];
 
-    // For demo purposes, generate mock data based on ID
-    // In a real implementation, you'd fetch this from IMDb API or a proxy service
-    const mockTitles = [
-      'The Shawshank Redemption', 'The Godfather', 'The Dark Knight', 'Pulp Fiction',
-      'Forrest Gump', 'Inception', 'The Matrix', 'Goodfellas', 'The Silence of the Lambs',
-      'Schindler\'s List', 'Fight Club', 'The Lord of the Rings', 'Star Wars',
-      'The Avengers', 'Interstellar', 'The Grand Budapest Hotel', 'Parasite'
-    ];
-
-    const mockDescriptions = [
-      'An epic tale of hope and friendship that transcends the walls of prison.',
-      'A gripping crime saga that follows the Corleone family dynasty.',
-      'A superhero faces his greatest psychological challenge in Gotham City.',
-      'Interconnected stories of crime and redemption in Los Angeles.',
-      'A journey through the defining moments of American history.',
-      'A mind-bending thriller that explores the nature of reality.',
-      'A revolutionary sci-fi epic that changed cinema forever.',
-      'The rise and fall of a mobster in the American Mafia.',
-      'A brilliant FBI agent tracks down a notorious serial killer.',
-      'The incredible true story of one man\'s courage during the Holocaust.',
-      'An office worker discovers a hidden fight club that changes his life.',
-      'An epic fantasy adventure that spans three groundbreaking films.',
-      'A space opera that has captivated audiences for generations.',
-      'Earth\'s mightiest heroes unite to save the world from destruction.',
-      'A team of explorers travel through a wormhole in space.',
-      'A legendary concierge\'s adventures at a famous European hotel.',
-      'A Korean family that infiltrates a wealthy household with unexpected consequences.'
-    ];
-
-    // Use the ID to generate consistent mock data
-    const hash = imdbId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const titleIndex = hash % mockTitles.length;
-    const descIndex = (hash * 2) % mockDescriptions.length;
-
-    const isMovie = url.includes('/title/');
-    const isPerson = url.includes('/name/');
+    // For now, return basic data with a promise to fetch real data
+    // In a real implementation, you'd fetch this from a proxy service
+    // that can scrape IMDB pages and extract the actual data
 
     return {
-      title: mockTitles[titleIndex],
-      type: isMovie ? 'Movie' : isPerson ? 'Person' : 'Unknown',
-      year: isMovie ? `${(2010 + (hash % 15))}` : undefined,
-      rating: isMovie ? `${(7.0 + (hash % 3.0)).toFixed(1)}` : undefined,
-      thumbnail: `https://via.placeholder.com/300x450?text=${encodeURIComponent(mockTitles[titleIndex])}`,
-      description: mockDescriptions[descIndex]
+      title: 'Loading IMDb data...',
+      type: 'Loading',
+      thumbnail: '',
+      description: 'Fetching movie information from IMDb...'
     };
   } catch (error) {
     console.warn('Failed to extract IMDB data:', error);

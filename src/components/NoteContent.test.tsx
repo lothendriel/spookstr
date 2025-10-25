@@ -377,6 +377,86 @@ describe('NoteContent', () => {
     expect(screen.getByText('Check out this movie:')).toBeInTheDocument();
   });
 
+  it('displays correct IMDB data for specific movies', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Watch this: https://www.imdb.com/title/tt1234567/cockneys-vs-zombies',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display IMDB preview card
+    const imdbCard = screen.getByText('IMDb').closest('div');
+    expect(imdbCard).toBeInTheDocument();
+
+    // Should display correct movie title
+    expect(screen.getByText('Cockneys vs Zombies')).toBeInTheDocument();
+
+    // Should display movie metadata
+    expect(screen.getByText('2024')).toBeInTheDocument();
+    expect(screen.getByText('6.2')).toBeInTheDocument();
+    expect(screen.getByText('Movie')).toBeInTheDocument();
+
+    // Should display movie description
+    expect(screen.getByText(/A group of Cockney bank robbers/)).toBeInTheDocument();
+
+    // Should have external link button
+    const externalLinkButton = screen.getByRole('button', { name: /open/i });
+    expect(externalLinkButton).toBeInTheDocument();
+
+    // Should also display the text before the link
+    expect(screen.getByText('Watch this:')).toBeInTheDocument();
+  });
+
+  it('displays correct IMDB data for Grand Budapest Hotel', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Great movie: https://www.imdb.com/title/tt2278388/the-grand-budapest-hotel',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display IMDB preview card
+    const imdbCard = screen.getByText('IMDb').closest('div');
+    expect(imdbCard).toBeInTheDocument();
+
+    // Should display correct movie title
+    expect(screen.getByText('The Grand Budapest Hotel')).toBeInTheDocument();
+
+    // Should display movie metadata
+    expect(screen.getByText('2014')).toBeInTheDocument();
+    expect(screen.getByText('8.1')).toBeInTheDocument();
+    expect(screen.getByText('Movie')).toBeInTheDocument();
+
+    // Should display movie description
+    expect(screen.getByText(/A legendary concierge at a famous European hotel/)).toBeInTheDocument();
+
+    // Should have external link button
+    const externalLinkButton = screen.getByRole('button', { name: /open/i });
+    expect(externalLinkButton).toBeInTheDocument();
+
+    // Should also display the text before the link
+    expect(screen.getByText('Great movie:')).toBeInTheDocument();
+  });
+
   it('displays IMDB person links as preview cards', () => {
     const event: NostrEvent = {
       id: 'test-id',
