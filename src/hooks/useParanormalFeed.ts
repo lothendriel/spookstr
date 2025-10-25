@@ -91,9 +91,17 @@ const PARANORMAL_TAGS = [
   'magick'
 ];
 
+// Decode the npub to get the correct hex pubkey
+const blockedNpub = 'npub1uhen8835huh3dhgrcck266ad3fxj02dhwmeh6eg3txp7yz2j64xs7nh4p0';
+const decoded = nip19.decode(blockedNpub);
+const blockedHexPubkey = decoded.data;
+
+console.log('Blocked npub:', blockedNpub);
+console.log('Decoded hex pubkey:', blockedHexPubkey);
+
 // List of blocked pubkeys (hex format) to filter out from the feed
 const BLOCKED_PUBKEYS = [
-  '0155373ac79b7ffb0f586c3e68396f9e82d46f7afe7016d46ed9ca46ba3e1bed', // npub1uhen8835huh3dhgrcck266ad3fxj02dhwmeh6eg3txp7yz2j64xs7nh4p0
+  blockedHexPubkey, // npub1uhen8835huh3dhgrcck266ad3fxj02dhwmeh6eg3txp7yz2j64xs7nh4p0
 ];
 
 /**
