@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +31,17 @@ export function CommentForm({
   const { user } = useCurrentUser();
   const { mutate: postComment, isPending } = usePostComment();
 
+  // Auto-add mention when replying
+  useEffect(() => {
+    if (reply) {
+      const npub = nip19.npubEncode(reply.pubkey);
+      const mention = `nostr:${npub}`;
+      setContent(`${mention} `);
+    } else {
+      setContent('');
+    }
+  }, [reply]);
+
   // Get reply author info for display
   const replyAuthor = reply ? useAuthor(reply.pubkey) : null;
   const replyMetadata = replyAuthor?.data?.metadata;
@@ -45,7 +56,8 @@ export function CommentForm({
       { content: content.trim(), root, reply },
       {
         onSuccess: () => {
-          setContent('');
+          // Clear content but keep the mention if replying
+          setContent(reply ? `${nip19.npubEncode(reply.pubkey)} ` : '');
           onSuccess?.();
         },
       }
@@ -89,7 +101,7 @@ export function CommentForm({
           <Textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder={placeholder}
+            placeholder={reply ? "Type your reply after the mention..." : placeholder}
             className={compact ? "min-h-[80px]" : "min-h-[100px]"}
             disabled={isPending}
           />

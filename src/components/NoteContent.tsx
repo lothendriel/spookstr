@@ -89,8 +89,8 @@ export function NoteContent({
 function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> = new Set()): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
 
-  // Regex to find URLs, Nostr references, and hashtags
-  const regex = /(https?:\/\/[^\s]+)|(nostr:(npub1|note1|nprofile1|nevent1)[023456789acdefghjklmnpqrstuvwxyz]+)|(#\w+)/g;
+  // Regex to find URLs, Nostr references, @mentions, and hashtags
+  const regex = /(https?:\/\/[^\s]+)|(nostr:(npub1|note1|nprofile1|nevent1)[023456789acdefghjklmnpqrstuvwxyz]+)|@([0-9a-fA-F]{8,})|(#\w+)/g;
 
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -100,7 +100,8 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
     const fullMatch = match[0];
     const url = match[1];
     const nostrRef = match[2];
-    const hashtag = match[4]; // Group 4 is the hashtag
+    const atMention = match[4]; // Group 4 is the @hex mention
+    const hashtag = match[5]; // Group 5 is the hashtag
     const index = match.index;
 
     // Add text before this match
@@ -154,6 +155,27 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
         // If decoding fails, just render as text
         parts.push(fullMatch);
       }
+    } else if (atMention) {
+      // Handle @hex mentions (potential pubkeys)
+      try {
+        // Try to decode as a hex pubkey (64 chars) or npub
+        let pubkey = atMention;
+
+        // If it's a short hex, we can't directly use it as a pubkey
+        // For now, we'll show it as text but make it look like a mention
+        // In a real implementation, you might want to look up users by short hex
+        parts.push(
+          <span
+            key={`atmention-${keyCounter++}`}
+            className="text-blue-500 font-medium"
+          >
+            @{atMention}
+          </span>
+        );
+      } catch {
+        // If anything fails, just render as text
+        parts.push(fullMatch);
+      }
     } else if (hashtag) {
       // Handle hashtags
       const tag = hashtag.slice(1); // Remove the #
@@ -195,11 +217,15 @@ function NostrMention({ pubkey }: { pubkey: string }) {
     <Link
       to={`/${npub}`}
       className={cn(
-        "font-medium hover:underline",
+        "font-medium hover:underline cursor-pointer",
         hasRealName
-          ? "text-blue-500"
-          : "text-gray-500 hover:text-gray-700"
+          ? "text-blue-600 hover:text-blue-700"
+          : "text-gray-600 hover:text-gray-800"
       )}
+      onClick={(e) => {
+        // Ensure the link is clickable
+        e.stopPropagation();
+      }}
     >
       @{displayName}
     </Link>
