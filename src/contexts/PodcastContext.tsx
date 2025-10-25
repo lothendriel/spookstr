@@ -14,7 +14,6 @@ interface PodcastContextType {
   togglePlayPause: () => void;
   togglePopOut: () => void;
   closePopOut: () => void;
-  stopPodcast: () => void;
 }
 
 const PodcastContext = createContext<PodcastContextType | undefined>(undefined);
@@ -42,14 +41,9 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
   };
 
   const closePopOut = () => {
-    // Return control to main card, don't stop playback
     setIsPoppedOut(false);
-  };
-
-  const stopPodcast = () => {
     setIsPlaying(false);
     setCurrentPodcast(null);
-    setIsPoppedOut(false);
   };
 
   return (
@@ -62,7 +56,6 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
       togglePlayPause,
       togglePopOut,
       closePopOut,
-      stopPodcast,
     }}>
       {children}
     </PodcastContext.Provider>

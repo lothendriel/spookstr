@@ -1,28 +1,28 @@
 import { usePodcast } from '@/contexts/PodcastContext';
 import { Button } from '@/components/ui/button';
-import {
-  Volume2,
-  Play,
-  Pause,
-  Maximize2,
-  Minimize2
+import { 
+  Volume2, 
+  Play, 
+  Pause, 
+  Maximize2, 
+  Minimize2 
 } from 'lucide-react';
 import { useState } from 'react';
 
 export function PodcastIndicator() {
-  const {
-    currentPodcast,
-    isPlaying,
-    isPoppedOut,
-    togglePlayPause,
-    togglePopOut
+  const { 
+    currentPodcast, 
+    isPlaying, 
+    isPoppedOut, 
+    togglePlayPause, 
+    togglePopOut 
   } = usePodcast();
 
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Only show indicator when podcast is popped out
-  // This gives users access to controls when the main carousel is hidden
-  if (!currentPodcast || !isPlaying || !isPoppedOut) return null;
+  if (!currentPodcast || !isPlaying) return null;
+
+  if (isPoppedOut) return null; // Don't show indicator when player is already popped out
 
   return (
     <div className="fixed bottom-4 right-4 z-40">
@@ -44,7 +44,7 @@ export function PodcastIndicator() {
                 {currentPodcast.title}
               </p>
               <p className="text-xs text-lime-500/60">
-                Playing in pop-out player
+                Playing in background
               </p>
             </div>
           )}
@@ -59,15 +59,15 @@ export function PodcastIndicator() {
             >
               {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
-
+            
             <Button
               variant="ghost"
               size="icon"
               onClick={togglePopOut}
               className="h-8 w-8 text-lime-400 hover:text-lime-300 hover:bg-lime-500/20"
-              title="Return to main player"
+              title="Pop out player"
             >
-              <Minimize2 className="h-4 w-4" />
+              <Maximize2 className="h-4 w-4" />
             </Button>
 
             {/* Expand/Collapse button */}

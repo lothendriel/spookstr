@@ -1,28 +1,27 @@
 import { usePodcast } from '@/contexts/PodcastContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Minimize2,
-  Maximize2,
-  Play,
-  Pause,
-  X,
+import { 
+  Minimize2, 
+  Maximize2, 
+  Play, 
+  Pause, 
+  X, 
   Volume2,
   VolumeX
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
 export function PopOutPodcastPlayer() {
-  const {
-    currentPodcast,
-    isPlaying,
-    isPoppedOut,
-    togglePlayPause,
-    togglePopOut,
-    closePopOut,
-    stopPodcast
+  const { 
+    currentPodcast, 
+    isPlaying, 
+    isPoppedOut, 
+    togglePlayPause, 
+    togglePopOut, 
+    closePopOut 
   } = usePodcast();
-
+  
   const [isMuted, setIsMuted] = useState(false);
   const [position, setPosition] = useState({ x: 20, y: 20 });
   const [isDragging, setIsDragging] = useState(false);
@@ -55,11 +54,11 @@ export function PopOutPodcastPlayer() {
     if (isDragging) {
       const newX = e.clientX - dragOffset.current.x;
       const newY = e.clientY - dragOffset.current.y;
-
+      
       // Keep within viewport bounds
       const maxX = window.innerWidth - 400; // 400px is approximate width
       const maxY = window.innerHeight - 500; // 500px is approximate height
-
+      
       setPosition({
         x: Math.max(0, Math.min(newX, maxX)),
         y: Math.max(0, Math.min(newY, maxY))
@@ -104,7 +103,7 @@ export function PopOutPodcastPlayer() {
     >
       <Card className="border-0 bg-black/95 backdrop-blur-md">
         {/* Draggable Header */}
-        <CardHeader
+        <CardHeader 
           className="pb-2 cursor-grab active:cursor-grabbing bg-gradient-to-r from-lime-600/20 to-lime-400/20"
           onMouseDown={handleMouseDown}
         >
@@ -142,18 +141,7 @@ export function PopOutPodcastPlayer() {
                 variant="ghost"
                 size="icon"
                 onClick={closePopOut}
-                className="h-6 w-6 text-lime-400 hover:text-lime-300 hover:bg-lime-500/20"
-                title="Return to main player"
-              >
-                <Minimize2 className="h-3 w-3" />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={stopPodcast}
                 className="h-6 w-6 text-red-400 hover:text-red-300 hover:bg-red-500/20"
-                title="Stop podcast"
               >
                 <X className="h-3 w-3" />
               </Button>
