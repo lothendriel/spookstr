@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Maximize2, Play } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Maximize2, Play, Pause, X, Volume2, VolumeX } from 'lucide-react';
 import { usePodcast } from '@/contexts/PodcastContext';
 
 const podcastEmbeds = [
@@ -28,7 +28,16 @@ const podcastEmbeds = [
 
 export function ParanormalPodcastsCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const { playPodcast, togglePopOut, currentPodcast, isPoppedOut } = usePodcast();
+  const [isMuted, setIsMuted] = useState(false);
+  const {
+    playPodcast,
+    togglePopOut,
+    currentPodcast,
+    isPoppedOut,
+    isPlaying,
+    togglePlayPause,
+    stopPodcast
+  } = usePodcast();
 
   const goToPrevious = () => {
     setCurrentIndex((prev) => (prev === 0 ? podcastEmbeds.length - 1 : prev - 1));
@@ -39,29 +48,72 @@ export function ParanormalPodcastsCarousel() {
   };
 
   const currentPodcastData = podcastEmbeds[currentIndex];
+  const isCurrentPodcastPlaying = currentPodcast?.title === currentPodcastData.title;
+  const isThisPodcastActive = isCurrentPodcastPlaying && !isPoppedOut;
 
-  const handlePlayAndPopOut = () => {
-    playPodcast(currentPodcastData);
-    if (!isPoppedOut) {
-      togglePopOut();
+  const handlePlay = () => {
+    if (!isCurrentPodcastPlaying) {
+      // Start playing this podcast
+      playPodcast(currentPodcastData);
+    } else {
+      // Toggle play/pause for current podcast
+      togglePlayPause();
     }
   };
 
-  const isCurrentPodcastPlaying = currentPodcast?.title === currentPodcastData.title && isPoppedOut;
+  const handlePopOut = () => {
+    if (isCurrentPodcastPlaying) {
+      // Pop out the currently playing podcast
+      togglePopOut();
+    } else {
+      // Start playing and then pop out
+      playPodcast(currentPodcastData);
+      setTimeout(() => togglePopOut(), 100); // Small delay to ensure state updates
+    }
+  };
+
+  const handleStop = () => {
+    stopPodcast();
+  };
+
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
+    // Note: iHeart iframe doesn't expose mute controls via postMessage
+    // This is a visual indicator only
+  };
+
+  // Don't show the carousel if this podcast is popped out
+  if (isCurrentPodcastPlaying && isPoppedOut) {
+    return null;
+  }
 
   return (
     <div className="border border-lime-500/20 rounded-lg p-4 bg-black/40 backdrop-blur-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-lime-400 flex items-center space-x-2">
+          <Volume2 className="h-5 w-5" />
           <span>Paranormal Podcasts</span>
-          {isCurrentPodcastPlaying && (
+          {isThisPodcastActive && (
             <div className="flex items-center space-x-1">
               <div className="w-2 h-2 bg-lime-400 rounded-full animate-pulse"></div>
-              <span className="text-xs text-lime-400">Playing</span>
+              <span className="text-xs text-lime-400">
+                {isPlaying ? 'Playing' : 'Paused'}
+              </span>
             </div>
           )}
         </h3>
-        <div className="flex gap-1">
+
+        <div className="flex items-center space-x-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleMute}
+            className="h-8 w-8 text-lime-400 hover:text-lime-300 hover:bg-lime-500/10"
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+          </Button>
+
           <Button
             variant="ghost"
             size="icon"
@@ -108,24 +160,60 @@ export function ParanormalPodcastsCarousel() {
         <p className="text-lime-100 text-sm font-medium truncate flex-1">
           {currentPodcastData.title}
         </p>
-        <Button
-          onClick={handlePlayAndPopOut}
-          variant="outline"
-          size="sm"
-          className="ml-2 border-lime-500/50 text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-        >
-          {isCurrentPodcastPlaying ? (
+
+        <div className="flex items-center space-x-1">
+          {isThisPodcastActive && (
             <>
-              <Maximize2 className="h-3 w-3" />
-              <span className="text-xs">Pop-out</span>
-            </>
-          ) : (
-            <>
-              <Play className="h-3 w-3" />
-              <span className="text-xs">Play & Pop-out</span>
+              <Button
+                onClick={handleStop}
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-500/20"
+                title="Stop podcast"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </>
           )}
-        </Button>
+
+          <Button
+            onClick={handlePlay}
+            variant="outline"
+            size="sm"
+            className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+          >
+            {isThisPodcastActive && isPlaying ? (
+              <>
+                <Pause className="h-3 w-3" />
+                <span className="text-xs">Pause</span>
+              </>
+            ) : (
+              <>
+                <Play className="h-3 w-3" />
+                <span className="text-xs">Play</span>
+              </>
+            )}
+          </Button>
+
+          <Button
+            onClick={handlePopOut}
+            variant="outline"
+            size="sm"
+            className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+          >
+            {isCurrentPodcastPlaying && isPoppedOut ? (
+              <>
+                <Pause className="h-3 w-3" />
+                <span className="text-xs">Playing</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="h-3 w-3" />
+                <span className="text-xs">Pop-out</span>
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );
