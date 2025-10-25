@@ -54,21 +54,38 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     const originalIframe = document.querySelector(`iframe[data-podcast-index="${currentIndex}"]`) as HTMLIFrameElement;
     const popoutContainer = document.getElementById('popout-iframe-container');
 
-    if (originalIframe && popoutContainer && originalIframe.parentNode !== popoutContainer) {
-      // Store the original parent for later
+    if (originalIframe && popoutContainer) {
+      // Store the original parent and next sibling for proper reinsertion
       const originalParent = originalIframe.parentNode;
+      const nextSibling = originalIframe.nextSibling;
 
-      // Move the iframe to popout
+      // Create a new iframe with the same src to maintain playback state
+      const newIframe = document.createElement('iframe');
+      newIframe.allow = 'autoplay';
+      newIframe.width = '100%';
+      newIframe.height = '120'; // Minimal height for popout
+      newIframe.src = originalIframe.src;
+      newIframe.frameBorder = '0';
+      newIframe.setAttribute('data-podcast-index', currentIndex.toString());
+
+      // Replace the original iframe with the new one in the carousel
+      if (originalParent) {
+        originalParent.removeChild(originalIframe);
+        originalParent.insertBefore(newIframe, nextSibling);
+      }
+
+      // Add the original iframe to popout (this maintains playback state)
+      originalIframe.style.height = '120px';
       originalIframe.classList.remove('invisible');
-      originalIframe.style.height = '120px'; // Set minimal height for popout
       popoutContainer.innerHTML = '';
       popoutContainer.appendChild(originalIframe);
 
       // Update reference
       iframeRef.current = originalIframe;
 
-      // Store original parent and height for return
+      // Store original position info for return
       (originalIframe as any)._originalParent = originalParent;
+      (originalIframe as any)._nextSibling = nextSibling;
       (originalIframe as any)._originalHeight = '400px';
     }
   };
@@ -78,18 +95,26 @@ export function PodcastProvider({ children }: { children: ReactNode }) {
     if (!iframe) return;
 
     const originalParent = (iframe as any)._originalParent;
+    const nextSibling = (iframe as any)._nextSibling;
     const originalHeight = (iframe as any)._originalHeight;
 
-    if (originalParent && iframe.parentNode !== originalParent) {
-      // Restore original height
-      iframe.style.height = originalHeight || '400px';
+    if (originalParent) {
+      // Find the replacement iframe in the carousel
+      const replacementIframe = originalParent.querySelector(`iframe[data-podcast-index="${currentIndex}"]`) as HTMLIFrameElement;
 
-      // Move back to original position
-      originalParent.appendChild(iframe);
+      if (replacementIframe && replacementIframe !== iframe) {
+        // Restore original height
+        iframe.style.height = originalHeight || '400px';
 
-      // Clean up stored data
-      delete (iframe as any)._originalParent;
-      delete (iframe as any)._originalHeight;
+        // Replace the replacement iframe with the original (maintaining playback state)
+        originalParent.removeChild(replacementIframe);
+        originalParent.insertBefore(iframe, nextSibling);
+
+        // Clean up stored data
+        delete (iframe as any)._originalParent;
+        delete (iframe as any)._nextSibling;
+        delete (iframe as any)._originalHeight;
+      }
     }
   };
 

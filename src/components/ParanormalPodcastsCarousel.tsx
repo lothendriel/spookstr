@@ -67,15 +67,7 @@ export function ParanormalPodcastsCarousel() {
     }
   };
 
-  // Find and set reference to the current podcast iframe
-  useEffect(() => {
-    if (currentPodcast) {
-      const iframe = document.querySelector(`iframe[data-podcast-index="${currentIndex}"]`) as HTMLIFrameElement;
-      if (iframe && iframe !== iframeRef.current) {
-        iframeRef.current = iframe;
-      }
-    }
-  }, [currentPodcast, currentIndex, iframeRef]);
+
 
   return (
     <div className="border border-lime-500/20 rounded-lg p-4 bg-black/40 backdrop-blur-sm">
