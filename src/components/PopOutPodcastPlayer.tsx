@@ -132,7 +132,7 @@ export function PopOutPodcastPlayer() {
       <Card className="border-0 bg-black/95 backdrop-blur-md">
         {/* Minimal Draggable Header with Navigation */}
         <CardHeader
-          className="pb-2 cursor-grab active:cursor-grabbing bg-gradient-to-r from-lime-600/20 to-lime-400/20"
+          className="pb-1 pt-2 cursor-grab active:cursor-grabbing bg-gradient-to-r from-lime-600/20 to-lime-400/20"
           onMouseDown={handleMouseDown}
         >
           <div className="flex items-center justify-between">
