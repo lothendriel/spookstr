@@ -42,7 +42,11 @@ export function ParanormalPodcastsCarousel() {
 
   const handlePlayAndPopOut = () => {
     playPodcast(currentPodcastData);
-    if (!isPoppedOut) {
+    if (isCurrentPodcastPlaying) {
+      // If already popped out, close popout to return to main player
+      togglePopOut();
+    } else {
+      // If not popped out, open popout
       togglePopOut();
     }
   };
@@ -84,24 +88,44 @@ export function ParanormalPodcastsCarousel() {
       </div>
 
       <div className="relative">
-        <div className="overflow-x-hidden whitespace-nowrap">
-          <div
-            className="inline-flex transition-transform duration-300 ease-in-out"
-            style={{ transform: `translateX(-${currentIndex * 100}%)` }}
-          >
-            {podcastEmbeds.map((podcast, index) => (
-              <div
-                key={index}
-                className="w-[100%] min-w-[100%] inline-block align-top"
-              >
-                <div
-                  dangerouslySetInnerHTML={{ __html: podcast.embedCode }}
-                  className="mt-2"
-                />
+        {isCurrentPodcastPlaying ? (
+          // Show placeholder when podcast is popped out
+          <div className="bg-black/20 border-2 border-dashed border-lime-500/30 rounded-lg p-8 text-center">
+            <div className="space-y-3">
+              <div className="flex justify-center">
+                <div className="w-12 h-12 bg-lime-500/20 rounded-full flex items-center justify-center">
+                  <Maximize2 className="h-6 w-6 text-lime-400" />
+                </div>
               </div>
-            ))}
+              <p className="text-lime-400 font-medium">
+                Now playing in popout player
+              </p>
+              <p className="text-lime-200/70 text-sm">
+                {currentPodcastData.title}
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          // Show iframe player when not popped out
+          <div className="overflow-x-hidden whitespace-nowrap">
+            <div
+              className="inline-flex transition-transform duration-300 ease-in-out"
+              style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+            >
+              {podcastEmbeds.map((podcast, index) => (
+                <div
+                  key={index}
+                  className="w-[100%] min-w-[100%] inline-block align-top"
+                >
+                  <div
+                    dangerouslySetInnerHTML={{ __html: podcast.embedCode }}
+                    className="mt-2"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between mt-3">
@@ -117,7 +141,7 @@ export function ParanormalPodcastsCarousel() {
           {isCurrentPodcastPlaying ? (
             <>
               <Maximize2 className="h-3 w-3" />
-              <span className="text-xs">Pop-out</span>
+              <span className="text-xs">Return to Player</span>
             </>
           ) : (
             <>
