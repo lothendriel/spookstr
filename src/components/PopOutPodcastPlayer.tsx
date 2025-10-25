@@ -1,11 +1,11 @@
 import { usePodcast } from '@/contexts/PodcastContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { 
-  Minimize2, 
-  Play, 
-  Pause, 
-  X, 
+import {
+  Minimize2,
+  Play,
+  Pause,
+  X,
   Volume2,
   VolumeX,
   Maximize2
@@ -13,17 +13,17 @@ import {
 import { useState, useEffect } from 'react';
 
 export function PopOutPodcastPlayer() {
-  const { 
-    currentPodcast, 
-    isPlaying, 
-    isPoppedOut, 
-    togglePlayPause, 
-    togglePopOut, 
-    closePopOut 
+  const {
+    currentPodcast,
+    isPlaying,
+    isPoppedOut,
+    togglePlayPause,
+    togglePopOut,
+    closePopOut
   } = usePodcast();
-  
+
   const [isMuted, setIsMuted] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   // Toggle mute by sending message to iframe
   const toggleMute = () => {
@@ -49,7 +49,7 @@ export function PopOutPodcastPlayer() {
                 <div className="w-1 h-5 bg-lime-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }}></div>
                 <div className="w-1 h-4 bg-lime-400 rounded-full animate-pulse" style={{ animationDelay: '300ms' }}></div>
               </div>
-              
+
               {/* Podcast title */}
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-lime-400 font-medium truncate">
@@ -71,16 +71,22 @@ export function PopOutPodcastPlayer() {
               >
                 {isMuted ? <VolumeX className="h-3 w-3" /> : <Volume2 className="h-3 w-3" />}
               </Button>
-              
+
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={togglePlayPause}
+                onClick={() => {
+                  if (!isExpanded) {
+                    setIsExpanded(true);
+                  }
+                  togglePlayPause();
+                }}
                 className="h-7 w-7 text-lime-400 hover:text-lime-300 hover:bg-lime-500/20"
+                title={isExpanded ? (isPlaying ? "Pause" : "Play") : "Click to expand and play"}
               >
                 {isPlaying ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
               </Button>
-              
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -90,7 +96,7 @@ export function PopOutPodcastPlayer() {
               >
                 {isExpanded ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
               </Button>
-              
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -100,7 +106,7 @@ export function PopOutPodcastPlayer() {
               >
                 <Minimize2 className="h-3 w-3" />
               </Button>
-              
+
               <Button
                 variant="ghost"
                 size="icon"
