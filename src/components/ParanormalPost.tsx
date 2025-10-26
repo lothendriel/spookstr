@@ -283,7 +283,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
         setPostToSpookstr2Only(false); // Reset checkbox when dialog is closed
       }
     }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md overflow-hidden">
         <DialogHeader>
           <DialogTitle>Quote Repost</DialogTitle>
           <DialogDescription>
@@ -297,9 +297,9 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
             onChange={(e) => setQuoteContent(e.target.value)}
             className="min-h-[100px] resize-none"
           />
-          <div className="p-3 bg-lime-500/10 rounded-lg border border-lime-500/20">
+          <div className="p-3 bg-lime-500/10 rounded-lg border border-lime-500/20 overflow-hidden">
             <p className="text-xs text-lime-500/60 mb-1">Original post:</p>
-            <p className="text-sm text-lime-100 line-clamp-3 break-words whitespace-normal">
+            <p className="text-sm text-lime-100 line-clamp-3 break-all whitespace-normal overflow-hidden">
               {event.content.substring(0, 150)}
               {event.content.length > 150 && '...'}
             </p>
