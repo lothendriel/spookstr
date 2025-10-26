@@ -170,6 +170,18 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!videoRef.current) return;
 
+      // Don't handle video shortcuts if user is typing in a form element
+      const activeElement = document.activeElement;
+      const isFormElement = activeElement && (
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.tagName === 'SELECT' ||
+        activeElement.isContentEditable ||
+        activeElement.getAttribute('role') === 'textbox'
+      );
+
+      if (isFormElement) return;
+
       switch (e.key.toLowerCase()) {
         case ' ':
         case 'k':
