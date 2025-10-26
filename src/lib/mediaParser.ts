@@ -37,9 +37,11 @@ const mediaPatterns = {
   // Common image hosting services that often serve images without extensions
   imageHosting: /https?:\/\/(?:i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app)\/[^\s]+/gi,
   // CDN and video hosting patterns (URLs that might serve video files without extensions)
-  potentialVideo: /https?:\/\/[^\s]+(?:\/(?:download|file|media|video|play|stream|watch|view|get|fetch|serve|deliver|access|open|load|playback|content|asset|resource|data|binary|raw|attachment|cdn|storage|bucket|objects|files)[\/\?]|(?:\?|&)(?:file|video|media|content|download|play|stream|watch|view|get|fetch|serve|deliver|access|open|load|playback|asset|resource|data|binary|raw|attachment|cdn)[=])/gi,
-  // Common CDN patterns
-  cdnVideo: /https?:\/\/(?:cdn\.|storage\.|media\.|assets\.|files\.|content\.|data\.|objects\.|bucket\.)[^\s]+\/[^\s]+/gi,
+  potentialVideo: /https?:\/\/[^\s]+(?:\/(?:download|file|media|video|play|stream|watch|view|get|fetch|serve|deliver|access|open|load|playback|content|asset|resource|data|binary|raw|attachment|cdn|storage|bucket|objects|files|uploads|static|temp|cache|proxy|redirect|forward)[\/\?]|(?:\?|&)(?:file|video|media|content|download|play|stream|watch|view|get|fetch|serve|deliver|access|open|load|playback|asset|resource|data|binary|raw|attachment|cdn|storage|bucket|objects|files|uploads|static|temp|cache|proxy|redirect|forward)[=])/gi,
+  // Common CDN patterns - more comprehensive
+  cdnVideo: /https?:\/\/(?:cdn\.|storage\.|media\.|assets\.|files\.|content\.|data\.|objects\.|bucket\.|uploads\.|static\.|temp\.|cache\.|proxy\.|redirect\.|forward\.)[^\s]+\/[^\s]+/gi,
+  // Additional CDN patterns for common providers
+  cdnProviders: /https?:\/\/(?:cloudflare\.com|amazonaws\.com|azureedge\.net|googleapis\.com|cloudfront\.net|akamai\.net|fastly\.net|keycdn\.com|bunnycdn\.com|stackpath\.com|impervadns\.net|cdn77\.org|jsdelivr\.net|unpkg\.com|raw\.githubusercontent\.com|githubusercontent\.com|gitlab\.com|bitbucket\.org|dropbox\.com|drive\.google\.com|onedrive\.live\.com|box\.com)[^\s]*\/[^\s]+/gi,
   // IMDB links for special preview handling
   imdb: /https?:\/\/(?:www\.)?imdb\.com\/(?:title|name)\/(?:[a-z0-9]+)(?:\/[^\s]*)?/gi,
   website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app|imdb\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
@@ -66,7 +68,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   }
 
   // Process other media types in order of precedence
-  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'imdb', 'potentialVideo', 'cdnVideo'];
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'imdb', 'potentialVideo', 'cdnVideo', 'cdnProviders'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -279,6 +281,20 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
           metadata: {
             isPotentialVideo: true,
             isCDNVideo: true,
+            format: 'unknown' // Will be determined when the video is loaded
+          }
+        };
+
+      case 'cdnProviders':
+        return {
+          type: 'potential-video',
+          url: cleanUrl,
+          title: extractCDNVideoTitle(cleanUrl),
+          thumbnail: generateVideoThumbnail(cleanUrl),
+          metadata: {
+            isPotentialVideo: true,
+            isCDNVideo: true,
+            isCDNProvider: true,
             format: 'unknown' // Will be determined when the video is loaded
           }
         };
