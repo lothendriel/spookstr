@@ -28,6 +28,7 @@ const Index = () => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const postsContainerRef = useRef<HTMLDivElement>(null);
+  const [isRestoringScroll, setIsRestoringScroll] = useState(false);
 
   // Handle scroll restoration when navigating back from post detail
   useEffect(() => {
@@ -37,8 +38,20 @@ const Index = () => {
       postId?: string;
     } | null;
 
-    if (navigationState?.restoreScroll && navigationState.scrollPosition !== undefined) {
-      // Use a small delay to ensure the DOM is fully rendered
+    if (navigationState?.restoreScroll && navigationState.scrollPosition !== undefined && posts) {
+      setIsRestoringScroll(true);
+
+      // Check if the target post is beyond the currently loaded posts
+      const targetPostIndex = posts.findIndex(post => post.id === navigationState.postId);
+      const needsMorePosts = targetPostIndex >= postsToShow && targetPostIndex !== -1;
+
+      // If we need more posts, load them first
+      if (needsMorePosts) {
+        const requiredPostsToShow = Math.min(targetPostIndex + 1, posts.length);
+        setPostsToShow(requiredPostsToShow);
+      }
+
+      // Use a small delay to ensure the DOM is fully rendered (especially if we just loaded more posts)
       setTimeout(() => {
         // First restore the scroll position
         window.scrollTo(0, navigationState.scrollPosition!);
@@ -53,25 +66,43 @@ const Index = () => {
             });
           }
         }
-      }, 100);
+
+        // Reset the restoring state after a short delay
+        setTimeout(() => setIsRestoringScroll(false), 500);
+      }, needsMorePosts ? 300 : 100); // Longer delay if we needed to load more posts
     }
-  }, [location.state, posts]);
+  }, [location.state, posts, postsToShow]);
+
+  // Clear scroll restoration state when user manually scrolls
+  useEffect(() => {
+    const handleManualScroll = () => {
+      if (isRestoringScroll) {
+        setIsRestoringScroll(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleManualScroll);
+    return () => window.removeEventListener('scroll', handleManualScroll);
+  }, [isRestoringScroll]);
 
   // Reset pagination when new posts are loaded
   useEffect(() => {
     if (posts) {
+      setIsRestoringScroll(false);
       setPostsToShow(12);
     }
   }, [posts]);
 
   const handleRefresh = () => {
-    // Refetch paranormal feed and reset pagination
+    // Refetch paranormal feed and reset pagination, clear scroll restoration state
+    setIsRestoringScroll(false);
     setPostsToShow(12);
     refetch();
   };
 
   const handleLoadMore = () => {
-    // Load 12 more posts
+    // Load 12 more posts and clear any scroll restoration state
+    setIsRestoringScroll(false);
     setPostsToShow(prev => prev + 12);
   };
 
@@ -168,8 +199,8 @@ const Index = () => {
                   </div>
                 ))}
 
-                {/* Load More Button - Shown on all devices when more posts available */}
-                {postsToShow < posts.length && (
+                {/* Load More Button - Shown on all devices when more posts available and not restoring scroll */}
+                {postsToShow < posts.length && !isRestoringScroll && (
                   <div className="flex justify-center pt-4">
                     <Button
                       onClick={handleLoadMore}
@@ -178,6 +209,16 @@ const Index = () => {
                     >
                       Load More Posts ({posts.length - postsToShow} remaining)
                     </Button>
+                  </div>
+                )}
+
+                {/* Loading indicator when restoring scroll and loading more posts */}
+                {isRestoringScroll && postsToShow < posts.length && (
+                  <div className="flex justify-center pt-4">
+                    <div className="flex items-center space-x-2 text-lime-500/60">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-lime-500"></div>
+                      <span className="text-sm">Loading posts to restore position...</span>
+                    </div>
                   </div>
                 )}
 
