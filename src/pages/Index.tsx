@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSeoMeta } from '@unhead/react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useParanormalFeed } from '@/hooks/useParanormalFeed';
@@ -7,6 +7,7 @@ import { CreateParanormalPost } from '@/components/CreateParanormalPost';
 import { CreatePostModal } from '@/components/CreatePostModal';
 import { RedditParanormalFeed } from '@/components/RedditParanormalFeed';
 import { DeveloperTip } from '@/components/DeveloperTip';
+import { PostDetailView } from '@/components/PostDetailView';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,6 @@ import { RotateCcw, Ghost, Plus } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { ParanormalPodcastsCarousel } from '@/components/ParanormalPodcastsCarousel';
-import { useLocation } from 'react-router-dom';
 
 const Index = () => {
   useSeoMeta({
@@ -24,140 +24,40 @@ const Index = () => {
 
   const queryClient = useQueryClient();
   const { data: posts, isLoading, error, refetch } = useParanormalFeed();
+  const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [postsToShow, setPostsToShow] = useState(12); // Show 12 posts initially on all devices
   const isMobile = useIsMobile();
-  const location = useLocation();
-  const postsContainerRef = useRef<HTMLDivElement>(null);
-  const [isRestoringScroll, setIsRestoringScroll] = useState(false);
-
-  // State to track pending scroll restoration
-  const [pendingScrollRestore, setPendingScrollRestore] = useState<{
-    scrollPosition: number;
-    postId: string;
-  } | null>(null);
-
-  // Handle scroll restoration when navigating back from post detail
-  useEffect(() => {
-    const navigationState = location.state as {
-      restoreScroll?: boolean;
-      scrollPosition?: number;
-      postId?: string;
-    } | null;
-
-    if (navigationState?.restoreScroll && navigationState.scrollPosition !== undefined && navigationState.postId && posts) {
-      setIsRestoringScroll(true);
-
-      // Check if the target post is beyond the currently loaded posts
-      const targetPostIndex = posts.findIndex(post => post.id === navigationState.postId);
-      const needsMorePosts = targetPostIndex >= postsToShow && targetPostIndex !== -1;
-
-      if (needsMorePosts) {
-        // Load all posts up to and including the target post
-        const requiredPostsToShow = Math.min(targetPostIndex + 1, posts.length);
-        setPostsToShow(requiredPostsToShow);
-
-        // Set pending restoration - this will be triggered after DOM updates
-        setPendingScrollRestore({
-          scrollPosition: navigationState.scrollPosition,
-          postId: navigationState.postId
-        });
-      } else {
-        // Posts are already loaded, restore immediately
-        restoreScrollAndCenterPost(navigationState.scrollPosition, navigationState.postId);
-      }
-    }
-  }, [location.state, posts, postsToShow]);
-
-  // Effect to handle pending scroll restoration after DOM has updated
-  useEffect(() => {
-    if (pendingScrollRestore && postsContainerRef.current) {
-      // Check if the target post is actually in the DOM
-      const postElement = document.querySelector(`[data-post-id="${pendingScrollRestore.postId}"]`);
-
-      if (postElement) {
-        // Post is found in DOM, perform the scroll restoration
-        restoreScrollAndCenterPost(pendingScrollRestore.scrollPosition, pendingScrollRestore.postId);
-      } else {
-        // Post not found yet, wait a bit and check again
-        const checkInterval = setInterval(() => {
-          const element = document.querySelector(`[data-post-id="${pendingScrollRestore.postId}"]`);
-          if (element) {
-            clearInterval(checkInterval);
-            restoreScrollAndCenterPost(pendingScrollRestore.scrollPosition, pendingScrollRestore.postId);
-          }
-        }, 50);
-
-        // Safety timeout - don't wait forever
-        setTimeout(() => {
-          clearInterval(checkInterval);
-          // If still not found, try anyway
-          restoreScrollAndCenterPost(pendingScrollRestore.scrollPosition, pendingScrollRestore.postId);
-        }, 1000);
-      }
-    }
-  }, [pendingScrollRestore]);
-
-  // Centralized scroll restoration function
-  const restoreScrollAndCenterPost = (scrollPosition: number, postId: string) => {
-    // First restore the scroll position
-    window.scrollTo(0, scrollPosition);
-
-    // Then try to scroll to the specific post if we have the post ID
-    if (postsContainerRef.current) {
-      const postElement = document.querySelector(`[data-post-id="${postId}"]`);
-      if (postElement) {
-        postElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        });
-      }
-    }
-
-    // Reset the restoring state after a short delay
-    setTimeout(() => {
-      setIsRestoringScroll(false);
-      setPendingScrollRestore(null);
-    }, 500);
-  };
-
-  // Clear scroll restoration state when user manually scrolls
-  useEffect(() => {
-    const handleManualScroll = () => {
-      if (isRestoringScroll) {
-        setIsRestoringScroll(false);
-        setPendingScrollRestore(null);
-      }
-    };
-
-    window.addEventListener('scroll', handleManualScroll);
-    return () => window.removeEventListener('scroll', handleManualScroll);
-  }, [isRestoringScroll]);
 
   // Reset pagination when new posts are loaded
   useEffect(() => {
     if (posts) {
-      setIsRestoringScroll(false);
-      setPendingScrollRestore(null);
       setPostsToShow(12);
     }
   }, [posts]);
 
   const handleRefresh = () => {
-    // Refetch paranormal feed and reset pagination, clear scroll restoration state
-    setIsRestoringScroll(false);
-    setPendingScrollRestore(null);
+    // Refetch paranormal feed and reset pagination
     setPostsToShow(12);
     refetch();
   };
 
   const handleLoadMore = () => {
-    // Load 12 more posts and clear any scroll restoration state
-    setIsRestoringScroll(false);
-    setPendingScrollRestore(null);
+    // Load 12 more posts
     setPostsToShow(prev => prev + 12);
   };
 
-
+  if (selectedPost) {
+    return (
+      <div className="min-h-screen p-4">
+        <div className="max-w-4xl mx-auto">
+          <PostDetailView
+            event={selectedPost}
+            onBack={() => setSelectedPost(null)}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -239,29 +139,19 @@ const Index = () => {
             )}
 
             {!isLoading && !error && posts && posts.length > 0 && (
-              <div className="space-y-4" ref={postsContainerRef}>
+              <div className="space-y-4">
                 {/* Show limited number of posts with "Load More" functionality */}
                 {posts.slice(0, postsToShow).map((post) => (
-                  <div key={post.id} data-post-id={post.id}>
-                    <ParanormalPost
-                      event={post}
-                      showActions={true}
-                    />
-                  </div>
+                  <ParanormalPost
+                    key={post.id}
+                    event={post}
+                    onClick={() => setSelectedPost(post)}
+                    showActions={true}
+                  />
                 ))}
 
-                {/* Loading indicator when restoring scroll and loading more posts */}
-                {isRestoringScroll && postsToShow < posts.length && (
-                  <div className="flex justify-center pt-4">
-                    <div className="flex items-center space-x-2 text-lime-500/60">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-lime-500"></div>
-                      <span className="text-sm">Loading posts to restore position...</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Load More Button - Only shown when not restoring scroll and no pending restore */}
-                {postsToShow < posts.length && !isRestoringScroll && !pendingScrollRestore && (
+                {/* Load More Button - Shown on all devices when more posts available */}
+                {postsToShow < posts.length && (
                   <div className="flex justify-center pt-4">
                     <Button
                       onClick={handleLoadMore}

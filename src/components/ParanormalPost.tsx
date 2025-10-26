@@ -37,10 +37,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 interface ParanormalPostProps {
   event: NostrEvent;
+  onClick?: () => void;
   showActions?: boolean;
 }
 
-export function ParanormalPost({ event, showActions = true }: ParanormalPostProps) {
+export function ParanormalPost({ event, onClick, showActions = true }: ParanormalPostProps) {
   const author = useAuthor(event.pubkey);
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
@@ -109,22 +110,6 @@ export function ParanormalPost({ event, showActions = true }: ParanormalPostProp
     setIsQuoteDialogOpen(true);
   };
 
-  const handleCardClick = () => {
-    const noteId = nip19.noteEncode(event.id);
-
-    // Get the current scroll position and store it with the post ID
-    const scrollPosition = window.scrollY;
-
-    // Navigate to post detail with scroll state
-    navigate(`/${noteId}`, {
-      state: {
-        fromFeed: true,
-        scrollPosition: scrollPosition,
-        postId: event.id
-      }
-    });
-  };
-
   const handleQuoteSubmit = () => {
     if (!user || !quoteContent.trim()) return;
 
@@ -153,7 +138,7 @@ export function ParanormalPost({ event, showActions = true }: ParanormalPostProp
     <>
       <Card
         className="border-lime-500/20 hover:border-lime-500/40 transition-all duration-200 cursor-pointer bg-black/40 backdrop-blur-sm"
-        onClick={handleCardClick}
+        onClick={onClick}
       >
       <CardHeader className="pb-3">
         <div className="flex items-center space-x-3">
@@ -255,7 +240,7 @@ export function ParanormalPost({ event, showActions = true }: ParanormalPostProp
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleCardClick();
+                      if (onClick) onClick();
                     }}
                     className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
                   >
