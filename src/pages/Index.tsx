@@ -26,27 +26,7 @@ const Index = () => {
   const { data: posts, isLoading, error, refetch } = useParanormalFeed();
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [postsToShow, setPostsToShow] = useState(12); // Show 12 posts initially on all devices
-  const [loadingTimeout, setLoadingTimeout] = useState(false);
   const isMobile = useIsMobile();
-
-  // Detect if loading is taking too long (more than 8 seconds)
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-
-    if (isLoading) {
-      timeoutId = setTimeout(() => {
-        setLoadingTimeout(true);
-      }, 8000);
-    } else {
-      setLoadingTimeout(false);
-    }
-
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [isLoading]);
 
   // Reset pagination when new posts are loaded
   useEffect(() => {
@@ -120,26 +100,6 @@ const Index = () => {
 
             {isLoading && (
               <div className="space-y-4">
-                {loadingTimeout && (
-                  <div className="border border-yellow-500/30 rounded-lg p-4 bg-yellow-500/5 text-center">
-                    <p className="text-yellow-400 text-sm mb-2">
-                      Taking longer than expected to connect to the relays...
-                    </p>
-                    <Button
-                      onClick={() => {
-                        // Cancel current query and retry
-                        queryClient.resetQueries({ queryKey: ['paranormal-feed'] });
-                        refetch();
-                      }}
-                      variant="outline"
-                      size="sm"
-                      className="border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
-                    >
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Retry Now
-                    </Button>
-                  </div>
-                )}
                 {[...Array(5)].map((_, i) => (
                   <div key={i} className="border border-lime-500/20 rounded-lg p-4 bg-black/40">
                     <div className="flex items-center space-x-3 mb-3">
@@ -160,32 +120,9 @@ const Index = () => {
               <div className="border border-lime-500/20 rounded-lg p-6 bg-black/40 text-center">
                 <Ghost className="h-12 w-12 text-lime-500/60 mx-auto mb-4" />
                 <p className="text-lime-400 mb-2">The spirits are restless...</p>
-                <p className="text-lime-500/60 text-sm mb-4">
-                  Unable to fetch paranormal content. This might be a relay connectivity issue.
+                <p className="text-lime-500/60 text-sm">
+                  Unable to fetch paranormal content. Try refreshing or switching relays.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                  <Button
-                    onClick={handleRefresh}
-                    variant="outline"
-                    className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10"
-                    disabled={isLoading}
-                  >
-                    <RotateCcw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                    Try Again
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      // Force a retry by clearing the query cache
-                      queryClient.resetQueries({ queryKey: ['paranormal-feed'] });
-                      handleRefresh();
-                    }}
-                    variant="outline"
-                    className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10"
-                    disabled={isLoading}
-                  >
-                    Force Retry
-                  </Button>
-                </div>
               </div>
             )}
 
@@ -193,48 +130,11 @@ const Index = () => {
               <div className="border border-dashed border-lime-500/20 rounded-lg p-12 bg-black/20 text-center">
                 <Ghost className="h-16 w-16 text-lime-500/40 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-lime-400 mb-2">
-                  No Paranormal Activity Detected
+                  No Paranormal Activity Yet
                 </h3>
                 <p className="text-lime-500/60 mb-4">
-                  No posts found with paranormal tags. This could mean:
+                  Be the first to share your encounter with the unknown!
                 </p>
-                <div className="text-left max-w-md mx-auto space-y-2 text-sm text-lime-500/70 mb-6">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lime-400">•</span>
-                    <span>The current relay(s) have limited paranormal content</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lime-400">•</span>
-                    <span>No one has posted with paranormal tags recently</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lime-400">•</span>
-                    <span>The relays might be experiencing connectivity issues</span>
-                  </div>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                  <Button
-                    onClick={handleRefresh}
-                    variant="outline"
-                    className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10"
-                    disabled={isLoading}
-                  >
-                    <RotateCcw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                    Refresh Feed
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      // Force a retry by clearing the query cache
-                      queryClient.resetQueries({ queryKey: ['paranormal-feed'] });
-                      handleRefresh();
-                    }}
-                    variant="outline"
-                    className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10"
-                    disabled={isLoading}
-                  >
-                    Try Different Relays
-                  </Button>
-                </div>
               </div>
             )}
 

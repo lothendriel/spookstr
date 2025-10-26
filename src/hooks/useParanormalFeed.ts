@@ -119,7 +119,7 @@ export function useParanormalFeed() {
   return useQuery({
     queryKey: ['paranormal-feed'],
     queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]); // Increased timeout to 10 seconds
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
 
       // Query for notes with paranormal tags
       const events = await nostr.query([{
@@ -138,21 +138,6 @@ export function useParanormalFeed() {
     },
     refetchOnWindowFocus: false,
     staleTime: 30000, // 30 seconds
-    retry: (failureCount, error: any) => {
-      // Retry up to 3 times for network/timeout errors
-      if (failureCount >= 3) return false;
-
-      // Don't retry for certain errors
-      if (error?.name === 'AbortError' && error?.message?.includes('The user aborted a request')) {
-        return false; // Don't retry if user explicitly aborted
-      }
-
-      return true; // Retry for timeout and network errors
-    },
-    retryDelay: (attemptIndex) => {
-      // Exponential backoff: 1s, 2s, 4s
-      return Math.min(1000 * 2 ** (attemptIndex - 1), 8000);
-    },
   });
 }
 
