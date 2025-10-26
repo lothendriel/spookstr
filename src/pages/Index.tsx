@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSeoMeta } from '@unhead/react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useParanormalFeed } from '@/hooks/useParanormalFeed';
@@ -14,6 +14,7 @@ import { RotateCcw, Ghost, Plus } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { ParanormalPodcastsCarousel } from '@/components/ParanormalPodcastsCarousel';
+import { useLocation } from 'react-router-dom';
 
 const Index = () => {
   useSeoMeta({
@@ -25,6 +26,36 @@ const Index = () => {
   const { data: posts, isLoading, error, refetch } = useParanormalFeed();
   const [postsToShow, setPostsToShow] = useState(12); // Show 12 posts initially on all devices
   const isMobile = useIsMobile();
+  const location = useLocation();
+  const postsContainerRef = useRef<HTMLDivElement>(null);
+
+  // Handle scroll restoration when navigating back from post detail
+  useEffect(() => {
+    const navigationState = location.state as {
+      restoreScroll?: boolean;
+      scrollPosition?: number;
+      postId?: string;
+    } | null;
+
+    if (navigationState?.restoreScroll && navigationState.scrollPosition !== undefined) {
+      // Use a small delay to ensure the DOM is fully rendered
+      setTimeout(() => {
+        // First restore the scroll position
+        window.scrollTo(0, navigationState.scrollPosition!);
+
+        // Then try to scroll to the specific post if we have the post ID
+        if (navigationState.postId && postsContainerRef.current) {
+          const postElement = document.querySelector(`[data-post-id="${navigationState.postId}"]`);
+          if (postElement) {
+            postElement.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center'
+            });
+          }
+        }
+      }, 100);
+    }
+  }, [location.state, posts]);
 
   // Reset pagination when new posts are loaded
   useEffect(() => {
@@ -126,14 +157,15 @@ const Index = () => {
             )}
 
             {!isLoading && !error && posts && posts.length > 0 && (
-              <div className="space-y-4">
+              <div className="space-y-4" ref={postsContainerRef}>
                 {/* Show limited number of posts with "Load More" functionality */}
                 {posts.slice(0, postsToShow).map((post) => (
-                  <ParanormalPost
-                    key={post.id}
-                    event={post}
-                    showActions={true}
-                  />
+                  <div key={post.id} data-post-id={post.id}>
+                    <ParanormalPost
+                      event={post}
+                      showActions={true}
+                    />
+                  </div>
                 ))}
 
                 {/* Load More Button - Shown on all devices when more posts available */}

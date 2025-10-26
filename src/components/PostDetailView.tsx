@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { CommentsSection } from '@/components/comments/CommentsSection';
 import { ArrowLeft, Heart, Repeat, MessageCircle, Zap, Quote, RadioTower } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { genUserName } from '@/lib/genUserName';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
@@ -45,6 +45,14 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Get navigation state from when we navigated to this post
+  const navigationState = location.state as {
+    fromFeed?: boolean;
+    scrollPosition?: number;
+    postId?: string;
+  } | null;
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
   const [isQuoteDialogOpen, setIsQuoteDialogOpen] = useState(false);
@@ -147,7 +155,21 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
         <div className="flex items-center space-x-4">
           <Button
             variant="ghost"
-            onClick={onBack}
+            onClick={() => {
+              // If we came from the feed, navigate back with scroll position
+              if (navigationState?.fromFeed) {
+                navigate('/', {
+                  state: {
+                    restoreScroll: true,
+                    scrollPosition: navigationState.scrollPosition,
+                    postId: navigationState.postId
+                  }
+                });
+              } else {
+                // Otherwise, use the default back behavior
+                onBack();
+              }
+            }}
             className="text-lime-400 hover:text-lime-300 hover:bg-lime-500/10"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />

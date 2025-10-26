@@ -111,7 +111,18 @@ export function ParanormalPost({ event, showActions = true }: ParanormalPostProp
 
   const handleCardClick = () => {
     const noteId = nip19.noteEncode(event.id);
-    navigate(`/${noteId}`);
+
+    // Get the current scroll position and store it with the post ID
+    const scrollPosition = window.scrollY;
+
+    // Navigate to post detail with scroll state
+    navigate(`/${noteId}`, {
+      state: {
+        fromFeed: true,
+        scrollPosition: scrollPosition,
+        postId: event.id
+      }
+    });
   };
 
   const handleQuoteSubmit = () => {
