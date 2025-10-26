@@ -7,6 +7,51 @@ import { IMDBPreview } from './IMDBPreview';
 import { cn } from '@/lib/utils';
 import { LinkPreview } from '@/components/LinkPreview';
 
+// Map video file extensions to proper MIME types
+const videoMimeTypeMap: Record<string, string> = {
+  'mp4': 'video/mp4',
+  'webm': 'video/webm',
+  'mov': 'video/quicktime',
+  'avi': 'video/x-msvideo',
+  'mkv': 'video/x-matroska',
+  'flv': 'video/x-flv',
+  'ogv': 'video/ogg',
+  '3gp': 'video/3gpp',
+  'm4v': 'video/x-m4v',
+  'wmv': 'video/x-ms-wmv',
+  'asf': 'video/x-ms-asf',
+  'rm': 'application/vnd.rn-realmedia',
+  'rmvb': 'application/vnd.rn-realmedia-vbr',
+  'ts': 'video/mp2t',
+  'm2ts': 'video/mp2t',
+  'mts': 'video/mp2t',
+  'divx': 'video/divx',
+  'xvid': 'video/x-xvid',
+};
+
+// Map audio file extensions to proper MIME types
+const audioMimeTypeMap: Record<string, string> = {
+  'mp3': 'audio/mpeg',
+  'wav': 'audio/wav',
+  'ogg': 'audio/ogg',
+  'flac': 'audio/flac',
+  'm4a': 'audio/mp4',
+  'aac': 'audio/aac',
+  'opus': 'audio/opus',
+  'wma': 'audio/x-ms-wma',
+  'ra': 'audio/x-realaudio',
+  'ac3': 'audio/ac3',
+  'dts': 'audio/vnd.dts',
+};
+
+function getVideoMimeType(format: string): string {
+  return videoMimeTypeMap[format.toLowerCase()] || 'video/mp4';
+}
+
+function getAudioMimeType(format: string): string {
+  return audioMimeTypeMap[format.toLowerCase()] || 'audio/mpeg';
+}
+
 interface MediaDisplayProps {
   media: MediaItem;
   className?: string;
@@ -251,7 +296,7 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
               poster={media.thumbnail}
               onClick={togglePlay}
             >
-              <source src={media.url} type={`video/${media.metadata?.format || 'mp4'}`} />
+              <source src={media.url} type={getVideoMimeType(media.metadata?.format || 'mp4')} />
               Your browser does not support the video tag.
             </video>
 
@@ -471,7 +516,7 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
                 className="w-32"
                 onError={handleMediaError}
               >
-                <source src={media.url} type={`audio/${media.metadata?.format || 'mp3'}`} />
+                <source src={media.url} type={getAudioMimeType(media.metadata?.format || 'mp3')} />
                 Your browser does not support the audio element.
               </audio>
             </div>
