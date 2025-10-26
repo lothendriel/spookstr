@@ -11,18 +11,26 @@ import { LinkPreview } from '@/components/LinkPreview';
 let Hls: any = null;
 let dashjs: any = null;
 
-// Load streaming libraries dynamically
+// Load streaming libraries dynamically with better error handling
 if (typeof window !== 'undefined') {
-  import('hls.js').then(module => {
-    Hls = module.default;
-  }).catch(() => {
-    console.warn('hls.js failed to load');
+  // Safe wrapper to prevent unhandled promise rejections
+  const safeImport = async (importFn: () => Promise<any>, libName: string) => {
+    try {
+      const module = await importFn();
+      return module.default;
+    } catch (error) {
+      console.warn(`${libName} failed to load:`, error);
+      return null;
+    }
+  };
+
+  // Import libraries safely
+  safeImport(() => import('hls.js'), 'hls.js').then(hls => {
+    Hls = hls;
   });
 
-  import('dashjs').then(module => {
-    dashjs = module.default;
-  }).catch(() => {
-    console.warn('dashjs failed to load');
+  safeImport(() => import('dashjs'), 'dashjs').then(dash => {
+    dashjs = dashjs;
   });
 }
 
@@ -222,20 +230,35 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
 
     const video = videoRef.current;
 
+    // Check if we need streaming libraries but they're not loaded yet
+    if ((media.type === 'hls' && (!Hls || typeof Hls !== 'function')) ||
+        (media.type === 'dash' && (!dashjs || typeof dashjs.MediaPlayer !== 'function'))) {
+      setError('Streaming libraries are still loading. Please try again in a moment.');
+      return;
+    }
+
     // Cleanup function
     const cleanup = () => {
       if (hlsInstance) {
-        hlsInstance.destroy();
+        try {
+          hlsInstance.destroy();
+        } catch (error) {
+          console.warn('Error destroying HLS instance:', error);
+        }
         setHlsInstance(null);
       }
       if (dashInstance) {
-        dashInstance.reset();
+        try {
+          dashInstance.reset();
+        } catch (error) {
+          console.warn('Error resetting DASH instance:', error);
+        }
         setDashInstance(null);
       }
     };
 
     // Initialize HLS player
-    if (media.type === 'hls' && Hls) {
+    if (media.type === 'hls' && Hls && typeof Hls === 'function') {
       cleanup();
 
       try {
@@ -270,21 +293,25 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
         });
 
         hls.on(Hls.Events.ERROR, (event: any, data: any) => {
-          if (data.fatal) {
-            switch (data.type) {
-              case Hls.ErrorTypes.NETWORK_ERROR:
-                console.error('HLS network error:', data);
-                setError('Network error loading stream');
-                break;
-              case Hls.ErrorTypes.MEDIA_ERROR:
-                console.error('HLS media error:', data);
-                setError('Media error playing stream');
-                break;
-              default:
-                console.error('HLS error:', data);
-                setError('Error loading stream');
-                break;
+          try {
+            if (data.fatal) {
+              switch (data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  console.error('HLS network error:', data);
+                  setError('Network error loading stream');
+                  break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  console.error('HLS media error:', data);
+                  setError('Media error playing stream');
+                  break;
+                default:
+                  console.error('HLS error:', data);
+                  setError('Error loading stream');
+                  break;
+              }
             }
+          } catch (error) {
+            console.warn('Error handling HLS error event:', error);
           }
         });
 
@@ -296,7 +323,7 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
     }
 
     // Initialize DASH player
-    if (media.type === 'dash' && dashjs) {
+    if (media.type === 'dash' && dashjs && typeof dashjs.MediaPlayer === 'function') {
       cleanup();
 
       try {
@@ -335,8 +362,12 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
         });
 
         dash.on('error', (event: any) => {
-          console.error('DASH error:', event);
-          setError('Error loading DASH stream');
+          try {
+            console.error('DASH error:', event);
+            setError('Error loading DASH stream');
+          } catch (error) {
+            console.warn('Error handling DASH error event:', error);
+          }
         });
 
         setDashInstance(dash);
