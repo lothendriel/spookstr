@@ -119,13 +119,13 @@ export function useParanormalFeed() {
   return useQuery({
     queryKey: ['paranormal-feed'],
     queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
       // Query for notes with paranormal tags
       const events = await nostr.query([{
         kinds: [1],
         '#t': PARANORMAL_TAGS,
-        limit: 50,
+        limit: 100,
       }], { signal });
 
       // Filter out NSFW content
@@ -147,7 +147,7 @@ export function useParanormalReplies(noteId: string) {
   return useQuery({
     queryKey: ['paranormal-replies', noteId],
     queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
       const events = await nostr.query([{
         kinds: [1],
