@@ -25,25 +25,25 @@ const Index = () => {
   const queryClient = useQueryClient();
   const { data: posts, isLoading, error, refetch } = useParanormalFeed();
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
-  const [postsToShow, setPostsToShow] = useState(5); // Mobile pagination: show 5 posts initially
+  const [postsToShow, setPostsToShow] = useState(12); // Show 12 posts initially on all devices
   const isMobile = useIsMobile();
 
-  // Reset mobile pagination when new posts are loaded or when switching to desktop
+  // Reset pagination when new posts are loaded
   useEffect(() => {
-    if (!isMobile || posts) {
-      setPostsToShow(5);
+    if (posts) {
+      setPostsToShow(12);
     }
-  }, [posts, isMobile]);
+  }, [posts]);
 
   const handleRefresh = () => {
-    // Refetch paranormal feed and reset mobile pagination
-    setPostsToShow(5);
+    // Refetch paranormal feed and reset pagination
+    setPostsToShow(12);
     refetch();
   };
 
   const handleLoadMore = () => {
-    // Load 5 more posts on mobile
-    setPostsToShow(prev => prev + 5);
+    // Load 12 more posts
+    setPostsToShow(prev => prev + 12);
   };
 
   if (selectedPost) {
@@ -140,8 +140,8 @@ const Index = () => {
 
             {!isLoading && !error && posts && posts.length > 0 && (
               <div className="space-y-4">
-                {/* Determine which posts to show based on device */}
-                {(isMobile ? posts.slice(0, postsToShow) : posts).map((post) => (
+                {/* Show limited number of posts with "Load More" functionality */}
+                {posts.slice(0, postsToShow).map((post) => (
                   <ParanormalPost
                     key={post.id}
                     event={post}
@@ -150,16 +150,25 @@ const Index = () => {
                   />
                 ))}
 
-                {/* Load More Button - Only shown on mobile */}
-                {isMobile && postsToShow < posts.length && (
+                {/* Load More Button - Shown on all devices when more posts available */}
+                {postsToShow < posts.length && (
                   <div className="flex justify-center pt-4">
                     <Button
                       onClick={handleLoadMore}
                       variant="outline"
                       className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10 w-full max-w-xs"
                     >
-                      Load More Posts
+                      Load More Posts ({posts.length - postsToShow} remaining)
                     </Button>
+                  </div>
+                )}
+
+                {/* Show total posts count when all are loaded */}
+                {postsToShow >= posts.length && (
+                  <div className="text-center pt-4">
+                    <p className="text-sm text-lime-500/60">
+                      Showing all {posts.length} posts
+                    </p>
                   </div>
                 )}
               </div>
