@@ -1,7 +1,7 @@
 import { type NostrEvent } from '@nostrify/nostrify';
 
 export interface MediaItem {
-  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'potential-video';
+  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link';
   url: string;
   alt?: string;
   title?: string;
@@ -17,7 +17,6 @@ export interface MediaItem {
     fps?: number;
     spotifyType?: 'track' | 'album' | 'playlist' | 'artist' | 'show' | 'episode';
     spotifyId?: string;
-    isPotentialVideo?: boolean;
   };
 }
 
@@ -36,12 +35,6 @@ const mediaPatterns = {
   nostrVideo: /stream:\/\/[^\s]+/gi,
   // Common image hosting services that often serve images without extensions
   imageHosting: /https?:\/\/(?:i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app)\/[^\s]+/gi,
-  // CDN and video hosting patterns (URLs that might serve video files without extensions)
-  potentialVideo: /https?:\/\/[^\s]+(?:\/(?:download|file|media|video|play|stream|watch|view|get|fetch|serve|deliver|access|open|load|playback|content|asset|resource|data|binary|raw|attachment|cdn|storage|bucket|objects|files|uploads|static|temp|cache|proxy|redirect|forward)[\/\?]|(?:\?|&)(?:file|video|media|content|download|play|stream|watch|view|get|fetch|serve|deliver|access|open|load|playback|asset|resource|data|binary|raw|attachment|cdn|storage|bucket|objects|files|uploads|static|temp|cache|proxy|redirect|forward)[=])/gi,
-  // Common CDN patterns - more comprehensive
-  cdnVideo: /https?:\/\/(?:cdn\.|storage\.|media\.|assets\.|files\.|content\.|data\.|objects\.|bucket\.|uploads\.|static\.|temp\.|cache\.|proxy\.|redirect\.|forward\.)[^\s]+\/[^\s]+/gi,
-  // Additional CDN patterns for common providers
-  cdnProviders: /https?:\/\/(?:cloudflare\.com|amazonaws\.com|azureedge\.net|googleapis\.com|cloudfront\.net|akamai\.net|fastly\.net|keycdn\.com|bunnycdn\.com|stackpath\.com|impervadns\.net|cdn77\.org|jsdelivr\.net|unpkg\.com|raw\.githubusercontent\.com|githubusercontent\.com|gitlab\.com|bitbucket\.org|dropbox\.com|drive\.google\.com|onedrive\.live\.com|box\.com)[^\s]*\/[^\s]+/gi,
   // IMDB links for special preview handling
   imdb: /https?:\/\/(?:www\.)?imdb\.com\/(?:title|name)\/(?:[a-z0-9]+)(?:\/[^\s]*)?/gi,
   website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app|imdb\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
@@ -68,7 +61,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   }
 
   // Process other media types in order of precedence
-  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'imdb', 'potentialVideo', 'cdnVideo', 'cdnProviders'];
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'imdb'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -258,45 +251,6 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
           url: cleanUrl.replace('stream://', 'https://'),
           thumbnail: generateVideoThumbnail(cleanUrl),
           metadata: { format: 'unknown' }
-        };
-
-      case 'potentialVideo':
-        return {
-          type: 'potential-video',
-          url: cleanUrl,
-          title: extractPotentialVideoTitle(cleanUrl),
-          thumbnail: generateVideoThumbnail(cleanUrl),
-          metadata: {
-            isPotentialVideo: true,
-            format: 'unknown' // Will be determined when the video is loaded
-          }
-        };
-
-      case 'cdnVideo':
-        return {
-          type: 'potential-video',
-          url: cleanUrl,
-          title: extractCDNVideoTitle(cleanUrl),
-          thumbnail: generateVideoThumbnail(cleanUrl),
-          metadata: {
-            isPotentialVideo: true,
-            isCDNVideo: true,
-            format: 'unknown' // Will be determined when the video is loaded
-          }
-        };
-
-      case 'cdnProviders':
-        return {
-          type: 'potential-video',
-          url: cleanUrl,
-          title: extractCDNVideoTitle(cleanUrl),
-          thumbnail: generateVideoThumbnail(cleanUrl),
-          metadata: {
-            isPotentialVideo: true,
-            isCDNVideo: true,
-            isCDNProvider: true,
-            format: 'unknown' // Will be determined when the video is loaded
-          }
         };
 
       case 'website':
@@ -590,61 +544,6 @@ function extractDomainName(url: string): string {
     return urlObj.hostname.replace('www.', '');
   } catch {
     return 'Website';
-  }
-}
-
-function extractPotentialVideoTitle(url: string): string {
-  try {
-    let cleanUrl = url;
-    if (!url.startsWith('http')) {
-      cleanUrl = 'https://' + url;
-    }
-    const urlObj = new URL(cleanUrl);
-
-    // Try to extract a meaningful title from the URL
-    const pathname = urlObj.pathname;
-    const filename = pathname.split('/').pop();
-
-    if (filename && filename.length > 0) {
-      // Clean up the filename
-      const cleanFilename = filename.split('?')[0].split('#')[0];
-      return cleanFilename.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-    }
-
-    // Fallback to domain name
-    return `Video from ${urlObj.hostname.replace('www.', '')}`;
-  } catch {
-    return 'Video';
-  }
-}
-
-function extractCDNVideoTitle(url: string): string {
-  try {
-    let cleanUrl = url;
-    if (!url.startsWith('http')) {
-      cleanUrl = 'https://' + url;
-    }
-    const urlObj = new URL(cleanUrl);
-
-    // For CDN URLs, try to extract something meaningful from the path
-    const pathname = urlObj.pathname;
-    const pathParts = pathname.split('/').filter(part => part.length > 0);
-
-    if (pathParts.length > 0) {
-      // Get the last meaningful part of the path
-      const lastPart = pathParts[pathParts.length - 1];
-      const cleanPart = lastPart.split('?')[0].split('#')[0];
-
-      if (cleanPart.length > 0 && !cleanPart.match(/^[a-f0-9]{8,}$/i)) { // Don't use hex strings
-        return cleanPart.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      }
-    }
-
-    // Fallback to CDN domain
-    const domain = urlObj.hostname.replace('www.', '');
-    return `Video from ${domain}`;
-  } catch {
-    return 'CDN Video';
   }
 }
 
