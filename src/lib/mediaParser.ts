@@ -1,7 +1,7 @@
 import { type NostrEvent } from '@nostrify/nostrify';
 
 export interface MediaItem {
-  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link';
+  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'hls' | 'dash';
   url: string;
   alt?: string;
   title?: string;
@@ -17,6 +17,12 @@ export interface MediaItem {
     fps?: number;
     spotifyType?: 'track' | 'album' | 'playlist' | 'artist' | 'show' | 'episode';
     spotifyId?: string;
+    // Streaming-specific metadata
+    streamingFormat?: 'hls' | 'dash';
+    cdnProvider?: 'cloudflare' | 'aws-cloudfront' | 'fastly' | 'akamai' | 'vimeo' | 'youtube' | 'generic';
+    isAdaptive?: boolean;
+    qualities?: Array<{ height: number; bitrate: number; url?: string }>;
+    masterPlaylist?: string;
   };
 }
 
@@ -33,6 +39,19 @@ const mediaPatterns = {
   spotify: /(?:open\.spotify\.com\/)(track|album|playlist|artist|show|episode)\/([a-zA-Z0-9]+)/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
+  // Streaming formats
+  hls: /https?:\/\/[^\s]+\.m3u8(?:\?[^\s]*)?/gi,
+  dash: /https?:\/\/[^\s]+\.mpd(?:\?[^\s]*)?/gi,
+  // CDN-specific patterns
+  cloudflareStream: /https?:\/\/(?:[a-z0-9-]+\.)?cloudflarestream\.com\/[^\s]+/gi,
+  cloudflareVideoDelivery: /https?:\/\/(?:[a-z0-9-]+\.)?videodelivery\.net\/[^\s]+/gi,
+  awsCloudFront: /https?:\/\/[a-z0-9-]+\.cloudfront\.net\/[^\s]+/gi,
+  fastly: /https?:\/\/(?:[a-z0-9-]+\.)?(?:fastly\.net|fastly-ssl\.net)\/[^\s]+/gi,
+  akamai: /https?:\/\/(?:[a-z0-9-]+\.)?(?:akamaized\.net|akamaihd\.net)\/[^\s]+/gi,
+  vimeoCDN: /https?:\/\/(?:[a-z0-9-]+\.)?vimeocdn\.com\/[^\s]+/gi,
+  youtubeCDN: /https?:\/\/(?:[a-z0-9-]+\.)?googlevideo\.com\/[^\s]+/gi,
+  // Generic streaming endpoints that might be on CDNs
+  genericStreaming: /https?:\/\/[^\s]+\/(?:stream|manifest|playlist|master)\/[^\s]+(?:\.(?:m3u8|mpd|dash))(?:\?[^\s]*)?/gi,
   // Common image hosting services that often serve images without extensions
   imageHosting: /https?:\/\/(?:i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app)\/[^\s]+/gi,
   // IMDB links for special preview handling
@@ -61,7 +80,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   }
 
   // Process other media types in order of precedence
-  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'imdb'];
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'imdb'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -154,6 +173,124 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
           url: cleanUrl,
           title: extractAudioTitle(url, match),
           metadata: extractAudioMetadata(cleanUrl)
+        };
+
+      case 'hls':
+        return {
+          type: 'hls',
+          url: cleanUrl,
+          title: extractStreamingTitle(cleanUrl, 'HLS'),
+          metadata: {
+            streamingFormat: 'hls',
+            cdnProvider: detectCDNProvider(cleanUrl),
+            isAdaptive: true,
+            format: 'm3u8'
+          }
+        };
+
+      case 'dash':
+        return {
+          type: 'dash',
+          url: cleanUrl,
+          title: extractStreamingTitle(cleanUrl, 'DASH'),
+          metadata: {
+            streamingFormat: 'dash',
+            cdnProvider: detectCDNProvider(cleanUrl),
+            isAdaptive: true,
+            format: 'mpd'
+          }
+        };
+
+      case 'cloudflareStream':
+      case 'cloudflareVideoDelivery':
+        return {
+          type: 'hls', // Cloudflare Stream uses HLS
+          url: cleanUrl,
+          title: extractStreamingTitle(cleanUrl, 'Cloudflare Stream'),
+          metadata: {
+            streamingFormat: 'hls',
+            cdnProvider: 'cloudflare',
+            isAdaptive: true,
+            format: 'm3u8'
+          }
+        };
+
+      case 'awsCloudFront':
+        return {
+          type: detectStreamingFormat(cleanUrl),
+          url: cleanUrl,
+          title: extractStreamingTitle(cleanUrl, 'AWS CloudFront'),
+          metadata: {
+            streamingFormat: detectStreamingFormat(cleanUrl) === 'hls' ? 'hls' : 'dash',
+            cdnProvider: 'aws-cloudfront',
+            isAdaptive: true,
+            format: detectFileExtension(cleanUrl)
+          }
+        };
+
+      case 'fastly':
+        return {
+          type: detectStreamingFormat(cleanUrl),
+          url: cleanUrl,
+          title: extractStreamingTitle(cleanUrl, 'Fastly'),
+          metadata: {
+            streamingFormat: detectStreamingFormat(cleanUrl) === 'hls' ? 'hls' : 'dash',
+            cdnProvider: 'fastly',
+            isAdaptive: true,
+            format: detectFileExtension(cleanUrl)
+          }
+        };
+
+      case 'akamai':
+        return {
+          type: detectStreamingFormat(cleanUrl),
+          url: cleanUrl,
+          title: extractStreamingTitle(cleanUrl, 'Akamai'),
+          metadata: {
+            streamingFormat: detectStreamingFormat(cleanUrl) === 'hls' ? 'hls' : 'dash',
+            cdnProvider: 'akamai',
+            isAdaptive: true,
+            format: detectFileExtension(cleanUrl)
+          }
+        };
+
+      case 'vimeoCDN':
+        return {
+          type: 'hls', // Vimeo CDN typically uses HLS
+          url: cleanUrl,
+          title: extractStreamingTitle(cleanUrl, 'Vimeo CDN'),
+          metadata: {
+            streamingFormat: 'hls',
+            cdnProvider: 'vimeo',
+            isAdaptive: true,
+            format: 'm3u8'
+          }
+        };
+
+      case 'youtubeCDN':
+        return {
+          type: 'hls', // YouTube CDN uses HLS/DASH
+          url: cleanUrl,
+          title: extractStreamingTitle(cleanUrl, 'YouTube CDN'),
+          metadata: {
+            streamingFormat: 'hls',
+            cdnProvider: 'youtube',
+            isAdaptive: true,
+            format: 'm3u8'
+          }
+        };
+
+      case 'genericStreaming':
+        return {
+          type: detectStreamingFormat(cleanUrl),
+          url: cleanUrl,
+          title: extractStreamingTitle(cleanUrl, 'Streaming'),
+          metadata: {
+            streamingFormat: detectStreamingFormat(cleanUrl) === 'hls' ? 'hls' : 'dash',
+            cdnProvider: 'generic',
+            isAdaptive: true,
+            format: detectFileExtension(cleanUrl)
+          }
         };
 
       case 'youtube':
@@ -671,6 +808,92 @@ async function extractImdbDataFromHtml(html: string, url: string): Promise<{ tit
       description: 'Visit IMDb for more information'
     };
   }
+}
+
+// Helper functions for CDN and streaming detection
+
+function detectCDNProvider(url: string): 'cloudflare' | 'aws-cloudfront' | 'fastly' | 'akamai' | 'vimeo' | 'youtube' | 'generic' {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase();
+
+    if (hostname.includes('cloudflarestream.com') || hostname.includes('videodelivery.net')) {
+      return 'cloudflare';
+    } else if (hostname.includes('cloudfront.net')) {
+      return 'aws-cloudfront';
+    } else if (hostname.includes('fastly.net') || hostname.includes('fastly-ssl.net')) {
+      return 'fastly';
+    } else if (hostname.includes('akamaized.net') || hostname.includes('akamaihd.net')) {
+      return 'akamai';
+    } else if (hostname.includes('vimeocdn.com')) {
+      return 'vimeo';
+    } else if (hostname.includes('googlevideo.com')) {
+      return 'youtube';
+    }
+  } catch (error) {
+    console.warn('Failed to detect CDN provider:', error);
+  }
+
+  return 'generic';
+}
+
+function detectStreamingFormat(url: string): 'hls' | 'dash' | 'video' {
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname.toLowerCase();
+
+    if (pathname.endsWith('.m3u8')) {
+      return 'hls';
+    } else if (pathname.endsWith('.mpd')) {
+      return 'dash';
+    } else if (pathname.includes('manifest') || pathname.includes('playlist') || pathname.includes('master')) {
+      // Try to infer from URL structure
+      if (pathname.includes('hls') || url.includes('m3u8')) {
+        return 'hls';
+      } else if (pathname.includes('dash') || url.includes('mpd')) {
+        return 'dash';
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to detect streaming format:', error);
+  }
+
+  // Default to regular video if we can't determine
+  return 'video';
+}
+
+function extractStreamingTitle(url: string, provider: string): string {
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    const filename = pathname.split('/').pop()?.split('?')[0];
+
+    if (filename && filename !== '') {
+      // Clean up the filename for display
+      const nameWithoutExt = filename.split('.').slice(0, -1).join('.');
+      return `${provider}: ${nameWithoutExt.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
+    }
+  } catch (error) {
+    console.warn('Failed to extract streaming title:', error);
+  }
+
+  return `${provider} Stream`;
+}
+
+function detectFileExtension(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    const filename = pathname.split('/').pop()?.split('?')[0];
+
+    if (filename && filename.includes('.')) {
+      return filename.split('.').pop()?.toLowerCase() || 'unknown';
+    }
+  } catch (error) {
+    console.warn('Failed to detect file extension:', error);
+  }
+
+  return 'unknown';
 }
 
 function extractImdbData(url: string): { title: string; type: string; year?: string; rating?: string; thumbnail: string; description: string } {
