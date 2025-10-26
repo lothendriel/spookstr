@@ -37,11 +37,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 interface ParanormalPostProps {
   event: NostrEvent;
-  onClick?: () => void;
   showActions?: boolean;
 }
 
-export function ParanormalPost({ event, onClick, showActions = true }: ParanormalPostProps) {
+export function ParanormalPost({ event, showActions = true }: ParanormalPostProps) {
   const author = useAuthor(event.pubkey);
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
@@ -110,6 +109,11 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     setIsQuoteDialogOpen(true);
   };
 
+  const handleCardClick = () => {
+    const noteId = nip19.noteEncode(event.id);
+    navigate(`/${noteId}`);
+  };
+
   const handleQuoteSubmit = () => {
     if (!user || !quoteContent.trim()) return;
 
@@ -138,7 +142,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     <>
       <Card
         className="border-lime-500/20 hover:border-lime-500/40 transition-all duration-200 cursor-pointer bg-black/40 backdrop-blur-sm"
-        onClick={onClick}
+        onClick={handleCardClick}
       >
       <CardHeader className="pb-3">
         <div className="flex items-center space-x-3">
@@ -240,7 +244,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                     size="sm"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (onClick) onClick();
+                      handleCardClick();
                     }}
                     className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
                   >

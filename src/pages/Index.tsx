@@ -7,7 +7,6 @@ import { CreateParanormalPost } from '@/components/CreateParanormalPost';
 import { CreatePostModal } from '@/components/CreatePostModal';
 import { RedditParanormalFeed } from '@/components/RedditParanormalFeed';
 import { DeveloperTip } from '@/components/DeveloperTip';
-import { PostDetailView } from '@/components/PostDetailView';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Button } from '@/components/ui/button';
@@ -24,7 +23,6 @@ const Index = () => {
 
   const queryClient = useQueryClient();
   const { data: posts, isLoading, error, refetch } = useParanormalFeed();
-  const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [postsToShow, setPostsToShow] = useState(12); // Show 12 posts initially on all devices
   const isMobile = useIsMobile();
 
@@ -46,18 +44,7 @@ const Index = () => {
     setPostsToShow(prev => prev + 12);
   };
 
-  if (selectedPost) {
-    return (
-      <div className="min-h-screen p-4">
-        <div className="max-w-4xl mx-auto">
-          <PostDetailView
-            event={selectedPost}
-            onBack={() => setSelectedPost(null)}
-          />
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="min-h-screen">
@@ -145,7 +132,6 @@ const Index = () => {
                   <ParanormalPost
                     key={post.id}
                     event={post}
-                    onClick={() => setSelectedPost(post)}
                     showActions={true}
                   />
                 ))}
