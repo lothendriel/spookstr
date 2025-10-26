@@ -310,12 +310,12 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
               onChange={(e) => setQuoteContent(e.target.value)}
               className="min-h-[100px] resize-none"
             />
-            <div className="p-3 bg-lime-500/10 rounded-lg border border-lime-500/20">
+            <div className="p-3 bg-lime-500/10 rounded-lg border border-lime-500/20 overflow-hidden">
               <p className="text-xs text-lime-500/60 mb-1">Original post:</p>
-              <p className="text-sm text-lime-100 line-clamp-3 break-words overflow-hidden">
+              <div className="text-sm text-lime-100 line-clamp-3 break-words overflow-hidden">
                 {event.content.substring(0, 150)}
                 {event.content.length > 150 && '...'}
-              </p>
+              </div>
             </div>
 
             {/* Spookstr2 Relay Option */}
