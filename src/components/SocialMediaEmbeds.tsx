@@ -18,60 +18,39 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
   const [embedData, setEmbedData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     const fetchEmbedData = async () => {
       try {
         setIsLoading(true);
-        setDebugInfo(`Starting fetch for: ${url}`);
 
-        // Try multiple approaches to get Twitter data
+
+        // Try to get Twitter data
         let data = null;
-        let lastError = null;
 
         // Approach 1: Direct oEmbed API (might fail due to CORS)
         try {
-          setDebugInfo(prev => prev + `\nTrying direct oEmbed API...`);
           const response = await fetch(oEmbedUrl);
-          setDebugInfo(prev => prev + `\nDirect response status: ${response.status}`);
 
           if (response.ok) {
             data = await response.json();
-            setDebugInfo(prev => prev + `\n✅ Direct API success!`);
-            console.log('Twitter embed data (direct):', data);
           } else {
-            const errorText = await response.text();
-            setDebugInfo(prev => prev + `\n❌ Direct API failed: ${errorText.substring(0, 200)}`);
             throw new Error(`HTTP ${response.status}`);
           }
         } catch (err) {
-          lastError = err;
-          setDebugInfo(prev => prev + `\n❌ Direct approach failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-
           // Approach 2: Try with CORS proxy
           try {
-            setDebugInfo(prev => prev + `\nTrying CORS proxy...`);
             const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(oEmbedUrl)}`;
             const proxyResponse = await fetch(proxyUrl);
-            setDebugInfo(prev => prev + `\nProxy response status: ${proxyResponse.status}`);
 
             if (proxyResponse.ok) {
               const proxyData = await proxyResponse.json();
-              setDebugInfo(prev => prev + `\nGot proxy response, parsing...`);
-              const parsedData = JSON.parse(proxyData.contents);
-              data = parsedData;
-              setDebugInfo(prev => prev + `\n✅ Proxy API success!`);
-              console.log('Twitter embed data (proxy):', parsedData);
+              data = JSON.parse(proxyData.contents);
             } else {
               throw new Error(`Proxy HTTP ${proxyResponse.status}`);
             }
           } catch (proxyErr) {
-            lastError = proxyErr;
-            setDebugInfo(prev => prev + `\n❌ Proxy approach failed: ${proxyErr instanceof Error ? proxyErr.message : 'Unknown error'}`);
-
             // Approach 3: Create minimal embed data from URL
-            setDebugInfo(prev => prev + `\nCreating fallback embed data...`);
             data = {
               author_name: `@${username}`,
               author_url: `https://twitter.com/${username}`,
@@ -81,33 +60,22 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
               // Try to extract media from Twitter's public API as fallback
               thumbnail_url: `https://pbs.twimg.com/media/placeholder.jpg`
             };
-            setDebugInfo(prev => prev + `\n✅ Created fallback data`);
           }
         }
 
         // If we got basic embed data, try to fetch additional media info
         if (data) {
           try {
-            setDebugInfo(prev => prev + `\n🔍 Checking for media in embed data...`);
-            setDebugInfo(prev => prev + `\n   thumbnail_url: ${data.thumbnail_url || 'none'}`);
-            setDebugInfo(prev => prev + `\n   image: ${data.image || 'none'}`);
-            setDebugInfo(prev => prev + `\n   url: ${data.url || 'none'}`);
-            setDebugInfo(prev => prev + `\n   html length: ${data.html?.length || 0} chars`);
-
             // If no media in embed data, try to fetch from Twitter API
             if (!data.thumbnail_url && !data.image) {
-              setDebugInfo(prev => prev + `\n📸 No media found in embed, trying Twitter API...`);
-
               // Try Twitter's public API (no auth required for basic tweet data)
               const tweetApiUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://api.twitter.com/1.1/statuses/show.json?id=${statusId}&tweet_mode=extended`)}`;
-              setDebugInfo(prev => prev + `\n   Fetching: ${tweetApiUrl}`);
 
               const tweetResponse = await fetch(tweetApiUrl);
 
               if (tweetResponse.ok) {
                 const tweetData = await tweetResponse.json();
                 const parsedTweetData = JSON.parse(tweetData.contents);
-                setDebugInfo(prev => prev + `\n   ✅ Got tweet data, checking for media...`);
 
                 // Try to extract media from different possible locations
                 const tweet = parsedTweetData;
@@ -120,7 +88,6 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
                     data.thumbnail_url = media.media_url_https + '?name=small';
                     data.image = media.media_url_https + '?name=large';
                     mediaFound = true;
-                    setDebugInfo(prev => prev + `\n   ✅ Found media in extended_entities: ${media.type}`);
                   }
                 }
 
@@ -131,25 +98,17 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
                     data.thumbnail_url = media.media_url_https + '?name=small';
                     data.image = media.media_url_https + '?name=large';
                     mediaFound = true;
-                    setDebugInfo(prev => prev + `\n   ✅ Found media in entities: ${media.type}`);
                   }
                 }
 
                 // Check for user profile images as fallback
                 if (!mediaFound && tweet?.user?.profile_image_url_https) {
                   data.thumbnail_url = tweet.user.profile_image_url_https.replace('_normal.', '_400x400.');
-                  setDebugInfo(prev => prev + `\n   ⚠️ Using profile image as fallback`);
                 }
-
-                if (!mediaFound) {
-                  setDebugInfo(prev => prev + `\n   ❌ No media found in tweet data`);
-                }
-              } else {
-                setDebugInfo(prev => prev + `\n   ❌ Twitter API failed: ${tweetResponse.status}`);
               }
             }
           } catch (mediaErr) {
-            setDebugInfo(prev => prev + `\n⚠️ Media fetch error: ${mediaErr instanceof Error ? mediaErr.message : 'Unknown error'}`);
+            // Silently ignore media fetch errors
           }
         }
 
@@ -158,8 +117,8 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         setError(`Failed to load Twitter post: ${errorMessage}`);
-        console.warn('Twitter embed error:', err);
-        setDebugInfo(prev => prev + `\n❌ Final error: ${errorMessage}`);
+
+
       } finally {
         setIsLoading(false);
       }
@@ -217,14 +176,7 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
                 <p className="text-xs text-sky-500/40 truncate">
                   {url}
                 </p>
-                {process.env.NODE_ENV === 'development' && debugInfo && (
-                  <details className="mt-2">
-                    <summary className="text-xs text-sky-500/40 cursor-pointer">Debug Info</summary>
-                    <pre className="text-xs text-sky-500/30 mt-1 whitespace-pre-wrap break-all">
-                      {debugInfo}
-                    </pre>
-                  </details>
-                )}
+
               </div>
             </div>
             <Button size="sm" variant="ghost" className="h-8 w-8 p-0 flex-shrink-0">
@@ -272,21 +224,7 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
           />
         </div>
 
-        {/* Debug info in development */}
-        {process.env.NODE_ENV === 'development' && (
-          <details className="mb-2">
-            <summary className="text-xs text-sky-500/40 cursor-pointer hover:text-sky-500/60">
-              Twitter Embed Debug
-            </summary>
-            <div className="text-xs text-sky-500/30 bg-sky-500/5 rounded p-2 mt-1 space-y-1">
-              <div>thumbnail_url: {embedData.thumbnail_url || 'none'}</div>
-              <div>image: {embedData.image || 'none'}</div>
-              <div>url: {embedData.url || 'none'}</div>
-              <div>author_name: {embedData.author_name || 'none'}</div>
-              <div>html length: {embedData.html?.length || 0} chars</div>
-            </div>
-          </details>
-        )}
+
 
         {/* Tweet Media (if any) */}
         {(embedData.thumbnail_url || embedData.image) && (
@@ -297,11 +235,7 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
                 alt="Tweet media"
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 onError={(e) => {
-                  console.warn('Twitter media failed to load:', e.currentTarget.src);
                   e.currentTarget.style.display = 'none';
-                }}
-                onLoad={() => {
-                  console.log('Twitter media loaded successfully:', embedData.thumbnail_url || embedData.image);
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

@@ -221,7 +221,7 @@ export default function Profile({ pubkey }: ProfileProps) {
                   )}
 
                   {metadata?.about && (
-                    <p className="text-lime-100 mb-4 whitespace-pre-wrap">{metadata.about}</p>
+                    <p className="text-lime-100 mb-4 whitespace-pre-wrap break-words">{metadata.about}</p>
                   )}
 
                   {/* Links */}
@@ -238,9 +238,11 @@ export default function Profile({ pubkey }: ProfileProps) {
                       </a>
                     )}
                     {(metadata?.lud16 || metadata?.lud06) && (
-                      <span className="text-sm text-lime-500/70 flex items-center gap-1">
-                        <ZapIcon className="h-3 w-3" />
-                        {metadata?.lud16 || metadata?.lud06}
+                      <span className="text-sm text-lime-500/70 flex items-center gap-1 min-w-0">
+                        <ZapIcon className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate" title={metadata?.lud16 || metadata?.lud06}>
+                          {metadata?.lud16 || metadata?.lud06}
+                        </span>
                       </span>
                     )}
                   </div>
