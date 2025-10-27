@@ -77,9 +77,39 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
               author_url: `https://twitter.com/${username}`,
               url: url,
               title: `Tweet by @${username}`,
-              html: `<blockquote class="twitter-tweet">Tweet by @${username}<br>Status ID: ${statusId}</blockquote>`
+              html: `<blockquote class="twitter-tweet">Tweet by @${username}<br>Status ID: ${statusId}</blockquote>`,
+              // Try to extract media from Twitter's public API as fallback
+              thumbnail_url: `https://pbs.twimg.com/media/placeholder.jpg`
             };
             setDebugInfo(prev => prev + `\n✅ Created fallback data`);
+          }
+        }
+
+        // If we got basic embed data, try to fetch additional media info
+        if (data && !data.thumbnail_url && !data.image) {
+          try {
+            setDebugInfo(prev => prev + `\nFetching additional media info...`);
+            // Try to get tweet data from Twitter's API v2 (this might not work due to auth, but worth trying)
+            const tweetApiUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://twitter.com/i/api/2/timeline/conversation/${statusId}.json?tweet_mode=extended`)}`;
+            const tweetResponse = await fetch(tweetApiUrl);
+
+            if (tweetResponse.ok) {
+              const tweetData = await tweetResponse.json();
+              const parsedTweetData = JSON.parse(tweetData.contents);
+
+              // Try to extract media from the response
+              const tweet = parsedTweetData?.globalObjects?.tweets?.[statusId];
+              if (tweet?.extended_entities?.media) {
+                const media = tweet.extended_entities.media[0];
+                if (media?.media_url_https) {
+                  data.thumbnail_url = media.media_url_https + '?name=large';
+                  data.image = media.media_url_https + '?name=orig';
+                  setDebugInfo(prev => prev + `\n✅ Found media: ${media.type}`);
+                }
+              }
+            }
+          } catch (mediaErr) {
+            setDebugInfo(prev => prev + `\n⚠️ Could not fetch additional media: ${mediaErr instanceof Error ? mediaErr.message : 'Unknown error'}`);
           }
         }
 
@@ -203,12 +233,26 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
         </div>
 
         {/* Tweet Media (if any) */}
-        {embedData.url && (
+        {(embedData.url || embedData.thumbnail_url || embedData.image) && (
           <div className="mb-3">
-            <div className="aspect-video bg-sky-500/10 rounded-lg flex items-center justify-center">
-              <ImageIcon className="h-8 w-8 text-sky-500/40" />
-              <span className="ml-2 text-xs text-sky-500/60">Media content</span>
-            </div>
+            {embedData.thumbnail_url || embedData.image ? (
+              <div className="relative aspect-video bg-sky-500/10 rounded-lg overflow-hidden">
+                <img
+                  src={embedData.thumbnail_url || embedData.image}
+                  alt="Tweet media"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              </div>
+            ) : (
+              <div className="aspect-video bg-sky-500/10 rounded-lg flex items-center justify-center">
+                <ImageIcon className="h-8 w-8 text-sky-500/40" />
+                <span className="ml-2 text-xs text-sky-500/60">Media content</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -280,10 +324,11 @@ export function FacebookEmbed({ url, postId, className }: FacebookEmbedProps) {
         });
         setError(null);
       } catch (err) {
-        // Fallback to basic data instead of error
+        // Fallback to basic data with placeholder image
         setEmbedData({
           title: 'Facebook Post',
           description: 'Click to view this Facebook post',
+          image: 'https://via.placeholder.com/1200x630/ddd/999?text=Facebook+Post',
           siteName: 'Facebook'
         });
         console.warn('Facebook embed error (using fallback):', err);
@@ -443,11 +488,11 @@ export function InstagramEmbed({ url, postId, className }: InstagramEmbedProps) 
         setEmbedData(data);
         setError(null);
       } catch (err) {
-        // Fallback to basic data
+        // Fallback to basic data with placeholder image
         setEmbedData({
           title: 'Instagram Post',
           author_name: 'Instagram User',
-          thumbnail_url: '',
+          thumbnail_url: 'https://via.placeholder.com/600x600/ddd/999?text=Instagram+Post',
           url: url
         });
         console.warn('Instagram embed error (using fallback):', err);
@@ -639,13 +684,14 @@ export function RedditEmbed({ url, postId, className }: RedditEmbedProps) {
         setEmbedData(data);
         setError(null);
       } catch (err) {
-        // Fallback to basic data
+        // Fallback to basic data with placeholder image
         setEmbedData({
           title: 'Reddit Post',
           author_name: 'Reddit User',
           provider_name: 'reddit.com',
           url: url,
-          html: `<div>Reddit Post - Click to view</div>`
+          html: `<div>Reddit Post - Click to view</div>`,
+          thumbnail_url: 'https://via.placeholder.com/1200x630/ddd/999?text=Reddit+Post'
         });
         console.warn('Reddit embed error (using fallback):', err);
       } finally {
@@ -750,6 +796,23 @@ export function RedditEmbed({ url, postId, className }: RedditEmbedProps) {
             className="text-sm text-orange-50 leading-relaxed whitespace-pre-wrap mb-3"
             dangerouslySetInnerHTML={{ __html: embedData.html }}
           />
+        )}
+
+        {/* Reddit Media */}
+        {(embedData?.thumbnail_url || embedData?.image) && (
+          <div className="mb-3">
+            <div className="relative aspect-video bg-orange-500/10 rounded-lg overflow-hidden">
+              <img
+                src={embedData.thumbnail_url || embedData.image}
+                alt="Reddit media"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            </div>
+          </div>
         )}
 
         {/* Reddit Actions */}
