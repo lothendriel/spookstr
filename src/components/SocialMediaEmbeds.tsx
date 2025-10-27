@@ -272,6 +272,22 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
           />
         </div>
 
+        {/* Debug info in development */}
+        {process.env.NODE_ENV === 'development' && (
+          <details className="mb-2">
+            <summary className="text-xs text-sky-500/40 cursor-pointer hover:text-sky-500/60">
+              Twitter Embed Debug
+            </summary>
+            <div className="text-xs text-sky-500/30 bg-sky-500/5 rounded p-2 mt-1 space-y-1">
+              <div>thumbnail_url: {embedData.thumbnail_url || 'none'}</div>
+              <div>image: {embedData.image || 'none'}</div>
+              <div>url: {embedData.url || 'none'}</div>
+              <div>author_name: {embedData.author_name || 'none'}</div>
+              <div>html length: {embedData.html?.length || 0} chars</div>
+            </div>
+          </details>
+        )}
+
         {/* Tweet Media (if any) */}
         {(embedData.thumbnail_url || embedData.image) && (
           <div className="mb-3">
