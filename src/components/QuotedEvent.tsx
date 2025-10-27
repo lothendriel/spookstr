@@ -24,29 +24,76 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
   const { data: quotedEvent, isLoading, error } = useQuery({
     queryKey: ['quoted-event', eventId],
     queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
-      
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(8000)]);
+
+      console.log('QuotedEvent: Attempting to fetch event:', eventId);
+
       try {
         // Try to decode as NIP-19 identifier first
         const decoded = nip19.decode(eventId);
-        
+        console.log('QuotedEvent: Decoded NIP-19:', decoded);
+
         if (decoded.type === 'note') {
-          const events = await nostr.query([{ ids: [decoded.data] }], { signal });
+          // Try multiple fetching strategies
+          let events = await nostr.query([{ ids: [decoded.data] }], { signal });
+          console.log('QuotedEvent: Found events for note (attempt 1):', events.length, events);
+
+          // If not found, try with explicit limit
+          if (events.length === 0) {
+            events = await nostr.query([{ ids: [decoded.data], limit: 1 }], { signal });
+            console.log('QuotedEvent: Found events for note (attempt 2):', events.length, events);
+          }
+
+          // If still not found, try from a different relay
+          if (events.length === 0) {
+            try {
+              const relay = nostr.relay('wss://relay.nostr.band');
+              events = await relay.query([{ ids: [decoded.data], limit: 1 }], { signal });
+              console.log('QuotedEvent: Found events for note from fallback relay:', events.length, events);
+            } catch (relayError) {
+              console.log('QuotedEvent: Fallback relay failed:', relayError);
+            }
+          }
+
           return events[0] || null;
         } else if (decoded.type === 'nevent') {
-          const events = await nostr.query([{ ids: [decoded.data.id] }], { signal });
+          // Try multiple fetching strategies
+          let events = await nostr.query([{ ids: [decoded.data.id] }], { signal });
+          console.log('QuotedEvent: Found events for nevent (attempt 1):', events.length, events);
+
+          // If not found, try with explicit limit
+          if (events.length === 0) {
+            events = await nostr.query([{ ids: [decoded.data.id], limit: 1 }], { signal });
+            console.log('QuotedEvent: Found events for nevent (attempt 2):', events.length, events);
+          }
+
+          // If still not found, try from a different relay
+          if (events.length === 0) {
+            try {
+              const relay = nostr.relay('wss://relay.nostr.band');
+              events = await relay.query([{ ids: [decoded.data.id], limit: 1 }], { signal });
+              console.log('QuotedEvent: Found events for nevent from fallback relay:', events.length, events);
+            } catch (relayError) {
+              console.log('QuotedEvent: Fallback relay failed:', relayError);
+            }
+          }
+
           return events[0] || null;
         } else {
+          console.log('QuotedEvent: Unsupported NIP-19 type:', decoded.type);
           return null;
         }
-      } catch {
+      } catch (decodeError) {
+        console.log('QuotedEvent: NIP-19 decode failed, trying as hex ID:', decodeError);
         // If it's not a NIP-19 ID, try as raw hex ID
         const events = await nostr.query([{ ids: [eventId] }], { signal });
+        console.log('QuotedEvent: Found events for hex ID:', events.length, events);
         return events[0] || null;
       }
     },
     enabled: !!eventId,
     staleTime: 30000, // 30 seconds
+    retry: 1, // Retry once on failure
   });
 
   if (isLoading) {
@@ -66,12 +113,36 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
     );
   }
 
-  if (error || !quotedEvent) {
+  if (error) {
+    console.log('QuotedEvent: Error fetching event:', error);
     return (
       <Card className={`border-lime-500/20 bg-lime-500/5 ${className}`}>
         <CardContent className="p-3">
           <div className="text-center text-lime-500/60 text-sm">
-            Quoted post not found
+            Unable to load quoted post
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!quotedEvent) {
+    console.log('QuotedEvent: No event found for ID:', eventId);
+    return (
+      <Card className={`border-lime-500/20 bg-lime-500/5 ${className}`}>
+        <CardContent className="p-3">
+          <div className="text-center">
+            <div className="text-lime-500/60 text-sm mb-1">
+              Quoted post not found
+            </div>
+            <a
+              href={`https://njump.me/nostr:${eventId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-lime-400 hover:text-lime-300 hover:underline"
+            >
+              View on Nostr →
+            </a>
           </div>
         </CardContent>
       </Card>
