@@ -25,6 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { MoreHorizontal } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -174,30 +175,58 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
         onClick={onClick}
       >
       <CardHeader className="pb-3">
-        <div className="flex items-center space-x-3">
-          <Avatar
-            className="h-10 w-10 border-2 border-lime-500/30 cursor-pointer hover:border-lime-400/50 transition-colors"
-            onClick={handleAvatarClick}
-          >
-            <AvatarImage src={metadata?.picture} alt={displayName} />
-            <AvatarFallback className="bg-lime-500/20 text-lime-400">
-              {displayName.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1">
-            <div className="flex items-center space-x-2">
-              <span
-                className="font-semibold text-lime-400 cursor-pointer hover:text-lime-300 transition-colors"
-                onClick={handleAvatarClick}
-              >
-                {displayName}
-              </span>
-              {metadata?.nip05 && (
-                <span className="text-xs text-lime-500/70">✓</span>
-              )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Avatar
+              className="h-10 w-10 border-2 border-lime-500/30 cursor-pointer hover:border-lime-400/50 transition-colors"
+              onClick={handleAvatarClick}
+            >
+              <AvatarImage src={metadata?.picture} alt={displayName} />
+              <AvatarFallback className="bg-lime-500/20 text-lime-400">
+                {displayName.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <div className="flex items-center space-x-2">
+                <span
+                  className="font-semibold text-lime-400 cursor-pointer hover:text-lime-300 transition-colors"
+                  onClick={handleAvatarClick}
+                >
+                  {displayName}
+                </span>
+                {metadata?.nip05 && (
+                  <span className="text-xs text-lime-500/70">✓</span>
+                )}
+              </div>
+              <span className="text-xs text-lime-500/60">{timeAgo}</span>
             </div>
-            <span className="text-xs text-lime-500/60">{timeAgo}</span>
           </div>
+
+          {/* 3-dot menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopyNoteId();
+                }}
+                className="flex items-center space-x-2"
+              >
+                <Copy className="h-4 w-4" />
+                <span>Copy Note ID</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardHeader>
 
@@ -264,16 +293,6 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                       >
                         <Quote className="h-4 w-4" />
                         <span>Quote Repost</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCopyNoteId();
-                        }}
-                        className="flex items-center space-x-2"
-                      >
-                        <Copy className="h-4 w-4" />
-                        <span>Copy Note ID</span>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
