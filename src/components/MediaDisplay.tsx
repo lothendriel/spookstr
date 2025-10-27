@@ -6,6 +6,7 @@ import { Play, Pause, Volume2, VolumeX, Maximize, ExternalLink, Minimize, SkipBa
 import { IMDBPreview } from './IMDBPreview';
 import { cn } from '@/lib/utils';
 import { LinkPreview } from '@/components/LinkPreview';
+import { TwitterEmbed, FacebookEmbed, InstagramEmbed, LinkedInEmbed, RedditEmbed } from './SocialMediaEmbeds';
 
 // Dynamic imports for streaming libraries
 let Hls: any = null;
@@ -1230,6 +1231,47 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
               </Button>
             </div>
           </div>
+        );
+
+      case 'twitter':
+        return (
+          <TwitterEmbed
+            url={media.url}
+            username={media.metadata?.username || ''}
+            statusId={media.metadata?.statusId || ''}
+          />
+        );
+
+      case 'facebook':
+        return (
+          <FacebookEmbed
+            url={media.url}
+            postId={media.metadata?.postId || ''}
+          />
+        );
+
+      case 'instagram':
+        return (
+          <InstagramEmbed
+            url={media.url}
+            postId={media.metadata?.postId || ''}
+          />
+        );
+
+      case 'linkedin':
+        return (
+          <LinkedInEmbed
+            url={media.url}
+            activityId={media.metadata?.activityId || ''}
+          />
+        );
+
+      case 'reddit':
+        return (
+          <RedditEmbed
+            url={media.url}
+            postId={media.metadata?.postId || ''}
+          />
         );
 
       case 'imdb':

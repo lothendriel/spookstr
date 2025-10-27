@@ -1,7 +1,7 @@
 import { type NostrEvent } from '@nostrify/nostrify';
 
 export interface MediaItem {
-  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'hls' | 'dash';
+  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'reddit' | 'external' | 'link' | 'hls' | 'dash';
   url: string;
   alt?: string;
   title?: string;
@@ -37,6 +37,12 @@ const mediaPatterns = {
   dailymotion: /(?:dailymotion\.com\/video\/|dai\.ly\/)([a-zA-Z0-9]+)/gi,
   tiktok: /(?:tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/)([a-zA-Z0-9]+)/gi,
   spotify: /(?:open\.spotify\.com\/)(track|album|playlist|artist|show|episode)\/([a-zA-Z0-9]+)/gi,
+  // Social media platforms
+  twitter: /(?:twitter\.com|x\.com)\/(?:#!\/)?(\w+)\/status(?:es)?\/(\d+)/gi,
+  facebook: /(?:facebook\.com|fb\.watch)\/(?:permalink\.php\?story_fbid=|posts\/|videos\/|photo\.php\?fbid=|watch\/\?v=)?([^\/\s]+)(?:\/)?/gi,
+  instagram: /(?:instagram\.com\/p\/|instagr\.am\/p\/)([^\/\s?]+)/gi,
+  linkedin: /(?:linkedin\.com\/posts\/|linkedin\.com\/feed\/update\/urn:li:activity:)(\d+)/gi,
+  reddit: /(?:reddit\.com\/r\/[\w]+\/comments\/)([\w]+)(?:\/)?/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
   // Streaming formats
@@ -56,7 +62,7 @@ const mediaPatterns = {
   imageHosting: /https?:\/\/(?:i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app)\/[^\s]+/gi,
   // IMDB links for special preview handling
   imdb: /https?:\/\/(?:www\.)?imdb\.com\/(?:title|name)\/(?:[a-z0-9]+)(?:\/[^\s]*)?/gi,
-  website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app|imdb\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
+  website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|twitter\.com|x\.com|facebook\.com|fb\.watch|instagram\.com|instagr\.am|linkedin\.com|reddit\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app|imdb\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
 };
 
 export function parseMediaFromContent(content: string): MediaItem[] {
@@ -80,7 +86,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   }
 
   // Process other media types in order of precedence
-  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'imdb'];
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'twitter', 'facebook', 'instagram', 'linkedin', 'reddit', 'imdb'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -355,6 +361,63 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
           metadata: {
             spotifyType,
             spotifyId
+          }
+        };
+
+      case 'twitter':
+        const twitterUsername = match[1];
+        const twitterStatusId = match[2];
+        return {
+          type: 'twitter',
+          url: cleanUrl,
+          title: `Post by @${twitterUsername}`,
+          metadata: {
+            username: twitterUsername,
+            statusId: twitterStatusId
+          }
+        };
+
+      case 'facebook':
+        const facebookPostId = match[1];
+        return {
+          type: 'facebook',
+          url: cleanUrl,
+          title: 'Facebook Post',
+          metadata: {
+            postId: facebookPostId
+          }
+        };
+
+      case 'instagram':
+        const instagramPostId = match[1];
+        return {
+          type: 'instagram',
+          url: cleanUrl,
+          title: 'Instagram Post',
+          metadata: {
+            postId: instagramPostId
+          }
+        };
+
+      case 'linkedin':
+        const linkedinActivityId = match[1];
+        return {
+          type: 'linkedin',
+          url: cleanUrl,
+          title: 'LinkedIn Post',
+          metadata: {
+            activityId: linkedinActivityId
+          }
+        };
+
+      case 'reddit':
+        const redditPostId = match[1];
+        return {
+          type: 'reddit',
+          url: cleanUrl,
+          title: 'Reddit Post',
+          metadata: {
+            postId: redditPostId
           }
         };
 
