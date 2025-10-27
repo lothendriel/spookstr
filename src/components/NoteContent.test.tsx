@@ -289,6 +289,68 @@ describe('NoteContent', () => {
     expect(images[2]).toHaveAttribute('src', 'https://example.com/image3@webp');
   });
 
+  it('displays Reddit URLs as link previews only (no Reddit embed)', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Check out this Reddit post: https://reddit.com/r/Nostr/comments/abcdef123/amazing_nostr_update/',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display a link preview card (not a Reddit embed)
+    const linkPreview = screen.getByText('reddit.com').closest('div');
+    expect(linkPreview).toBeInTheDocument();
+
+    // Should contain link preview elements
+    expect(screen.getByText(/reddit\.com/i)).toBeInTheDocument();
+
+    // Should have external link button
+    const externalLinkButton = screen.getByRole('button', { name: /open/i });
+    expect(externalLinkButton).toBeInTheDocument();
+
+    // Should also display the text before the link
+    expect(screen.getByText('Check out this Reddit post:')).toBeInTheDocument();
+
+    // Should NOT have Reddit-specific elements (like upvote buttons, etc.)
+    expect(screen.queryByText('↑')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reddit Post')).not.toBeInTheDocument();
+  });
+
+  it('does not create duplicate media items for Reddit URLs', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Reddit link: https://www.reddit.com/r/technology/comments/123456/ai_breakthrough/',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display exactly ONE link preview card, not duplicates
+    const linkPreviewCards = screen.getAllByText(/reddit\.com/i);
+    expect(linkPreviewCards).toHaveLength(1);
+
+    // Should have exactly one external link button
+    const externalLinkButtons = screen.getAllByRole('button', { name: /open/i });
+    expect(externalLinkButtons).toHaveLength(1);
+  });
+
   it('does not display duplicate images for URLs that match multiple patterns', () => {
     const event: NostrEvent = {
       id: 'test-id',

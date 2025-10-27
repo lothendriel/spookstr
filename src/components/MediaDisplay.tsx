@@ -6,7 +6,7 @@ import { Play, Pause, Volume2, VolumeX, Maximize, ExternalLink, Minimize, SkipBa
 import { IMDBPreview } from './IMDBPreview';
 import { cn } from '@/lib/utils';
 import { LinkPreview } from '@/components/LinkPreview';
-import { TwitterEmbed, FacebookEmbed, InstagramEmbed, LinkedInEmbed, RedditEmbed } from './SocialMediaEmbeds';
+import { TwitterEmbed, FacebookEmbed, InstagramEmbed, LinkedInEmbed } from './SocialMediaEmbeds';
 
 // Dynamic imports for streaming libraries
 let Hls: any = null;
@@ -1266,13 +1266,7 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
           />
         );
 
-      case 'reddit':
-        return (
-          <RedditEmbed
-            url={media.url}
-            postId={media.metadata?.postId || ''}
-          />
-        );
+      // Reddit URLs are now handled as link previews, not special embeds
 
       case 'imdb':
         return <IMDBPreview url={media.url} />;
