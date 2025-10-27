@@ -7,6 +7,7 @@ import { genUserName } from '@/lib/genUserName';
 import { cn } from '@/lib/utils';
 import { parseMediaFromContent } from '@/lib/mediaParser';
 import { MediaDisplay } from '@/components/MediaDisplay';
+import { QuotedEvent } from '@/components/QuotedEvent';
 
 interface NoteContentProps {
   event: NostrEvent;
@@ -140,15 +141,13 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
             <NostrMention key={`mention-${keyCounter++}`} pubkey={pubkey} />
           );
         } else {
-          // For other types, just show as a link
+          // For note, nevent, naddr types, render as quoted event
           parts.push(
-            <Link
-              key={`nostr-${keyCounter++}`}
-              to={`/${nostrId}`}
-              className="text-blue-500 hover:underline"
-            >
-              {fullMatch}
-            </Link>
+            <QuotedEvent
+              key={`quoted-${keyCounter++}`}
+              eventId={nostrId}
+              className="mt-2 mb-2"
+            />
           );
         }
       } catch {
