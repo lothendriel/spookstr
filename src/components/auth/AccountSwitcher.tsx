@@ -1,7 +1,7 @@
 // NOTE: This file is stable and usually should not be modified.
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
-import { ChevronDown, LogOut, UserIcon, UserPlus, Wallet } from 'lucide-react';
+import { ChevronDown, LogOut, UserIcon, UserPlus, Wallet, User } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +14,8 @@ import { RelaySelector } from '@/components/RelaySelector';
 import { WalletModal } from '@/components/WalletModal';
 import { useLoggedInAccounts, type Account } from '@/hooks/useLoggedInAccounts';
 import { genUserName } from '@/lib/genUserName';
+import { useNavigate } from 'react-router-dom';
+import { nip19 } from 'nostr-tools';
 
 interface AccountSwitcherProps {
   onAddAccountClick: () => void;
@@ -21,6 +23,7 @@ interface AccountSwitcherProps {
 
 export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
   const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
+  const navigate = useNavigate();
 
   if (!currentUser) return null;
 
@@ -64,6 +67,16 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => {
+            const npub = nip19.npubEncode(currentUser.pubkey);
+            navigate(`/${npub}`);
+          }}
+          className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
+        >
+          <User className='w-4 h-4' />
+          <span>View Profile</span>
+        </DropdownMenuItem>
         <WalletModal>
           <DropdownMenuItem
             className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
