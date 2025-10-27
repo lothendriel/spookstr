@@ -11,10 +11,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
-import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check } from 'lucide-react';
+import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { PostDetailView } from '@/components/PostDetailView';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
 
@@ -29,6 +30,7 @@ export default function Profile({ pubkey }: ProfileProps) {
   const { user } = useCurrentUser();
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState('posts');
 
   const { isFollowing, follow, unfollow, isPending } = useFollow(pubkey);
 
@@ -61,7 +63,7 @@ export default function Profile({ pubkey }: ProfileProps) {
     }
   };
 
-  // Fetch user's posts
+  // Fetch user's posts (excluding replies)
   const { data: posts, isLoading: isLoadingPosts } = useQuery({
     queryKey: ['user-posts', pubkey],
     queryFn: async (c) => {
@@ -70,7 +72,29 @@ export default function Profile({ pubkey }: ProfileProps) {
         [{ kinds: [1], authors: [pubkey], limit: 50 }],
         { signal }
       );
-      return events.sort((a, b) => b.created_at - a.created_at);
+      // Filter out replies (events that have 'e' tags pointing to other events)
+      const nonReplyPosts = events.filter(event =>
+        !event.tags.some(([tagName]) => tagName === 'e')
+      );
+      return nonReplyPosts.sort((a, b) => b.created_at - a.created_at);
+    },
+    enabled: !!pubkey,
+  });
+
+  // Fetch user's replies
+  const { data: replies, isLoading: isLoadingReplies } = useQuery({
+    queryKey: ['user-replies', pubkey],
+    queryFn: async (c) => {
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
+      const events = await nostr.query(
+        [{ kinds: [1], authors: [pubkey], limit: 50 }],
+        { signal }
+      );
+      // Filter for replies (events that have 'e' tags pointing to other events)
+      const replyEvents = events.filter(event =>
+        event.tags.some(([tagName]) => tagName === 'e')
+      );
+      return replyEvents.sort((a, b) => b.created_at - a.created_at);
     },
     enabled: !!pubkey,
   });
@@ -238,56 +262,122 @@ export default function Profile({ pubkey }: ProfileProps) {
           </Card>
         )}
 
-        {/* Posts Section */}
+        {/* Posts and Replies Tabs */}
         <div className="mb-4">
-          <h2 className="text-xl font-bold text-lime-400 mb-4">Paranormal Posts</h2>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-lime-500/10 border border-lime-500/20">
+              <TabsTrigger value="posts" className="data-[state=active]:bg-lime-500/20 data-[state=active]:text-lime-300">
+                Posts
+              </TabsTrigger>
+              <TabsTrigger value="replies" className="data-[state=active]:bg-lime-500/20 data-[state=active]:text-lime-300">
+                Replies
+              </TabsTrigger>
+            </TabsList>
 
-          {isLoadingPosts && (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <Card key={i} className="border-lime-500/20 bg-black/40">
-                  <CardContent className="p-4">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="space-y-1">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-3 w-16" />
-                      </div>
-                    </div>
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-3/4 mt-2" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+            {/* Posts Tab Content */}
+            <TabsContent value="posts" className="mt-6">
+              <div className="space-y-4">
+                {isLoadingPosts && (
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <Card key={i} className="border-lime-500/20 bg-black/40">
+                        <CardContent className="p-4">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <div className="space-y-1">
+                              <Skeleton className="h-4 w-24" />
+                              <Skeleton className="h-3 w-16" />
+                            </div>
+                          </div>
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-4 w-3/4 mt-2" />
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
 
-          {!isLoadingPosts && (!posts || posts.length === 0) && (
-            <Card className="border-dashed border-lime-500/20 bg-black/20">
-              <CardContent className="p-12 text-center">
-                <Ghost className="h-16 w-16 text-lime-500/40 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-lime-400 mb-2">
-                  No Posts Yet
-                </h3>
-                <p className="text-lime-500/60">
-                  This user hasn't shared any paranormal experiences yet
-                </p>
-              </CardContent>
-            </Card>
-          )}
+                {!isLoadingPosts && (!posts || posts.length === 0) && (
+                  <Card className="border-dashed border-lime-500/20 bg-black/20">
+                    <CardContent className="p-12 text-center">
+                      <Ghost className="h-16 w-16 text-lime-500/40 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-lime-400 mb-2">
+                        No Posts Yet
+                      </h3>
+                      <p className="text-lime-500/60">
+                        This user hasn't shared any paranormal experiences yet
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
 
-          {!isLoadingPosts && posts && posts.length > 0 && (
-            <div className="space-y-4">
-              {posts.map((post) => (
-                <ParanormalPost
-                  key={post.id}
-                  event={post}
-                  onClick={() => setSelectedPost(post)}
-                  showActions={true}
-                />
-              ))}
-            </div>
-          )}
+                {!isLoadingPosts && posts && posts.length > 0 && (
+                  <div className="space-y-4">
+                    {posts.map((post) => (
+                      <ParanormalPost
+                        key={post.id}
+                        event={post}
+                        onClick={() => setSelectedPost(post)}
+                        showActions={true}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* Replies Tab Content */}
+            <TabsContent value="replies" className="mt-6">
+              <div className="space-y-4">
+                {isLoadingReplies && (
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <Card key={i} className="border-lime-500/20 bg-black/40">
+                        <CardContent className="p-4">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <Skeleton className="h-10 w-10 rounded-full" />
+                            <div className="space-y-1">
+                              <Skeleton className="h-4 w-24" />
+                              <Skeleton className="h-3 w-16" />
+                            </div>
+                          </div>
+                          <Skeleton className="h-4 w-full" />
+                          <Skeleton className="h-4 w-3/4 mt-2" />
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {!isLoadingReplies && (!replies || replies.length === 0) && (
+                  <Card className="border-dashed border-lime-500/20 bg-black/20">
+                    <CardContent className="p-12 text-center">
+                      <MessageSquare className="h-16 w-16 text-lime-500/40 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold text-lime-400 mb-2">
+                        No Replies Yet
+                      </h3>
+                      <p className="text-lime-500/60">
+                        This user hasn't replied to any posts yet
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {!isLoadingReplies && replies && replies.length > 0 && (
+                  <div className="space-y-4">
+                    {replies.map((reply) => (
+                      <ParanormalPost
+                        key={reply.id}
+                        event={reply}
+                        onClick={() => setSelectedPost(reply)}
+                        showActions={true}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>
