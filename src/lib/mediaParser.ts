@@ -40,7 +40,7 @@ const mediaPatterns = {
   // Social media platforms
   twitter: /(?:twitter\.com|x\.com)\/(?:#!\/)?(\w+)\/status(?:es)?\/(\d+)/gi,
   facebook: /(?:facebook\.com|fb\.watch)\/(?:permalink\.php\?story_fbid=|posts\/|videos\/|photo\.php\?fbid=|watch\/\?v=)?([^\/\s]+)(?:\/)?/gi,
-  instagram: /(?:instagram\.com\/p\/|instagr\.am\/p\/)([^\/\s?]+)/gi,
+  instagram: /(?:instagram\.com\/(?:p|reel|tv|stories)\/|instagr\.am\/p\/)([^\/\s?]+)/gi,
   linkedin: /(?:linkedin\.com\/posts\/|linkedin\.com\/feed\/update\/urn:li:activity:)(\d+)/gi,
   // Reddit URLs are now handled as website links, not special embeds
   nostrImage: /immediate:\/\/[^\s]+/gi,

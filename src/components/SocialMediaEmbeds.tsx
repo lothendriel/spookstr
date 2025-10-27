@@ -462,13 +462,26 @@ export function InstagramEmbed({ url, postId, className }: InstagramEmbedProps) 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Detect Instagram content type from URL
+  const getContentType = (url: string): 'post' | 'reel' | 'tv' | 'stories' => {
+    if (url.includes('/reel/')) return 'reel';
+    if (url.includes('/tv/')) return 'tv';
+    if (url.includes('/stories/')) return 'stories';
+    return 'post';
+  };
+
+  const contentType = getContentType(url);
+  const contentTitle = contentType === 'reel' ? 'Instagram Reel' :
+                      contentType === 'tv' ? 'Instagram TV' :
+                      contentType === 'stories' ? 'Instagram Story' : 'Instagram Post';
+
   useEffect(() => {
     const fetchEmbedData = async () => {
       try {
         setIsLoading(true);
 
         // Try Instagram's oEmbed API with CORS proxy
-        const oEmbedUrl = `https://api.instagram.com/oembed/?url=${encodeURIComponent(url)}&maxwidth=480`;
+        const oEmbedUrl = `https://api.instagram.com/oembed/?url=${encodeURIComponent(url)}&maxwidth=480&omitscript=true`;
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(oEmbedUrl)}`;
 
         const response = await fetch(proxyUrl);
@@ -484,9 +497,9 @@ export function InstagramEmbed({ url, postId, className }: InstagramEmbedProps) 
       } catch (err) {
         // Fallback to basic data with placeholder image
         setEmbedData({
-          title: 'Instagram Post',
+          title: contentTitle,
           author_name: 'Instagram User',
-          thumbnail_url: 'https://via.placeholder.com/600x600/ddd/999?text=Instagram+Post',
+          thumbnail_url: 'https://via.placeholder.com/600x600/ddd/999?text=Instagram+Content',
           url: url
         });
         console.warn('Instagram embed error (using fallback):', err);
@@ -496,7 +509,7 @@ export function InstagramEmbed({ url, postId, className }: InstagramEmbedProps) 
     };
 
     fetchEmbedData();
-  }, [url]);
+  }, [url, contentTitle]);
 
   const handleClick = () => {
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -535,7 +548,7 @@ export function InstagramEmbed({ url, postId, className }: InstagramEmbedProps) 
               </div>
               <div>
                 <p className="text-sm font-medium text-pink-100">
-                  Instagram Post
+                  {contentTitle}
                 </p>
                 <p className="text-xs text-pink-500/60">
                   Click to view on Instagram

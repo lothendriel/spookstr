@@ -675,6 +675,64 @@ describe('NoteContent', () => {
     expect(externalLinkButtons).toHaveLength(3);
   });
 
+  it('displays Instagram Reels as embed cards', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Check out this Instagram Reel: https://www.instagram.com/reel/DQPUtFIDjli/',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display Instagram embed card
+    const instagramCard = screen.getByText('Instagram').closest('div');
+    expect(instagramCard).toBeInTheDocument();
+
+    // Should display Instagram branding
+    expect(screen.getByText('Instagram')).toBeInTheDocument();
+
+    // Should have external link button
+    const externalLinkButton = screen.getByRole('button', { name: /open/i });
+    expect(externalLinkButton).toBeInTheDocument();
+
+    // Should also display text before to link
+    expect(screen.getByText('Check out this Instagram Reel:')).toBeInTheDocument();
+  });
+
+  it('handles all Instagram content types (posts, reels, tv, stories)', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'All Instagram types: https://www.instagram.com/p/POST123/ https://www.instagram.com/reel/REEL456/ https://www.instagram.com/tv/TV789/ https://www.instagram.com/stories/STORY012/',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display four Instagram embed cards
+    const instagramCards = screen.getAllByText('Instagram');
+    expect(instagramCards).toHaveLength(4);
+
+    // Should have four external link buttons
+    const externalLinkButtons = screen.getAllByRole('button', { name: /open/i });
+    expect(externalLinkButtons).toHaveLength(4);
+  });
+
   it('does not create duplicate Instagram embeds for the same URL', () => {
     const event: NostrEvent = {
       id: 'test-id',
