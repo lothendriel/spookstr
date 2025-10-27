@@ -48,6 +48,14 @@ export function NoteContent({
       return indexA - indexB;
     });
 
+    // Debug: Log what we found
+    console.log('Original text:', text);
+    console.log('Media items found:', mediaItems);
+    console.log('Skip URLs:', skipUrls);
+    console.log('Sorted media:', sortedMedia);
+
+
+
     // Process each media item and the text around it
     sortedMedia.forEach((media) => {
       const mediaIndex = processedText.indexOf(media.url);
