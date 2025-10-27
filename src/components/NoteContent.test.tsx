@@ -616,4 +616,88 @@ describe('NoteContent', () => {
     const externalLinkButtons = screen.getAllByRole('button', { name: /open/i });
     expect(externalLinkButtons).toHaveLength(3);
   });
+
+  it('displays Instagram posts as embed cards', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Check out this Instagram post: https://www.instagram.com/p/C1234567890/',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display Instagram embed card
+    const instagramCard = screen.getByText('Instagram').closest('div');
+    expect(instagramCard).toBeInTheDocument();
+
+    // Should display Instagram branding
+    expect(screen.getByText('Instagram')).toBeInTheDocument();
+
+    // Should have external link button
+    const externalLinkButton = screen.getByRole('button', { name: /open/i });
+    expect(externalLinkButton).toBeInTheDocument();
+
+    // Should also display of text before to link
+    expect(screen.getByText('Check out this Instagram post:')).toBeInTheDocument();
+  });
+
+  it('handles various Instagram URL formats', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Multiple Instagram posts: https://www.instagram.com/p/C1234567890/ https://instagr.am/p/ABCDEF12345/ https://instagram.com/p/XYZ987654321/',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display three Instagram embed cards
+    const instagramCards = screen.getAllByText('Instagram');
+    expect(instagramCards).toHaveLength(3);
+
+    // Should have three external link buttons
+    const externalLinkButtons = screen.getAllByRole('button', { name: /open/i });
+    expect(externalLinkButtons).toHaveLength(3);
+  });
+
+  it('does not create duplicate Instagram embeds for the same URL', () => {
+    const event: NostrEvent = {
+      id: 'test-id',
+      pubkey: 'test-pubkey',
+      created_at: Math.floor(Date.now() / 1000),
+      kind: 1,
+      tags: [],
+      content: 'Same Instagram link twice: https://www.instagram.com/p/C1234567890/ and again https://www.instagram.com/p/C1234567890/',
+      sig: 'test-sig',
+    };
+
+    render(
+      <TestApp>
+        <NoteContent event={event} />
+      </TestApp>
+    );
+
+    // Should display exactly ONE Instagram embed card, not duplicates
+    const instagramCards = screen.getAllByText('Instagram');
+    expect(instagramCards).toHaveLength(1);
+
+    // Should have exactly one external link button
+    const externalLinkButtons = screen.getAllByRole('button', { name: /open/i });
+    expect(externalLinkButtons).toHaveLength(1);
+  });
 });
