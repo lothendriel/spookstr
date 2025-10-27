@@ -116,14 +116,22 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     // Optimistic update - increment comment count immediately (since it's a kind 1 event)
     optimisticUpdate(1, 1);
 
-    // Create quote repost with q tag
+    // Extract tags from the original event, excluding 'e', 'p', 'q', 'imeta', and 'client' tags
+    const originalTags = event.tags.filter(([tagName]) =>
+      !['e', 'p', 'q', 'imeta', 'client'].includes(tagName)
+    );
+
+    console.log('Creating quote repost with original tags:', originalTags);
+
+    // Create quote repost with q tag and inherited tags
     createEvent({
       event: {
         kind: 1,
         content: `${quoteContent}\n\nnostr:${nip19.noteEncode(event.id)}`,
         tags: [
           ['q', event.id, '', event.pubkey],
-          ['p', event.pubkey]
+          ['p', event.pubkey],
+          ...originalTags
         ]
       },
       options: postToSpookstr2Only ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
