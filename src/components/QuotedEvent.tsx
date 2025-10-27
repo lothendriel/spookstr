@@ -5,8 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { NoteContent } from '@/components/NoteContent';
-import { useNostr } from '@nostrify/react';
-import { useQuery } from '@tanstack/react-query';
+import { useMultiRelayEvent } from '@/hooks/useMultiRelayQuery';
 import { nip19 } from 'nostr-tools';
 import { formatDistanceToNow } from 'date-fns';
 import type { NostrEvent } from '@nostrify/nostrify';
@@ -18,83 +17,23 @@ interface QuotedEventProps {
 
 /** Renders a quoted Nostr event by fetching and displaying its content */
 export function QuotedEvent({ eventId, className }: QuotedEventProps) {
-  const { nostr } = useNostr();
-
-  // Fetch the quoted event
-  const { data: quotedEvent, isLoading, error } = useQuery({
-    queryKey: ['quoted-event', eventId],
-    queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(8000)]);
-
-      console.log('QuotedEvent: Attempting to fetch event:', eventId);
-
-      try {
-        // Try to decode as NIP-19 identifier first
-        const decoded = nip19.decode(eventId);
-        console.log('QuotedEvent: Decoded NIP-19:', decoded);
-
-        if (decoded.type === 'note') {
-          // Try multiple fetching strategies
-          let events = await nostr.query([{ ids: [decoded.data] }], { signal });
-          console.log('QuotedEvent: Found events for note (attempt 1):', events.length, events);
-
-          // If not found, try with explicit limit
-          if (events.length === 0) {
-            events = await nostr.query([{ ids: [decoded.data], limit: 1 }], { signal });
-            console.log('QuotedEvent: Found events for note (attempt 2):', events.length, events);
-          }
-
-          // If still not found, try from a different relay
-          if (events.length === 0) {
-            try {
-              const relay = nostr.relay('wss://relay.nostr.band');
-              events = await relay.query([{ ids: [decoded.data], limit: 1 }], { signal });
-              console.log('QuotedEvent: Found events for note from fallback relay:', events.length, events);
-            } catch (relayError) {
-              console.log('QuotedEvent: Fallback relay failed:', relayError);
-            }
-          }
-
-          return events[0] || null;
-        } else if (decoded.type === 'nevent') {
-          // Try multiple fetching strategies
-          let events = await nostr.query([{ ids: [decoded.data.id] }], { signal });
-          console.log('QuotedEvent: Found events for nevent (attempt 1):', events.length, events);
-
-          // If not found, try with explicit limit
-          if (events.length === 0) {
-            events = await nostr.query([{ ids: [decoded.data.id], limit: 1 }], { signal });
-            console.log('QuotedEvent: Found events for nevent (attempt 2):', events.length, events);
-          }
-
-          // If still not found, try from a different relay
-          if (events.length === 0) {
-            try {
-              const relay = nostr.relay('wss://relay.nostr.band');
-              events = await relay.query([{ ids: [decoded.data.id], limit: 1 }], { signal });
-              console.log('QuotedEvent: Found events for nevent from fallback relay:', events.length, events);
-            } catch (relayError) {
-              console.log('QuotedEvent: Fallback relay failed:', relayError);
-            }
-          }
-
-          return events[0] || null;
-        } else {
-          console.log('QuotedEvent: Unsupported NIP-19 type:', decoded.type);
-          return null;
-        }
-      } catch (decodeError) {
-        console.log('QuotedEvent: NIP-19 decode failed, trying as hex ID:', decodeError);
-        // If it's not a NIP-19 ID, try as raw hex ID
-        const events = await nostr.query([{ ids: [eventId] }], { signal });
-        console.log('QuotedEvent: Found events for hex ID:', events.length, events);
-        return events[0] || null;
+  // Extract actual event ID from NIP-19 format
+  const actualEventId = useMemo(() => {
+    try {
+      const decoded = nip19.decode(eventId);
+      if (decoded.type === 'note') {
+        return decoded.data;
+      } else if (decoded.type === 'nevent') {
+        return decoded.data.id;
       }
-    },
-    enabled: !!eventId,
-    staleTime: 30000, // 30 seconds
-    retry: 1, // Retry once on failure
-  });
+      return eventId; // Fallback to original
+    } catch {
+      return eventId; // Fallback to original
+    }
+  }, [eventId]);
+
+  // Fetch quoted event from multiple relays
+  const { data: quotedEvent, isLoading, error } = useMultiRelayEvent(actualEventId, !!eventId);
 
   if (isLoading) {
     return (
@@ -127,7 +66,7 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
   }
 
   if (!quotedEvent) {
-    console.log('QuotedEvent: No event found for ID:', eventId);
+    console.log('QuotedEvent: No event found for ID:', actualEventId);
     return (
       <Card className={`border-lime-500/20 bg-lime-500/5 ${className}`}>
         <CardContent className="p-3">
