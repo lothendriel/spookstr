@@ -86,30 +86,70 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
         }
 
         // If we got basic embed data, try to fetch additional media info
-        if (data && !data.thumbnail_url && !data.image) {
+        if (data) {
           try {
-            setDebugInfo(prev => prev + `\nFetching additional media info...`);
-            // Try to get tweet data from Twitter's API v2 (this might not work due to auth, but worth trying)
-            const tweetApiUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://twitter.com/i/api/2/timeline/conversation/${statusId}.json?tweet_mode=extended`)}`;
-            const tweetResponse = await fetch(tweetApiUrl);
+            setDebugInfo(prev => prev + `\n🔍 Checking for media in embed data...`);
+            setDebugInfo(prev => prev + `\n   thumbnail_url: ${data.thumbnail_url || 'none'}`);
+            setDebugInfo(prev => prev + `\n   image: ${data.image || 'none'}`);
+            setDebugInfo(prev => prev + `\n   url: ${data.url || 'none'}`);
+            setDebugInfo(prev => prev + `\n   html length: ${data.html?.length || 0} chars`);
 
-            if (tweetResponse.ok) {
-              const tweetData = await tweetResponse.json();
-              const parsedTweetData = JSON.parse(tweetData.contents);
+            // If no media in embed data, try to fetch from Twitter API
+            if (!data.thumbnail_url && !data.image) {
+              setDebugInfo(prev => prev + `\n📸 No media found in embed, trying Twitter API...`);
 
-              // Try to extract media from the response
-              const tweet = parsedTweetData?.globalObjects?.tweets?.[statusId];
-              if (tweet?.extended_entities?.media) {
-                const media = tweet.extended_entities.media[0];
-                if (media?.media_url_https) {
-                  data.thumbnail_url = media.media_url_https + '?name=large';
-                  data.image = media.media_url_https + '?name=orig';
-                  setDebugInfo(prev => prev + `\n✅ Found media: ${media.type}`);
+              // Try Twitter's public API (no auth required for basic tweet data)
+              const tweetApiUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://api.twitter.com/1.1/statuses/show.json?id=${statusId}&tweet_mode=extended`)}`;
+              setDebugInfo(prev => prev + `\n   Fetching: ${tweetApiUrl}`);
+
+              const tweetResponse = await fetch(tweetApiUrl);
+
+              if (tweetResponse.ok) {
+                const tweetData = await tweetResponse.json();
+                const parsedTweetData = JSON.parse(tweetData.contents);
+                setDebugInfo(prev => prev + `\n   ✅ Got tweet data, checking for media...`);
+
+                // Try to extract media from different possible locations
+                const tweet = parsedTweetData;
+                let mediaFound = false;
+
+                // Check extended_entities (most reliable)
+                if (tweet?.extended_entities?.media) {
+                  const media = tweet.extended_entities.media[0];
+                  if (media?.media_url_https) {
+                    data.thumbnail_url = media.media_url_https + '?name=small';
+                    data.image = media.media_url_https + '?name=large';
+                    mediaFound = true;
+                    setDebugInfo(prev => prev + `\n   ✅ Found media in extended_entities: ${media.type}`);
+                  }
                 }
+
+                // Check entities (fallback)
+                if (!mediaFound && tweet?.entities?.media) {
+                  const media = tweet.entities.media[0];
+                  if (media?.media_url_https) {
+                    data.thumbnail_url = media.media_url_https + '?name=small';
+                    data.image = media.media_url_https + '?name=large';
+                    mediaFound = true;
+                    setDebugInfo(prev => prev + `\n   ✅ Found media in entities: ${media.type}`);
+                  }
+                }
+
+                // Check for user profile images as fallback
+                if (!mediaFound && tweet?.user?.profile_image_url_https) {
+                  data.thumbnail_url = tweet.user.profile_image_url_https.replace('_normal.', '_400x400.');
+                  setDebugInfo(prev => prev + `\n   ⚠️ Using profile image as fallback`);
+                }
+
+                if (!mediaFound) {
+                  setDebugInfo(prev => prev + `\n   ❌ No media found in tweet data`);
+                }
+              } else {
+                setDebugInfo(prev => prev + `\n   ❌ Twitter API failed: ${tweetResponse.status}`);
               }
             }
           } catch (mediaErr) {
-            setDebugInfo(prev => prev + `\n⚠️ Could not fetch additional media: ${mediaErr instanceof Error ? mediaErr.message : 'Unknown error'}`);
+            setDebugInfo(prev => prev + `\n⚠️ Media fetch error: ${mediaErr instanceof Error ? mediaErr.message : 'Unknown error'}`);
           }
         }
 
@@ -232,27 +272,47 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
           />
         </div>
 
+        {/* Debug info in development */}
+        {process.env.NODE_ENV === 'development' && (
+          <details className="mb-2">
+            <summary className="text-xs text-sky-500/40 cursor-pointer hover:text-sky-500/60">
+              Twitter Embed Debug
+            </summary>
+            <div className="text-xs text-sky-500/30 bg-sky-500/5 rounded p-2 mt-1 space-y-1">
+              <div>thumbnail_url: {embedData.thumbnail_url || 'none'}</div>
+              <div>image: {embedData.image || 'none'}</div>
+              <div>url: {embedData.url || 'none'}</div>
+              <div>author_name: {embedData.author_name || 'none'}</div>
+              <div>html length: {embedData.html?.length || 0} chars</div>
+            </div>
+          </details>
+        )}
+
         {/* Tweet Media (if any) */}
-        {(embedData.url || embedData.thumbnail_url || embedData.image) && (
+        {(embedData.thumbnail_url || embedData.image) && (
           <div className="mb-3">
-            {embedData.thumbnail_url || embedData.image ? (
-              <div className="relative aspect-video bg-sky-500/10 rounded-lg overflow-hidden">
-                <img
-                  src={embedData.thumbnail_url || embedData.image}
-                  alt="Tweet media"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="relative aspect-video bg-sky-500/10 rounded-lg overflow-hidden">
+              <img
+                src={embedData.thumbnail_url || embedData.image}
+                alt="Tweet media"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                onError={(e) => {
+                  console.warn('Twitter media failed to load:', e.currentTarget.src);
+                  e.currentTarget.style.display = 'none';
+                }}
+                onLoad={() => {
+                  console.log('Twitter media loaded successfully:', embedData.thumbnail_url || embedData.image);
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="bg-black/60 backdrop-blur-sm rounded px-2 py-1">
+                  <span className="text-xs text-white font-medium">
+                    {embedData.thumbnail_url?.includes('video') ? 'Video' : 'Image'}
+                  </span>
+                </div>
               </div>
-            ) : (
-              <div className="aspect-video bg-sky-500/10 rounded-lg flex items-center justify-center">
-                <ImageIcon className="h-8 w-8 text-sky-500/40" />
-                <span className="ml-2 text-xs text-sky-500/60">Media content</span>
-              </div>
-            )}
+            </div>
           </div>
         )}
 
