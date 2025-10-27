@@ -7,11 +7,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useToast } from '@/hooks/useToast';
 import { NoteContent } from '@/components/NoteContent';
 import { ZapButton } from '@/components/ZapButton';
 import { ZapDialog } from '@/components/ZapDialog';
 import { CommentsSection } from '@/components/comments/CommentsSection';
-import { ArrowLeft, Heart, Repeat, MessageCircle, Zap, Quote, RadioTower } from 'lucide-react';
+import { ArrowLeft, Heart, Repeat, MessageCircle, Zap, Quote, RadioTower, Copy } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { genUserName } from '@/lib/genUserName';
 import { useNavigate } from 'react-router-dom';
@@ -45,6 +46,7 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
   const [isQuoteDialogOpen, setIsQuoteDialogOpen] = useState(false);
@@ -139,6 +141,29 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
     setIsQuoteDialogOpen(false);
     setReposted(true);
     setPostToSpookstr2Only(false); // Reset the checkbox
+  };
+
+  const handleCopyNoteId = async () => {
+    try {
+      // Encode the event ID as a note1 identifier
+      const noteId = nip19.noteEncode(event.id);
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(noteId);
+
+      // Show success toast
+      toast({
+        title: "Note ID copied!",
+        description: `Note ID: ${noteId}`,
+      });
+    } catch (error) {
+      // Show error toast if copy fails
+      toast({
+        title: "Failed to copy",
+        description: "Could not copy note ID to clipboard",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -239,6 +264,13 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
                     >
                       <Quote className="h-4 w-4" />
                       <span>Quote Repost</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={handleCopyNoteId}
+                      className="flex items-center space-x-2"
+                    >
+                      <Copy className="h-4 w-4" />
+                      <span>Copy Note ID</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

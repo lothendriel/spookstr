@@ -11,7 +11,8 @@ import { ZapButton } from '@/components/ZapButton';
 import { ZapDialog } from '@/components/ZapDialog';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { Heart, Repeat, MessageCircle, Zap, Quote, RadioTower } from 'lucide-react';
+import { useToast } from '@/hooks/useToast';
+import { Heart, Repeat, MessageCircle, Zap, Quote, RadioTower, Copy } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
@@ -46,6 +47,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
   const [isQuoteDialogOpen, setIsQuoteDialogOpen] = useState(false);
@@ -140,6 +142,29 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     setIsQuoteDialogOpen(false);
     setReposted(true);
     setPostToSpookstr2Only(false); // Reset the checkbox
+  };
+
+  const handleCopyNoteId = async () => {
+    try {
+      // Encode the event ID as a note1 identifier
+      const noteId = nip19.noteEncode(event.id);
+
+      // Copy to clipboard
+      await navigator.clipboard.writeText(noteId);
+
+      // Show success toast
+      toast({
+        title: "Note ID copied!",
+        description: `Note ID: ${noteId}`,
+      });
+    } catch (error) {
+      // Show error toast if copy fails
+      toast({
+        title: "Failed to copy",
+        description: "Could not copy note ID to clipboard",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -239,6 +264,16 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                       >
                         <Quote className="h-4 w-4" />
                         <span>Quote Repost</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopyNoteId();
+                        }}
+                        className="flex items-center space-x-2"
+                      >
+                        <Copy className="h-4 w-4" />
+                        <span>Copy Note ID</span>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
