@@ -18,28 +18,85 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
   const [embedData, setEmbedData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   useEffect(() => {
     const fetchEmbedData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch(oEmbedUrl);
-        if (!response.ok) {
-          throw new Error('Failed to fetch Twitter embed data');
+        setDebugInfo(`Starting fetch for: ${url}`);
+
+        // Try multiple approaches to get Twitter data
+        let data = null;
+        let lastError = null;
+
+        // Approach 1: Direct oEmbed API (might fail due to CORS)
+        try {
+          setDebugInfo(prev => prev + `\nTrying direct oEmbed API...`);
+          const response = await fetch(oEmbedUrl);
+          setDebugInfo(prev => prev + `\nDirect response status: ${response.status}`);
+
+          if (response.ok) {
+            data = await response.json();
+            setDebugInfo(prev => prev + `\n✅ Direct API success!`);
+            console.log('Twitter embed data (direct):', data);
+          } else {
+            const errorText = await response.text();
+            setDebugInfo(prev => prev + `\n❌ Direct API failed: ${errorText.substring(0, 200)}`);
+            throw new Error(`HTTP ${response.status}`);
+          }
+        } catch (err) {
+          lastError = err;
+          setDebugInfo(prev => prev + `\n❌ Direct approach failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+
+          // Approach 2: Try with CORS proxy
+          try {
+            setDebugInfo(prev => prev + `\nTrying CORS proxy...`);
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(oEmbedUrl)}`;
+            const proxyResponse = await fetch(proxyUrl);
+            setDebugInfo(prev => prev + `\nProxy response status: ${proxyResponse.status}`);
+
+            if (proxyResponse.ok) {
+              const proxyData = await proxyResponse.json();
+              setDebugInfo(prev => prev + `\nGot proxy response, parsing...`);
+              const parsedData = JSON.parse(proxyData.contents);
+              data = parsedData;
+              setDebugInfo(prev => prev + `\n✅ Proxy API success!`);
+              console.log('Twitter embed data (proxy):', parsedData);
+            } else {
+              throw new Error(`Proxy HTTP ${proxyResponse.status}`);
+            }
+          } catch (proxyErr) {
+            lastError = proxyErr;
+            setDebugInfo(prev => prev + `\n❌ Proxy approach failed: ${proxyErr instanceof Error ? proxyErr.message : 'Unknown error'}`);
+
+            // Approach 3: Create minimal embed data from URL
+            setDebugInfo(prev => prev + `\nCreating fallback embed data...`);
+            data = {
+              author_name: `@${username}`,
+              author_url: `https://twitter.com/${username}`,
+              url: url,
+              title: `Tweet by @${username}`,
+              html: `<blockquote class="twitter-tweet">Tweet by @${username}<br>Status ID: ${statusId}</blockquote>`
+            };
+            setDebugInfo(prev => prev + `\n✅ Created fallback data`);
+          }
         }
-        const data = await response.json();
+
         setEmbedData(data);
         setError(null);
       } catch (err) {
-        setError('Failed to load Twitter post');
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        setError(`Failed to load Twitter post: ${errorMessage}`);
         console.warn('Twitter embed error:', err);
+        setDebugInfo(prev => prev + `\n❌ Final error: ${errorMessage}`);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchEmbedData();
-  }, [url]);
+  }, [url, username, statusId]);
 
   const handleClick = () => {
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -80,16 +137,27 @@ export function TwitterEmbed({ url, username, statusId, className }: TwitterEmbe
               <div className="w-10 h-10 bg-sky-500/20 rounded-full flex items-center justify-center">
                 <MessageCircle className="h-5 w-5 text-sky-500" />
               </div>
-              <div>
-                <p className="text-sm font-medium text-sky-100">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-sky-100 truncate">
                   Twitter Post by @{username}
                 </p>
                 <p className="text-xs text-sky-500/60">
-                  Click to view on Twitter
+                  Status ID: {statusId}
                 </p>
+                <p className="text-xs text-sky-500/40 truncate">
+                  {url}
+                </p>
+                {process.env.NODE_ENV === 'development' && debugInfo && (
+                  <details className="mt-2">
+                    <summary className="text-xs text-sky-500/40 cursor-pointer">Debug Info</summary>
+                    <pre className="text-xs text-sky-500/30 mt-1 whitespace-pre-wrap break-all">
+                      {debugInfo}
+                    </pre>
+                  </details>
+                )}
               </div>
             </div>
-            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 flex-shrink-0">
               <ExternalLink className="h-4 w-4 text-sky-500" />
             </Button>
           </div>
@@ -184,14 +252,18 @@ export function FacebookEmbed({ url, postId, className }: FacebookEmbedProps) {
     const fetchEmbedData = async () => {
       try {
         setIsLoading(true);
-        // For Facebook, we'll use OpenGraph data as a fallback since their oEmbed API requires access tokens
-        const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+
+        // Try to fetch OpenGraph data using CORS proxy
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
+
         if (!response.ok) {
           throw new Error('Failed to fetch Facebook page data');
         }
+
         const data = await response.json();
 
-        // Extract OpenGraph data from the HTML
+        // Extract OpenGraph data from HTML
         const parser = new DOMParser();
         const doc = parser.parseFromString(data.contents, 'text/html');
 
@@ -208,8 +280,13 @@ export function FacebookEmbed({ url, postId, className }: FacebookEmbedProps) {
         });
         setError(null);
       } catch (err) {
-        setError('Failed to load Facebook post');
-        console.warn('Facebook embed error:', err);
+        // Fallback to basic data instead of error
+        setEmbedData({
+          title: 'Facebook Post',
+          description: 'Click to view this Facebook post',
+          siteName: 'Facebook'
+        });
+        console.warn('Facebook embed error (using fallback):', err);
       } finally {
         setIsLoading(false);
       }
@@ -350,19 +427,30 @@ export function InstagramEmbed({ url, postId, className }: InstagramEmbedProps) 
     const fetchEmbedData = async () => {
       try {
         setIsLoading(true);
-        // Instagram's oEmbed API
-        const oEmbedUrl = `https://api.instagram.com/oembed/?url=${encodeURIComponent(url)}&maxwidth=480`;
 
-        const response = await fetch(oEmbedUrl);
+        // Try Instagram's oEmbed API with CORS proxy
+        const oEmbedUrl = `https://api.instagram.com/oembed/?url=${encodeURIComponent(url)}&maxwidth=480`;
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(oEmbedUrl)}`;
+
+        const response = await fetch(proxyUrl);
         if (!response.ok) {
           throw new Error('Failed to fetch Instagram embed data');
         }
-        const data = await response.json();
+
+        const proxyData = await response.json();
+        const data = JSON.parse(proxyData.contents);
+
         setEmbedData(data);
         setError(null);
       } catch (err) {
-        setError('Failed to load Instagram post');
-        console.warn('Instagram embed error:', err);
+        // Fallback to basic data
+        setEmbedData({
+          title: 'Instagram Post',
+          author_name: 'Instagram User',
+          thumbnail_url: '',
+          url: url
+        });
+        console.warn('Instagram embed error (using fallback):', err);
       } finally {
         setIsLoading(false);
       }
@@ -535,19 +623,31 @@ export function RedditEmbed({ url, postId, className }: RedditEmbedProps) {
     const fetchEmbedData = async () => {
       try {
         setIsLoading(true);
-        // Reddit's oEmbed API
-        const oEmbedUrl = `https://www.reddit.com/oembed?url=${encodeURIComponent(url)}`;
 
-        const response = await fetch(oEmbedUrl);
+        // Try Reddit's oEmbed API with CORS proxy
+        const oEmbedUrl = `https://www.reddit.com/oembed?url=${encodeURIComponent(url)}`;
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(oEmbedUrl)}`;
+
+        const response = await fetch(proxyUrl);
         if (!response.ok) {
           throw new Error('Failed to fetch Reddit embed data');
         }
-        const data = await response.json();
+
+        const proxyData = await response.json();
+        const data = JSON.parse(proxyData.contents);
+
         setEmbedData(data);
         setError(null);
       } catch (err) {
-        setError('Failed to load Reddit post');
-        console.warn('Reddit embed error:', err);
+        // Fallback to basic data
+        setEmbedData({
+          title: 'Reddit Post',
+          author_name: 'Reddit User',
+          provider_name: 'reddit.com',
+          url: url,
+          html: `<div>Reddit Post - Click to view</div>`
+        });
+        console.warn('Reddit embed error (using fallback):', err);
       } finally {
         setIsLoading(false);
       }
