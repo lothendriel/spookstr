@@ -5,7 +5,6 @@ import { useParanormalFeed } from '@/hooks/useParanormalFeed';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { CreateParanormalPost } from '@/components/CreateParanormalPost';
 import { CreatePostModal } from '@/components/CreatePostModal';
-import { RedditParanormalFeed } from '@/components/RedditParanormalFeed';
 import { DeveloperTip } from '@/components/DeveloperTip';
 import { PostDetailView } from '@/components/PostDetailView';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
@@ -67,9 +66,6 @@ const Index = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Left Sidebar */}
           <div className="lg:col-span-1 space-y-6">
-            <div className="hidden lg:block">
-              <RedditParanormalFeed />
-            </div>
             <div className="hidden lg:block">
               <DeveloperTip />
             </div>
