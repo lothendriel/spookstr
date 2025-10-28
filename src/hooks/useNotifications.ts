@@ -29,31 +29,36 @@ export function useNotifications() {
 
       const signal = AbortSignal.any([querySignal, AbortSignal.timeout(5000)]);
 
-      // First, get user posts (increase limit to catch more)
-      const userPosts = await nostr.query(
-        [{ kinds: [1], authors: [user.pubkey], limit: 500 }],
-        { signal }
-      );
-
-      const userPostIds = userPosts.map(post => post.id);
-
-      if (userPostIds.length === 0) {
-        return { notifications: [], hasMore: false, oldestTimestamp: undefined };
-      }
-
       // Get read relays from config
       const readRelays = config.relays
         ?.filter(r => r.mode === 'read' || r.mode === 'both')
         .map(r => r.url) || [config.relayUrl];
 
-      // Use all read relays for notifications
+      // Use all read relays for queries
       const relayGroup = readRelays.length > 0 ? nostr.group(readRelays) : nostr;
+
+      console.log(`[Notifications] Querying ${readRelays.length} relays:`, readRelays);
+
+      // First, get user posts from ALL relays (increase limit to catch more)
+      const userPosts = await relayGroup.query(
+        [{ kinds: [1], authors: [user.pubkey], limit: 500 }],
+        { signal }
+      );
+
+      console.log(`[Notifications] Found ${userPosts.length} user posts`);
+
+      const userPostIds = userPosts.map(post => post.id);
+
+      if (userPostIds.length === 0) {
+        console.log('[Notifications] No user posts found, returning empty');
+        return { notifications: [], hasMore: false, oldestTimestamp: undefined };
+      }
 
       // Build query filter with pagination
       const filter: any = {
         kinds: [1, 6, 7, 9735, 16], // 1=comment, 6=repost, 7=like, 9735=zap, 16=generic repost
         '#e': userPostIds,
-        limit: 100, // Load 100 interactions at a time
+        limit: 200, // Load more to ensure we have enough after deduplication
       };
 
       // Add pagination using until timestamp
@@ -64,15 +69,21 @@ export function useNotifications() {
       // Query for interactions with user's posts from ALL read relays
       const interactions = await relayGroup.query([filter], { signal });
 
+      console.log(`[Notifications] Found ${interactions.length} raw interactions from relays`);
+
       // Filter out the user's own interactions
       const otherUserInteractions = interactions.filter(
         event => event.pubkey !== user.pubkey
       );
 
+      console.log(`[Notifications] ${otherUserInteractions.length} interactions from other users`);
+
       // Deduplicate by event.id — multiple relays may return same event
       const uniqueInteractions = Array.from(
         new Map(otherUserInteractions.map(event => [event.id, event])).values()
       );
+
+      console.log(`[Notifications] ${uniqueInteractions.length} unique interactions after deduplication`);
 
       // Filter out NSFW content from comments (kind 1 events only)
       const filteredInteractions = uniqueInteractions.filter(event => {
@@ -82,6 +93,15 @@ export function useNotifications() {
         }
         return true; // Keep all other interaction types
       });
+
+      console.log(`[Notifications] ${filteredInteractions.length} interactions after NSFW filter`);
+
+      // Log breakdown by type
+      const breakdown = filteredInteractions.reduce((acc, event) => {
+        acc[event.kind] = (acc[event.kind] || 0) + 1;
+        return acc;
+      }, {} as Record<number, number>);
+      console.log('[Notifications] Event types:', breakdown);
 
       // Convert to notifications
       const notifications: Notification[] = filteredInteractions.map(event => {
@@ -97,8 +117,22 @@ export function useNotifications() {
           type = 'comment';
         }
 
-        // Get the target event ID from the 'e' tag
-        const targetEventId = event.tags.find(tag => tag[0] === 'e')?.[1] || '';
+        // Get the target event ID from the 'e' tags
+        // For comments, find the 'root' marker tag, or fallback to first e tag
+        const eTags = event.tags.filter(tag => tag[0] === 'e');
+        let targetEventId = '';
+
+        if (eTags.length > 0) {
+          // Look for root marker
+          const rootTag = eTags.find(tag => tag[3] === 'root');
+          if (rootTag) {
+            targetEventId = rootTag[1];
+          } else {
+            // Find which of our posts this references
+            const matchingTag = eTags.find(tag => userPostIds.includes(tag[1]));
+            targetEventId = matchingTag ? matchingTag[1] : eTags[0][1];
+          }
+        }
 
         return {
           id: event.id,
@@ -114,14 +148,20 @@ export function useNotifications() {
       // Sort by timestamp (newest first)
       const sortedNotifications = notifications.sort((a, b) => b.timestamp - a.timestamp);
 
+      // Return only 10 notifications per page
+      const pageSize = 10;
+      const paginatedNotifications = sortedNotifications.slice(0, pageSize);
+
       // Determine if there are more notifications to load
-      const hasMore = sortedNotifications.length === 100; // If we got full limit, there might be more
-      const oldestTimestamp = sortedNotifications.length > 0
-        ? sortedNotifications[sortedNotifications.length - 1].timestamp
+      const hasMore = sortedNotifications.length >= pageSize;
+      const oldestTimestamp = paginatedNotifications.length > 0
+        ? paginatedNotifications[paginatedNotifications.length - 1].timestamp - 1 // Subtract 1 to avoid duplicates
         : undefined;
 
+      console.log(`[Notifications] Returning ${paginatedNotifications.length} notifications, hasMore: ${hasMore}`);
+
       return {
-        notifications: sortedNotifications,
+        notifications: paginatedNotifications,
         hasMore,
         oldestTimestamp,
       };
