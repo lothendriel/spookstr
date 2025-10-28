@@ -118,21 +118,21 @@ export function parseMediaFromContent(content: string): MediaItem[] {
     }
   }
 
-  // Process website links last (excluding YouTube)
+  // Process website links last (excluding already processed URLs)
   const websitePattern = mediaPatterns.website;
   if (websitePattern) {
     let match;
     while ((match = websitePattern.exec(content)) !== null) {
       const url = match[0];
-      // Skip if this URL was already processed as YouTube
-      if (url.includes('youtube.com') || url.includes('youtu.be')) continue;
 
-      if (!processedUrls.has(url)) {
-        const mediaItem = createMediaItem(url, 'website', match);
-        if (mediaItem) {
-          mediaItems.push(mediaItem);
-          processedUrls.add(url);
-        }
+      // Skip if this URL was already processed as any media type
+      // This prevents duplicate rendering of images, videos, etc. as link cards
+      if (processedUrls.has(url)) continue;
+
+      const mediaItem = createMediaItem(url, 'website', match);
+      if (mediaItem) {
+        mediaItems.push(mediaItem);
+        processedUrls.add(url);
       }
     }
   }
