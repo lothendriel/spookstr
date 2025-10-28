@@ -6,6 +6,7 @@ interface PostCommentParams {
   root: NostrEvent | URL; // The root event to comment on
   reply?: NostrEvent; // Optional reply to another comment (must be NostrEvent for threading)
   content: string;
+  uploadedFiles?: Array<{tags: string[]; file: File}>; // Optional uploaded files with NIP-94 tags
 }
 
 /** Post a NIP-10 compliant comment (kind 1 text note) on an event. */
@@ -14,7 +15,7 @@ export function usePostComment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ root, reply, content }: PostCommentParams) => {
+    mutationFn: async ({ root, reply, content, uploadedFiles = [] }: PostCommentParams) => {
       const tags: string[][] = [];
 
       // For URL roots, we need to handle differently
@@ -33,11 +34,36 @@ export function usePostComment() {
         tags.push(['p', reply.pubkey]);
       }
 
+      // Add uploaded file tags (NIP-94)
+      console.log('=== POST COMMENT WITH FILES ===');
+      console.log('Uploaded files count:', uploadedFiles.length);
+
+      uploadedFiles.forEach((uploadedFile, index) => {
+        console.log(`File ${index + 1}:`, {
+          fileName: uploadedFile.file.name,
+          fileSize: uploadedFile.file.size,
+          fileType: uploadedFile.file.type,
+          tags: uploadedFile.tags,
+          tagsExpanded: JSON.stringify(uploadedFile.tags, null, 2),
+          hasUrlTag: uploadedFile.tags.some(tag => tag[0] === 'url'),
+          urlValue: uploadedFile.tags.find(tag => tag[0] === 'url')?.[1]
+        });
+        console.log('Adding file tags:', uploadedFile.tags);
+
+        tags.push(...uploadedFile.tags);
+      });
+
       // Add client tag for identification
       tags.push(['client', 'spookstr']);
 
       // Generate timestamp for better duplicate detection
       const created_at = Math.floor(Date.now() / 1000);
+
+      console.log('📋 Final comment event structure:', {
+        kind: 1,
+        content,
+        tags: tags
+      });
 
       const event = await publishEvent({
         event: {
