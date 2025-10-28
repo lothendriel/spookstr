@@ -65,14 +65,24 @@ export function useSpookstrProfileSync() {
           pubkey: user.pubkey,
         };
 
+        console.log('Signing event...', { unsignedEvent });
         const signedEvent = await user.signer.signEvent(unsignedEvent);
-        await spookstrRelay.event(signedEvent);
+        console.log('Event signed, publishing...', { eventId: signedEvent.id });
+
+        const result = await spookstrRelay.event(signedEvent);
+        console.log('Publish result:', result);
 
         // Mark as successfully synced
         localStorage.setItem(storageKey, Date.now().toString());
         console.log('✅ Successfully synced profile to Spookstr relay!');
       } catch (error) {
-        console.error('❌ Failed to sync profile to Spookstr relay:', error);
+        console.error('❌ Failed to sync profile to Spookstr relay:', {
+          error,
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          relay: SPOOKSTR_RELAY,
+          pubkey: user.pubkey,
+        });
         // Remove from synced set so it can be retried
         syncedPubkeys.current.delete(user.pubkey);
       }
