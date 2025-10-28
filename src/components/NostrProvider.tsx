@@ -21,32 +21,32 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   // Use refs so the pool always has the latest data
   const relays = useRef<RelayConfig[]>([]);
 
-  // Get read and write relays from config
-  const getReadRelays = (): string[] => {
-    if (config.relays && config.relays.length > 0) {
-      return config.relays
-        .filter((r) => r.mode === 'read' || r.mode === 'both')
-        .map((r) => r.url);
-    }
-    // Fallback to legacy relayUrl
-    return [config.relayUrl];
-  };
-
-  const getWriteRelays = (): string[] => {
-    if (config.relays && config.relays.length > 0) {
-      return config.relays
-        .filter((r) => r.mode === 'write' || r.mode === 'both')
-        .map((r) => r.url);
-    }
-    // Fallback to legacy relayUrl
-    return [config.relayUrl];
-  };
-
   // Update refs when config changes
   useEffect(() => {
     relays.current = config.relays || [{ url: config.relayUrl, mode: 'both' }];
     queryClient.resetQueries();
   }, [config.relays, config.relayUrl, queryClient]);
+
+  // Get read and write relays from refs
+  const getReadRelays = (): string[] => {
+    if (relays.current && relays.current.length > 0) {
+      return relays.current
+        .filter((r) => r.mode === 'read' || r.mode === 'both')
+        .map((r) => r.url);
+    }
+    // Fallback to legacy relayUrl if no relays configured
+    return [config.relayUrl];
+  };
+
+  const getWriteRelays = (): string[] => {
+    if (relays.current && relays.current.length > 0) {
+      return relays.current
+        .filter((r) => r.mode === 'write' || r.mode === 'both')
+        .map((r) => r.url);
+    }
+    // Fallback to legacy relayUrl if no relays configured
+    return [config.relayUrl];
+  };
 
   // Initialize NPool only once
   if (!pool.current) {
