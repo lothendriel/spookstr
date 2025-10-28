@@ -20,27 +20,32 @@ export function useRelayHealth(relays: RelayConfig[]) {
   const timeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
-    const checkRelay = (relay: RelayConfig) => {
+    const checkRelay = (relay: RelayConfig, delay: number = 0) => {
       // Skip if already checked
       if (checkedRelays.current.has(relay.url)) {
         return;
       }
 
       checkedRelays.current.add(relay.url);
-      const startTime = Date.now();
 
-      // Set connecting status
-      setHealthStatus((prev) => ({
-        ...prev,
-        [relay.url]: {
-          url: relay.url,
-          status: 'connecting',
-        },
-      }));
+      // Add delay to avoid overwhelming the browser with simultaneous connections
+      setTimeout(() => {
+        const startTime = Date.now();
 
-      try {
-        const ws = new WebSocket(relay.url);
-        socketsRef.current.set(relay.url, ws);
+        // Set connecting status
+        setHealthStatus((prev) => ({
+          ...prev,
+          [relay.url]: {
+            url: relay.url,
+            status: 'connecting',
+          },
+        }));
+
+        console.log(`[RelayHealth] Connecting to ${relay.url}...`);
+
+        try {
+          const ws = new WebSocket(relay.url);
+          socketsRef.current.set(relay.url, ws);
 
         // Connection timeout (5 seconds)
         const timeout = setTimeout(() => {
@@ -67,6 +72,8 @@ export function useRelayHealth(relays: RelayConfig[]) {
             timeoutsRef.current.delete(relay.url);
           }
 
+          console.log(`[RelayHealth] ✅ Connected to ${relay.url} (${latency}ms)`);
+
           setHealthStatus((prev) => ({
             ...prev,
             [relay.url]: {
@@ -85,12 +92,14 @@ export function useRelayHealth(relays: RelayConfig[]) {
           }, 1000);
         };
 
-        ws.onerror = () => {
+        ws.onerror = (error) => {
           const currentTimeout = timeoutsRef.current.get(relay.url);
           if (currentTimeout) {
             clearTimeout(currentTimeout);
             timeoutsRef.current.delete(relay.url);
           }
+
+          console.error(`[RelayHealth] ❌ Error connecting to ${relay.url}:`, error);
 
           setHealthStatus((prev) => ({
             ...prev,
@@ -109,6 +118,8 @@ export function useRelayHealth(relays: RelayConfig[]) {
             timeoutsRef.current.delete(relay.url);
           }
 
+          console.log(`[RelayHealth] 🔌 Disconnected from ${relay.url} (code: ${event.code})`);
+
           // Only update to disconnected if not already in error or connected state
           setHealthStatus((prev) => {
             const current = prev[relay.url];
@@ -126,6 +137,7 @@ export function useRelayHealth(relays: RelayConfig[]) {
           });
         };
       } catch (error) {
+        console.error(`[RelayHealth] ❌ Exception for ${relay.url}:`, error);
         setHealthStatus((prev) => ({
           ...prev,
           [relay.url]: {
@@ -135,11 +147,12 @@ export function useRelayHealth(relays: RelayConfig[]) {
           },
         }));
       }
+      }, delay);
     };
 
-    // Check new relays
-    relays.forEach((relay) => {
-      checkRelay(relay);
+    // Check new relays with staggered delays to avoid overwhelming the browser
+    relays.forEach((relay, index) => {
+      checkRelay(relay, index * 200); // 200ms delay between each connection
     });
 
     // Cleanup function
