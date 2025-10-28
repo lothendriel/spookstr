@@ -18,40 +18,10 @@ interface CommentsSectionProps {
   limit?: number;
 }
 
-// Recursive component to render thread tree
-function ThreadTree({
-  nodes,
-  root,
-  depth = 0
-}: {
-  nodes: any[];
-  root: NostrEvent | URL;
-  depth?: number;
-}) {
-  return (
-    <div className="space-y-4">
-      {nodes.map((node, index) => (
-        <div key={node.event.id}>
-          <Comment
-            root={root}
-            comment={node.event}
-            replies={node.children.map((child: any) => child.event)}
-            depth={depth}
-            isLastInBranch={index === nodes.length - 1}
-          />
-          {node.children.length > 0 && (
-            <div className="ml-6">
-              <ThreadTree
-                nodes={node.children}
-                root={root}
-                depth={depth + 1}
-              />
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
+// Helper interface for thread nodes
+interface ThreadNode {
+  event: NostrEvent;
+  children: ThreadNode[];
 }
 
 export function CommentsSection({
@@ -138,10 +108,15 @@ export function CommentsSection({
           </div>
         ) : (
           <div className="space-y-4">
-            <ThreadTree
-              nodes={threadTree}
-              root={root}
-            />
+            {threadTree.map((node: ThreadNode) => (
+              <Comment
+                key={node.event.id}
+                root={root}
+                comment={node.event}
+                children={node.children}
+                depth={0}
+              />
+            ))}
           </div>
         )}
       </CardContent>

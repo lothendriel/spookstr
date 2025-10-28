@@ -19,16 +19,20 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { ZapDialog } from '@/components/ZapDialog';
 
+interface ThreadNode {
+  event: NostrEvent;
+  children: ThreadNode[];
+}
+
 interface CommentProps {
   root: NostrEvent | URL;
   comment: NostrEvent;
-  replies?: NostrEvent[];
+  children?: ThreadNode[];
   depth?: number;
   maxDepth?: number;
-  isLastInBranch?: boolean;
 }
 
-export function Comment({ root, comment, replies = [], depth = 0, maxDepth = 6, isLastInBranch = false }: CommentProps) {
+export function Comment({ root, comment, children = [], depth = 0, maxDepth = 6 }: CommentProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showReplies, setShowReplies] = useState(depth < 2); // Auto-expand first 2 levels
   const { user } = useCurrentUser();
@@ -60,8 +64,8 @@ export function Comment({ root, comment, replies = [], depth = 0, maxDepth = 6, 
   const displayName = getDisplayName(metadata, comment.pubkey);
   const timeAgo = formatDistanceToNow(new Date(comment.created_at * 1000), { addSuffix: true });
 
-  // Use replies passed from parent component
-  const hasReplies = replies.length > 0;
+  // Use children passed from parent component
+  const hasReplies = children.length > 0;
   const canExpand = depth < maxDepth;
 
   const handleLike = () => {
@@ -177,7 +181,7 @@ export function Comment({ root, comment, replies = [], depth = 0, maxDepth = 6, 
                             <ChevronRight className="h-3 w-3 mr-1" />
                           )}
                           <span className="text-xs">
-                            {replies.length} {replies.length === 1 ? 'reply' : 'replies'}
+                            {children.length} {children.length === 1 ? 'reply' : 'replies'}
                           </span>
                         </Button>
                       </CollapsibleTrigger>
@@ -219,16 +223,15 @@ export function Comment({ root, comment, replies = [], depth = 0, maxDepth = 6, 
         {/* Nested Replies */}
         {hasReplies && canExpand && (
           <Collapsible open={showReplies} onOpenChange={setShowReplies}>
-            <CollapsibleContent className="space-y-3">
-              {replies.map((reply, index) => (
+            <CollapsibleContent className="space-y-3 ml-6">
+              {children.map((childNode) => (
                 <Comment
-                  key={reply.id}
+                  key={childNode.event.id}
                   root={root}
-                  comment={reply}
+                  comment={childNode.event}
+                  children={childNode.children}
                   depth={depth + 1}
                   maxDepth={maxDepth}
-                  limit={limit}
-                  isLastInBranch={index === replies.length - 1}
                 />
               ))}
             </CollapsibleContent>
@@ -247,7 +250,7 @@ export function Comment({ root, comment, replies = [], depth = 0, maxDepth = 6, 
                 console.log('Navigate to deep thread view for comment:', comment.id);
               }}
             >
-              View {replies.length} more {replies.length === 1 ? 'reply' : 'replies'} in this thread →
+              View {children.length} more {children.length === 1 ? 'reply' : 'replies'} in this thread →
             </Button>
           </div>
         )}
