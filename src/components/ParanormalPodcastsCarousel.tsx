@@ -51,7 +51,7 @@ export function ParanormalPodcastsCarousel() {
 
   return (
     <div className="border border-lime-500/20 rounded-lg p-4 bg-black/40 backdrop-blur-sm">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-1">
         <h3 className="text-lg font-semibold text-lime-400 flex items-center space-x-2">
           <span>Paranormal Podcasts</span>
           {isCurrentPodcastPlaying && (
@@ -82,6 +82,8 @@ export function ParanormalPodcastsCarousel() {
           </Button>
         </div>
       </div>
+
+      <p className="text-lime-300/60 text-xs mb-3">Click arrows to change podcast</p>
 
       {isPoppedOut ? (
         <div className="mt-2 h-[400px] flex items-center justify-center border border-lime-500/20 rounded-lg bg-black/20">
