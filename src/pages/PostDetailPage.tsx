@@ -12,6 +12,7 @@ import { useCommunity } from '@/hooks/useCommunity';
 import { ArrowLeft } from 'lucide-react';
 import { CommentsSection } from '@/components/comments/CommentsSection';
 import { useRealtimeInteractionUpdates } from '@/hooks/useRealtimeInteractionUpdates';
+import { SpookstrHeader } from '@/components/SpookstrHeader';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 export default function PostDetailPage() {
@@ -51,13 +52,16 @@ export default function PostDetailPage() {
 
   if (communityLoading || postLoading) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto">
-          <Skeleton className="h-12 w-32 mb-6" />
-          <div className="space-y-4">
-            <Skeleton className="h-64 w-full" />
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-32 w-full" />
+      <div className="min-h-screen">
+        <SpookstrHeader />
+        <div className="container mx-auto px-4 py-6">
+          <div className="max-w-4xl mx-auto">
+            <Skeleton className="h-12 w-32 mb-6" />
+            <div className="space-y-4">
+              <Skeleton className="h-64 w-full" />
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
           </div>
         </div>
       </div>
@@ -66,18 +70,23 @@ export default function PostDetailPage() {
 
   if (!community || !post) {
     return (
-      <div className="container mx-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-2xl font-bold mb-4">Post not found</h1>
-          <p className="text-muted-foreground">The post you're looking for doesn't exist.</p>
+      <div className="min-h-screen">
+        <SpookstrHeader />
+        <div className="container mx-auto px-4 py-6">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="text-2xl font-bold mb-4">Post not found</h1>
+            <p className="text-muted-foreground">The post you're looking for doesn't exist.</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen">
+      <SpookstrHeader />
+      <div className="container mx-auto px-4 py-6">
+        <div className="max-w-4xl mx-auto">
         {/* Back Button */}
         <Button
           variant="ghost"
@@ -100,6 +109,7 @@ export default function PostDetailPage() {
           className="mt-6 border-lime-500/20 bg-black/40 backdrop-blur-sm"
           limit={100}
         />
+        </div>
       </div>
     </div>
   );
