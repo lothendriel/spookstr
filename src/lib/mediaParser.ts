@@ -63,6 +63,24 @@ const mediaPatterns = {
   website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app|imdb\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
 };
 
+// Helper function to normalize URLs (ensure HTTPS and consistent format)
+function normalizeUrl(url: string): string {
+  try {
+    // Add protocol if missing
+    let fullUrl = url;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      fullUrl = 'https://' + url;
+    }
+
+    const urlObj = new URL(fullUrl);
+    // Ensure HTTPS
+    urlObj.protocol = 'https:';
+    return urlObj.toString();
+  } catch {
+    return url;
+  }
+}
+
 export function parseMediaFromContent(content: string): MediaItem[] {
   const mediaItems: MediaItem[] = [];
   const processedUrls = new Set<string>(); // Track URLs we've already processed
@@ -74,11 +92,12 @@ export function parseMediaFromContent(content: string): MediaItem[] {
 
   while ((youtubeMatch = youtubeRegex.exec(content)) !== null) {
     const url = youtubeMatch[0];
-    if (!processedUrls.has(url)) {
+    const normalizedUrl = normalizeUrl(url);
+    if (!processedUrls.has(normalizedUrl)) {
       const mediaItem = createMediaItem(url, 'youtube', youtubeMatch);
       if (mediaItem) {
         mediaItems.push(mediaItem);
-        processedUrls.add(url);
+        processedUrls.add(normalizedUrl);
       }
     }
   }
@@ -92,11 +111,12 @@ export function parseMediaFromContent(content: string): MediaItem[] {
     let match;
     while ((match = pattern.exec(content)) !== null) {
       const url = match[0];
-      if (!processedUrls.has(url)) {
+      const normalizedUrl = normalizeUrl(url);
+      if (!processedUrls.has(normalizedUrl)) {
         const mediaItem = createMediaItem(url, type, match);
         if (mediaItem) {
           mediaItems.push(mediaItem);
-          processedUrls.add(url);
+          processedUrls.add(normalizedUrl);
         }
       }
     }
@@ -108,11 +128,12 @@ export function parseMediaFromContent(content: string): MediaItem[] {
     let match;
     while ((match = imageHostingPattern.exec(content)) !== null) {
       const url = match[0];
-      if (!processedUrls.has(url)) {
+      const normalizedUrl = normalizeUrl(url);
+      if (!processedUrls.has(normalizedUrl)) {
         const mediaItem = createMediaItem(url, 'imageHosting', match);
         if (mediaItem) {
           mediaItems.push(mediaItem);
-          processedUrls.add(url);
+          processedUrls.add(normalizedUrl);
         }
       }
     }
@@ -124,15 +145,18 @@ export function parseMediaFromContent(content: string): MediaItem[] {
     let match;
     while ((match = websitePattern.exec(content)) !== null) {
       const url = match[0];
+      const normalizedUrl = normalizeUrl(url);
 
       // Skip if this URL was already processed as any media type
       // This prevents duplicate rendering of images, videos, etc. as link cards
-      if (processedUrls.has(url)) continue;
+      if (processedUrls.has(normalizedUrl)) {
+        continue;
+      }
 
       const mediaItem = createMediaItem(url, 'website', match);
       if (mediaItem) {
         mediaItems.push(mediaItem);
-        processedUrls.add(url);
+        processedUrls.add(normalizedUrl);
       }
     }
   }
@@ -409,17 +433,6 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
   } catch (error) {
     console.warn('Failed to parse media URL:', url, error);
     return null;
-  }
-}
-
-function normalizeUrl(url: string): string {
-  try {
-    const urlObj = new URL(url);
-    // Ensure HTTPS
-    urlObj.protocol = 'https:';
-    return urlObj.toString();
-  } catch {
-    return url;
   }
 }
 
