@@ -26,7 +26,7 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
   const { user } = useCurrentUser();
   const { data: pendingPosts, isLoading: loadingPending, refetch: refetchPending } = usePendingPosts(community.id, community.author);
   const { data: approvedPosts, isLoading: loadingApproved, refetch: refetchApproved } = useApprovedPosts(community.id, community.author);
-  const { mutate: createEvent, isPending: isPublishing } = useNostrPublish();
+  const { mutateAsync: createEvent, isPending: isPublishing } = useNostrPublish();
   const { toast } = useToast();
 
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
@@ -56,48 +56,58 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
     setActionType('deny');
   };
 
-  const confirmAction = () => {
+  const confirmAction = async () => {
     if (!selectedPost || !actionType) return;
 
     if (actionType === 'approve') {
-      // Create approval event (kind 4550) according to NIP-72
-      const communityTag = `34550:${community.author}:${community.id}`;
-      const postKindTag = selectedPost.tags.find(tag => tag[0] === 'k')?.[1] || '1111';
+      try {
+        // Create approval event (kind 4550) according to NIP-72
+        const communityTag = `34550:${community.author}:${community.id}`;
+        const postKindTag = selectedPost.tags.find(tag => tag[0] === 'k')?.[1] || '1111';
 
-      createEvent({
-        event: {
+        console.log('🔐 Creating approval event for:', selectedPost.id);
+        console.log('📋 Approval event details:', {
           kind: 4550,
-          content: JSON.stringify(selectedPost), // Include the full approved event
-          tags: [
-            ['a', communityTag], // Community reference
-            ['e', selectedPost.id], // Post being approved
-            ['p', selectedPost.pubkey], // Post author (for notifications)
-            ['k', postKindTag] // Original post kind
-          ]
-        }
-      }, {
-        onSuccess: () => {
-          toast({
-            title: 'Post Approved',
-            description: 'The post has been approved and is now visible to the community.',
-          });
-          
-          // Refetch both pending and approved lists
-          refetchPending();
-          refetchApproved();
-          
-          setSelectedPost(null);
-          setActionType(null);
-        },
-        onError: (error) => {
-          toast({
-            title: 'Approval Failed',
-            description: 'Failed to approve post. Please try again.',
-            variant: 'destructive',
-          });
-          console.error('Approval failed:', error);
-        }
-      });
+          communityTag,
+          postId: selectedPost.id,
+          postAuthor: selectedPost.pubkey,
+          postKind: postKindTag
+        });
+
+        await createEvent({
+          event: {
+            kind: 4550,
+            content: JSON.stringify(selectedPost), // Include the full approved event
+            tags: [
+              ['a', communityTag], // Community reference
+              ['e', selectedPost.id], // Post being approved
+              ['p', selectedPost.pubkey], // Post author (for notifications)
+              ['k', postKindTag] // Original post kind
+            ]
+          }
+        });
+
+        console.log('✅ Approval event created successfully');
+
+        toast({
+          title: 'Post Approved',
+          description: 'The post has been approved and is now visible to the community.',
+        });
+
+        // Refetch both pending and approved lists
+        await refetchPending();
+        await refetchApproved();
+
+        setSelectedPost(null);
+        setActionType(null);
+      } catch (error) {
+        console.error('❌ Approval failed:', error);
+        toast({
+          title: 'Approval Failed',
+          description: 'Failed to approve post. Please try again.',
+          variant: 'destructive',
+        });
+      }
     } else {
       // For deny, we just don't create an approval event
       // The post remains invisible to users who only see approved content
@@ -105,8 +115,8 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
         title: 'Post Denied',
         description: 'The post has been denied and will remain hidden from the community.',
       });
-      
-      refetchPending();
+
+      await refetchPending();
       setSelectedPost(null);
       setActionType(null);
     }
@@ -199,8 +209,8 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
               {actionType === 'approve' ? 'Approve Post?' : 'Deny Post?'}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-purple-400/80">
-              {actionType === 'approve' 
-                ? 'This will make the post visible to all community members.' 
+              {actionType === 'approve'
+                ? 'This will make the post visible to all community members.'
                 : 'This will keep the post hidden from the community. It will remain in the pending queue.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -209,8 +219,8 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
             <AlertDialogAction
               onClick={confirmAction}
               disabled={isPublishing}
-              className={actionType === 'approve' 
-                ? 'bg-green-500 hover:bg-green-400 text-black' 
+              className={actionType === 'approve'
+                ? 'bg-green-500 hover:bg-green-400 text-black'
                 : 'bg-red-500 hover:bg-red-400 text-black'}
             >
               {isPublishing ? 'Processing...' : actionType === 'approve' ? 'Approve' : 'Deny'}
@@ -268,8 +278,8 @@ function ModerationPostCard({ event, isReply, onApprove, onDeny, isProcessing, s
                 </div>
               </div>
             </div>
-            
-            <Badge 
+
+            <Badge
               variant={status === 'approved' ? 'default' : 'secondary'}
               className={status === 'approved' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}
             >
