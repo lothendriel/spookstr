@@ -17,15 +17,27 @@ This document outlines the performance optimizations implemented to make Spookst
 - Modified: `src/pages/Index.tsx` to use batch queries
 - Modified: `src/hooks/useRealtimeInteractions.ts` to work with batch data
 
-### 2. Removed Real-time Subscriptions
+### 2. Optimized Real-time Subscriptions
 
 **Problem**: Each post created its own WebSocket subscription for real-time updates, overwhelming the connection with 12+ concurrent subscriptions.
 
-**Solution**: Removed per-post real-time subscriptions and rely on optimistic updates + manual refreshes.
+**Solution**: Implemented intelligent shared subscription system with throttling and batching.
 
-**Impact**: Eliminated 12+ WebSocket connections per page load.
+**Impact**: Reduced from 12+ WebSocket connections to 1 shared subscription per page.
 
-**Trade-off**: Real-time interaction counts are no longer live, but optimistic updates provide immediate feedback when users interact.
+**Implementation**:
+- New hook: `src/hooks/useRealtimeInteractionUpdates.ts`
+- Single shared subscription for all visible posts
+- Throttled updates (max 1 update per second per post)
+- Batched processing (updates applied every 2 seconds)
+- Automatic cleanup when components unmount
+- Reference counting to prevent duplicate subscriptions
+
+**Features**:
+- Real-time likes, reposts, zaps, and comments
+- No performance degradation
+- Efficient resource usage
+- Works on feed pages, post detail pages, and comment threads
 
 ### 3. Lazy Loading with Intersection Observer
 
@@ -126,17 +138,18 @@ This document outlines the performance optimizations implemented to make Spookst
 
 ### Before Optimizations:
 - **Initial Load**: 24+ network requests for interactions alone
-- **WebSocket Connections**: 12+ concurrent subscriptions
+- **WebSocket Connections**: 12+ concurrent subscriptions (one per post)
 - **Console Messages**: 961+ log messages per session
 - **Bundle Size**: All pages in initial bundle
 - **Re-renders**: Frequent unnecessary re-renders
 
 ### After Optimizations:
 - **Initial Load**: 1 batch request for all interactions (~96% reduction)
-- **WebSocket Connections**: 0 persistent subscriptions
+- **WebSocket Connections**: 1 shared subscription per page (~92% reduction)
 - **Console Messages**: Minimal production logging
 - **Bundle Size**: Code-split with lazy loading
 - **Re-renders**: Memoized components prevent unnecessary updates
+- **Real-time Updates**: Throttled and batched for efficiency
 
 ## Monitoring Performance
 
@@ -163,8 +176,9 @@ Potential future improvements:
 
 These optimizations involve some trade-offs:
 
-1. **Real-time Updates**: Removed in favor of performance - users now rely on manual refresh or optimistic updates
+1. **Update Throttling**: Real-time updates are throttled to 1 per second per post and batched every 2 seconds - this prevents overwhelming the UI with rapid changes
 2. **Initial Data**: Lazy loaded posts show skeletons briefly before content appears
 3. **Cache Management**: Longer staleTime means slightly stale data, but better performance
+4. **Subscription Delay**: Updates appear within 2 seconds instead of instantly, which is imperceptible to users but dramatically improves performance
 
 These trade-offs are acceptable for most use cases and can be adjusted based on user feedback.

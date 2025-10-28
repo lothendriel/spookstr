@@ -11,12 +11,16 @@ import { useNostr } from '@/hooks/useNostr';
 import { useCommunity } from '@/hooks/useCommunity';
 import { ArrowLeft } from 'lucide-react';
 import { CommentsSection } from '@/components/comments/CommentsSection';
+import { useRealtimeInteractionUpdates } from '@/hooks/useRealtimeInteractionUpdates';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 export default function PostDetailPage() {
   const { communityId, postId } = useParams<{ communityId: string; postId: string }>();
   const navigate = useNavigate();
   const { nostr } = useNostr();
+
+  // Enable real-time updates for this post
+  useRealtimeInteractionUpdates(postId ? [postId] : []);
 
   // Fetch community definition
   const { data: community, isLoading: communityLoading } = useCommunity(communityId);

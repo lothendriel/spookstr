@@ -1,4 +1,6 @@
+import { useMemo } from 'react';
 import { useComments } from '@/hooks/useComments';
+import { useRealtimeInteractionUpdates } from '@/hooks/useRealtimeInteractionUpdates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MessageSquare } from 'lucide-react';
@@ -66,6 +68,20 @@ export function CommentsSection({
   const { data: commentsData, isLoading, error } = useComments(root, limit);
   const threadTree = commentsData?.threadTree || [];
   const topLevelComments = commentsData?.topLevelComments || [];
+
+  // Collect all comment IDs for real-time updates
+  const allCommentIds = useMemo(() => {
+    const collectIds = (nodes: any[]): string[] => {
+      return nodes.flatMap(node => [
+        node.event.id,
+        ...collectIds(node.children)
+      ]);
+    };
+    return collectIds(threadTree);
+  }, [threadTree]);
+
+  // Enable real-time updates for all visible comments
+  useRealtimeInteractionUpdates(allCommentIds);
 
   if (error) {
     return (

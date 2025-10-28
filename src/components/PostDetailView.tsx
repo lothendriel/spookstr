@@ -11,6 +11,7 @@ import { NoteContent } from '@/components/NoteContent';
 import { ZapButton } from '@/components/ZapButton';
 import { ZapDialog } from '@/components/ZapDialog';
 import { CommentsSection } from '@/components/comments/CommentsSection';
+import { useRealtimeInteractionUpdates } from '@/hooks/useRealtimeInteractionUpdates';
 import { ArrowLeft, Heart, Repeat, MessageCircle, Zap, Quote, RadioTower } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { getDisplayName } from '@/lib/getDisplayName';
@@ -50,6 +51,9 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const [isQuoteDialogOpen, setIsQuoteDialogOpen] = useState(false);
   const [quoteContent, setQuoteContent] = useState('');
   const [postToSpookstr2Only, setPostToSpookstr2Only] = useState(false);
+
+  // Enable real-time updates for this post
+  useRealtimeInteractionUpdates([event.id]);
 
   // Fetch all interaction counts in a single query
   const { nostr } = useNostr();

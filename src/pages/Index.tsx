@@ -3,6 +3,7 @@ import { useSeoMeta } from '@unhead/react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useParanormalFeed } from '@/hooks/useParanormalFeed';
 import { useBatchInteractions } from '@/hooks/useBatchInteractions';
+import { useRealtimeInteractionUpdates } from '@/hooks/useRealtimeInteractionUpdates';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { CreateParanormalPost } from '@/components/CreateParanormalPost';
 import { CreatePostModal } from '@/components/CreatePostModal';
@@ -37,6 +38,9 @@ const Index = () => {
 
   // Batch fetch interactions for all visible posts
   useBatchInteractions(visiblePostIds);
+
+  // Enable real-time updates for visible posts (single shared subscription)
+  useRealtimeInteractionUpdates(visiblePostIds);
 
   // Reset pagination when new posts are loaded
   useEffect(() => {
