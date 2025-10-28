@@ -22,12 +22,26 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const relays = useRef<RelayConfig[]>([]);
   const spookstrOnlyMode = useRef<boolean>(false);
 
-  // Update refs when config changes
+  // Update refs when relay config changes
   useEffect(() => {
     relays.current = config.relays || [{ url: config.relayUrl, mode: 'both' }];
-    spookstrOnlyMode.current = config.spookstrOnlyMode ?? false;
     queryClient.resetQueries();
-  }, [config.relays, config.relayUrl, config.spookstrOnlyMode, queryClient]);
+  }, [config.relays, config.relayUrl, queryClient]);
+
+  // When spookstrOnlyMode changes, update ref and invalidate feed queries
+  // This preserves cached display names when switching modes
+  useEffect(() => {
+    spookstrOnlyMode.current = config.spookstrOnlyMode ?? false;
+
+    // Invalidate feed queries but keep author profiles cached
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key = query.queryKey[0];
+        // Keep author profiles and metadata cached to preserve display names
+        return key !== 'author' && key !== 'user-relays';
+      },
+    });
+  }, [config.spookstrOnlyMode, queryClient]);
 
   // Spookstr relay URL
   const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
