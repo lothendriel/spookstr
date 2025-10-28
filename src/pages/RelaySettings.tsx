@@ -18,11 +18,9 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, Plus, Activity, AlertCircle, CheckCircle2, Loader2, RefreshCw, Save, Download } from 'lucide-react';
-import { DesktopLayout } from '@/components/DesktopLayout';
-import { MobileLayout } from '@/components/MobileLayout';
-import { useIsMobile } from '@/hooks/useIsMobile';
 import { useToast } from '@/hooks/useToast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { SpookstrHeader } from '@/components/SpookstrHeader';
 
 export default function RelaySettings() {
   const { user } = useCurrentUser();
@@ -30,7 +28,6 @@ export default function RelaySettings() {
   const { data: nip65Relays, isLoading: isLoadingNip65 } = useUserRelays(user?.pubkey);
   const { mutate: publishEvent, isPending: isPublishing } = useNostrPublish();
   const { toast } = useToast();
-  const isMobile = useIsMobile();
 
   // Local state for relay configuration
   const [localRelays, setLocalRelays] = useState<RelayConfig[]>([]);
@@ -239,7 +236,7 @@ export default function RelaySettings() {
   };
 
   const content = (
-    <div className="space-y-6 py-6">
+    <div className="container max-w-4xl mx-auto space-y-6 py-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Relay Settings</h1>
@@ -471,9 +468,10 @@ export default function RelaySettings() {
     </div>
   );
 
-  if (isMobile) {
-    return <MobileLayout>{content}</MobileLayout>;
-  }
-
-  return <DesktopLayout>{content}</DesktopLayout>;
+  return (
+    <div className="min-h-screen bg-background">
+      <SpookstrHeader />
+      {content}
+    </div>
+  );
 }
