@@ -11,8 +11,8 @@ interface InteractionCounts {
 }
 
 // Shared subscription state to prevent multiple subscriptions
-const activeSubscriptions = new Map<string, { 
-  count: number; 
+const activeSubscriptions = new Map<string, {
+  count: number;
   abortController: AbortController | null;
 }>();
 
@@ -47,7 +47,7 @@ export function useRealtimeInteractionUpdates(eventIds: string[]) {
     } else {
       // Create new subscription
       const abortController = new AbortController();
-      
+
       createSharedSubscription(
         nostr,
         eventIds,
@@ -137,7 +137,16 @@ async function createSharedSubscription(
     }];
 
     // Use async iteration to process events as they arrive
-    for await (const event of nostr.req(filters, { signal: abortController.signal })) {
+    for await (const msg of nostr.req(filters, { signal: abortController.signal })) {
+      // Skip if not an event message
+      if (!msg || typeof msg !== 'object') continue;
+
+      // Handle both direct event and message formats
+      const event = (msg as any).event || msg;
+
+      // Validate event structure
+      if (!event || !event.tags || !Array.isArray(event.tags)) continue;
+
       const referencedEventId = event.tags.find(([tag]: string[]) => tag === 'e')?.[1];
       if (!referencedEventId || !eventIds.includes(referencedEventId)) continue;
 
@@ -150,7 +159,7 @@ async function createSharedSubscription(
 
       // Queue the update
       const currentQueue = updateQueueRef.current.get(referencedEventId) || {};
-      
+
       switch (event.kind) {
         case 7: // Like
           currentQueue.likes = (currentQueue.likes || 0) + 1;
