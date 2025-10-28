@@ -7,12 +7,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { useToast } from '@/hooks/useToast';
 import { NoteContent } from '@/components/NoteContent';
 import { ZapButton } from '@/components/ZapButton';
 import { ZapDialog } from '@/components/ZapDialog';
 import { CommentsSection } from '@/components/comments/CommentsSection';
-import { ArrowLeft, Heart, Repeat, MessageCircle, Zap, Quote, RadioTower, Copy, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Heart, Repeat, MessageCircle, Zap, Quote, RadioTower } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { genUserName } from '@/lib/genUserName';
 import { useNavigate } from 'react-router-dom';
@@ -46,7 +45,6 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [liked, setLiked] = useState(false);
   const [reposted, setReposted] = useState(false);
   const [isQuoteDialogOpen, setIsQuoteDialogOpen] = useState(false);
@@ -143,29 +141,6 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
     setPostToSpookstr2Only(false); // Reset the checkbox
   };
 
-  const handleCopyNoteId = async () => {
-    try {
-      // Encode the event ID as a note1 identifier
-      const noteId = nip19.noteEncode(event.id);
-
-      // Copy to clipboard
-      await navigator.clipboard.writeText(noteId);
-
-      // Show success toast
-      toast({
-        title: "Note ID copied!",
-        description: `Note ID: ${noteId}`,
-      });
-    } catch (error) {
-      // Show error toast if copy fails
-      toast({
-        title: "Failed to copy",
-        description: "Could not copy note ID to clipboard",
-        variant: "destructive",
-      });
-    }
-  };
-
   return (
     <>
       <div className="space-y-6">
@@ -184,54 +159,30 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
       {/* Main Post */}
       <Card className="border-lime-500/30 bg-black/50 backdrop-blur-sm">
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Avatar
-                className="h-12 w-12 border-2 border-lime-500/30 cursor-pointer hover:border-lime-400/50 transition-colors"
-                onClick={handleAvatarClick}
-              >
-                <AvatarImage src={metadata?.picture} alt={displayName} />
-                <AvatarFallback className="bg-lime-500/20 text-lime-400">
-                  {displayName.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <div className="flex items-center space-x-2">
-                  <span
-                    className="font-semibold text-lime-400 text-lg cursor-pointer hover:text-lime-300 transition-colors"
-                    onClick={handleAvatarClick}
-                  >
-                    {displayName}
-                  </span>
-                  {metadata?.nip05 && (
-                    <span className="text-xs text-lime-500/70">✓</span>
-                  )}
-                </div>
-                <span className="text-sm text-lime-500/60">{timeAgo}</span>
+          <div className="flex items-center space-x-3">
+            <Avatar
+              className="h-12 w-12 border-2 border-lime-500/30 cursor-pointer hover:border-lime-400/50 transition-colors"
+              onClick={handleAvatarClick}
+            >
+              <AvatarImage src={metadata?.picture} alt={displayName} />
+              <AvatarFallback className="bg-lime-500/20 text-lime-400">
+                {displayName.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <div className="flex items-center space-x-2">
+                <span
+                  className="font-semibold text-lime-400 text-lg cursor-pointer hover:text-lime-300 transition-colors"
+                  onClick={handleAvatarClick}
+                >
+                  {displayName}
+                </span>
+                {metadata?.nip05 && (
+                  <span className="text-xs text-lime-500/70">✓</span>
+                )}
               </div>
+              <span className="text-sm text-lime-500/60">{timeAgo}</span>
             </div>
-
-            {/* 3-dot menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0 text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem
-                  onClick={handleCopyNoteId}
-                  className="flex items-center space-x-2"
-                >
-                  <Copy className="h-4 w-4" />
-                  <span>Copy Note ID</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </CardHeader>
 

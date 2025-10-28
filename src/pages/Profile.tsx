@@ -9,7 +9,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ParanormalPost } from '@/components/ParanormalPost';
-import { useMultiRelayQuery } from '@/hooks/useMultiRelayQuery';
+import { useQuery } from '@tanstack/react-query';
+import { useNostr } from '@nostrify/react';
 import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
@@ -25,6 +26,7 @@ interface ProfileProps {
 export default function Profile({ pubkey }: ProfileProps) {
   const navigate = useNavigate();
   const author = useAuthor(pubkey);
+  const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [copied, setCopied] = useState(false);
@@ -61,31 +63,41 @@ export default function Profile({ pubkey }: ProfileProps) {
     }
   };
 
-  // Fetch user's posts (excluding replies) from multiple relays
-  const { data: posts, isLoading: isLoadingPosts } = useMultiRelayQuery({
-    filters: [{ kinds: [1], authors: [pubkey], limit: 50 }],
+  // Fetch user's posts (excluding replies)
+  const { data: posts, isLoading: isLoadingPosts } = useQuery({
+    queryKey: ['user-posts', pubkey],
+    queryFn: async (c) => {
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
+      const events = await nostr.query(
+        [{ kinds: [1], authors: [pubkey], limit: 50 }],
+        { signal }
+      );
+      // Filter out replies (events that have 'e' tags pointing to other events)
+      const nonReplyPosts = events.filter(event =>
+        !event.tags.some(([tagName]) => tagName === 'e')
+      );
+      return nonReplyPosts.sort((a, b) => b.created_at - a.created_at);
+    },
     enabled: !!pubkey,
-    staleTime: 30000,
   });
 
-  // Process posts to filter out replies
-  const processedPosts = posts ?
-    posts.filter(event => !event.tags.some(([tagName]) => tagName === 'e'))
-      .sort((a, b) => b.created_at - a.created_at) :
-    null;
-
-  // Fetch user's replies from multiple relays
-  const { data: replies, isLoading: isLoadingReplies } = useMultiRelayQuery({
-    filters: [{ kinds: [1], authors: [pubkey], limit: 50 }],
+  // Fetch user's replies
+  const { data: replies, isLoading: isLoadingReplies } = useQuery({
+    queryKey: ['user-replies', pubkey],
+    queryFn: async (c) => {
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
+      const events = await nostr.query(
+        [{ kinds: [1], authors: [pubkey], limit: 50 }],
+        { signal }
+      );
+      // Filter for replies (events that have 'e' tags pointing to other events)
+      const replyEvents = events.filter(event =>
+        event.tags.some(([tagName]) => tagName === 'e')
+      );
+      return replyEvents.sort((a, b) => b.created_at - a.created_at);
+    },
     enabled: !!pubkey,
-    staleTime: 30000,
   });
-
-  // Process replies to filter for only reply events
-  const processedReplies = replies ?
-    replies.filter(event => event.tags.some(([tagName]) => tagName === 'e'))
-      .sort((a, b) => b.created_at - a.created_at) :
-    null;
 
   if (selectedPost) {
     return (
@@ -221,7 +233,7 @@ export default function Profile({ pubkey }: ProfileProps) {
                   )}
 
                   {metadata?.about && (
-                    <p className="text-lime-100 mb-4 whitespace-pre-wrap break-words">{metadata.about}</p>
+                    <p className="text-lime-100 mb-4 whitespace-pre-wrap">{metadata.about}</p>
                   )}
 
                   {/* Links */}
@@ -238,11 +250,9 @@ export default function Profile({ pubkey }: ProfileProps) {
                       </a>
                     )}
                     {(metadata?.lud16 || metadata?.lud06) && (
-                      <span className="text-sm text-lime-500/70 flex items-center gap-1 min-w-0">
-                        <ZapIcon className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate" title={metadata?.lud16 || metadata?.lud06}>
-                          {metadata?.lud16 || metadata?.lud06}
-                        </span>
+                      <span className="text-sm text-lime-500/70 flex items-center gap-1">
+                        <ZapIcon className="h-3 w-3" />
+                        {metadata?.lud16 || metadata?.lud06}
                       </span>
                     )}
                   </div>
@@ -287,7 +297,7 @@ export default function Profile({ pubkey }: ProfileProps) {
                   </div>
                 )}
 
-                {!isLoadingPosts && (!processedPosts || processedPosts.length === 0) && (
+                {!isLoadingPosts && (!posts || posts.length === 0) && (
                   <Card className="border-dashed border-lime-500/20 bg-black/20">
                     <CardContent className="p-12 text-center">
                       <Ghost className="h-16 w-16 text-lime-500/40 mx-auto mb-4" />
@@ -301,9 +311,9 @@ export default function Profile({ pubkey }: ProfileProps) {
                   </Card>
                 )}
 
-                {!isLoadingPosts && processedPosts && processedPosts.length > 0 && (
+                {!isLoadingPosts && posts && posts.length > 0 && (
                   <div className="space-y-4">
-                    {processedPosts.map((post) => (
+                    {posts.map((post) => (
                       <ParanormalPost
                         key={post.id}
                         event={post}
@@ -339,7 +349,7 @@ export default function Profile({ pubkey }: ProfileProps) {
                   </div>
                 )}
 
-                {!isLoadingReplies && (!processedReplies || processedReplies.length === 0) && (
+                {!isLoadingReplies && (!replies || replies.length === 0) && (
                   <Card className="border-dashed border-lime-500/20 bg-black/20">
                     <CardContent className="p-12 text-center">
                       <MessageSquare className="h-16 w-16 text-lime-500/40 mx-auto mb-4" />
@@ -353,9 +363,9 @@ export default function Profile({ pubkey }: ProfileProps) {
                   </Card>
                 )}
 
-                {!isLoadingReplies && processedReplies && processedReplies.length > 0 && (
+                {!isLoadingReplies && replies && replies.length > 0 && (
                   <div className="space-y-4">
-                    {processedReplies.map((reply) => (
+                    {replies.map((reply) => (
                       <ParanormalPost
                         key={reply.id}
                         event={reply}

@@ -1,7 +1,7 @@
 import { type NostrEvent } from '@nostrify/nostrify';
 
 export interface MediaItem {
-  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'twitter' | 'facebook' | 'instagram' | 'linkedin' | 'reddit' | 'external' | 'link' | 'hls' | 'dash';
+  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'hls' | 'dash';
   url: string;
   alt?: string;
   title?: string;
@@ -37,12 +37,6 @@ const mediaPatterns = {
   dailymotion: /(?:dailymotion\.com\/video\/|dai\.ly\/)([a-zA-Z0-9]+)/gi,
   tiktok: /(?:tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/)([a-zA-Z0-9]+)/gi,
   spotify: /(?:open\.spotify\.com\/)(track|album|playlist|artist|show|episode)\/([a-zA-Z0-9]+)/gi,
-  // Social media platforms
-  twitter: /(?:twitter\.com|x\.com)\/(?:#!\/)?(\w+)\/status(?:es)?\/(\d+)/gi,
-  facebook: /(?:facebook\.com|fb\.watch)\/(?:permalink\.php\?story_fbid=|posts\/|videos\/|photo\.php\?fbid=|watch\/\?v=)?([^\/\s]+)(?:\/)?/gi,
-  instagram: /(?:instagram\.com\/(?:p|reel|tv|stories)\/|instagr\.am\/p\/)([^\s?]+)/gi,
-  linkedin: /(?:linkedin\.com\/posts\/|linkedin\.com\/feed\/update\/urn:li:activity:)(\d+)/gi,
-  // Reddit URLs are now handled as website links, not special embeds
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
   // Streaming formats
@@ -59,11 +53,10 @@ const mediaPatterns = {
   // Generic streaming endpoints that might be on CDNs
   genericStreaming: /https?:\/\/[^\s]+\/(?:stream|manifest|playlist|master)\/[^\s]+(?:\.(?:m3u8|mpd|dash))(?:\?[^\s]*)?/gi,
   // Common image hosting services that often serve images without extensions
-  // Note: Reddit URLs (preview.redd.it, i.redd.it) are excluded here to avoid double processing with social media patterns
-  imageHosting: /https?:\/\/(?:i\.imgur\.com|images\.imgur\.com|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app)\/[^\s]+/gi,
+  imageHosting: /https?:\/\/(?:i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app)\/[^\s]+/gi,
   // IMDB links for special preview handling
   imdb: /https?:\/\/(?:www\.)?imdb\.com\/(?:title|name)\/(?:[a-z0-9]+)(?:\/[^\s]*)?/gi,
-  website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|twitter\.com|x\.com|facebook\.com|fb\.watch|instagram\.com|instagr\.am|linkedin\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app|imdb\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
+  website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app|imdb\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
 };
 
 export function parseMediaFromContent(content: string): MediaItem[] {
@@ -77,18 +70,17 @@ export function parseMediaFromContent(content: string): MediaItem[] {
 
   while ((youtubeMatch = youtubeRegex.exec(content)) !== null) {
     const url = youtubeMatch[0];
-    const normalizedUrl = normalizeUrl(url);
-    if (!processedUrls.has(normalizedUrl)) {
+    if (!processedUrls.has(url)) {
       const mediaItem = createMediaItem(url, 'youtube', youtubeMatch);
       if (mediaItem) {
         mediaItems.push(mediaItem);
-        processedUrls.add(normalizedUrl);
+        processedUrls.add(url);
       }
     }
   }
 
   // Process other media types in order of precedence
-  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'twitter', 'facebook', 'instagram', 'linkedin', 'imdb'];
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'imdb'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -96,12 +88,11 @@ export function parseMediaFromContent(content: string): MediaItem[] {
     let match;
     while ((match = pattern.exec(content)) !== null) {
       const url = match[0];
-      const normalizedUrl = normalizeUrl(url);
-      if (!processedUrls.has(normalizedUrl)) {
+      if (!processedUrls.has(url)) {
         const mediaItem = createMediaItem(url, type, match);
         if (mediaItem) {
           mediaItems.push(mediaItem);
-          processedUrls.add(normalizedUrl);
+          processedUrls.add(url);
         }
       }
     }
@@ -113,53 +104,31 @@ export function parseMediaFromContent(content: string): MediaItem[] {
     let match;
     while ((match = imageHostingPattern.exec(content)) !== null) {
       const url = match[0];
-      const normalizedUrl = normalizeUrl(url);
-      if (!processedUrls.has(normalizedUrl)) {
+      if (!processedUrls.has(url)) {
         const mediaItem = createMediaItem(url, 'imageHosting', match);
         if (mediaItem) {
           mediaItems.push(mediaItem);
-          processedUrls.add(normalizedUrl);
+          processedUrls.add(url);
         }
       }
     }
   }
 
-  // Process website links last (excluding already processed social media platforms)
+  // Process website links last (excluding YouTube)
   const websitePattern = mediaPatterns.website;
   if (websitePattern) {
     let match;
     while ((match = websitePattern.exec(content)) !== null) {
       const url = match[0];
-      const normalizedUrl = normalizeUrl(url);
+      // Skip if this URL was already processed as YouTube
+      if (url.includes('youtube.com') || url.includes('youtu.be')) continue;
 
-      // Skip if this URL was already processed by any media type
-      if (processedUrls.has(normalizedUrl)) continue;
-
-      // Additional check for social media platforms that should have been caught by specific patterns
-      const socialMediaDomains = [
-        'youtube.com', 'youtu.be', 'vimeo.com', 'twitch.tv', 'dailymotion.com',
-        'tiktok.com', 'open.spotify.com', 'twitter.com', 'x.com', 'facebook.com',
-        'fb.watch', 'instagram.com', 'instagr.am', 'linkedin.com',
-        'i.imgur.com', 'images.imgur.com', 'preview.redd.it', 'i.redd.it',
-        'pbs.twimg.com', 'cdn.discordapp.com', 'media.discordapp.net',
-        'camo.githubusercontent.com', 'user-images.githubusercontent.com',
-        'images.unsplash.com', 'images.pexels.com', 'dl.dropboxusercontent.com',
-        'lh3.googleusercontent.com', 'storage.googleapis.com', 'cloudinary.com',
-        'images.prismic.io', 'www.dropbox.com', 'cdn.instagram.com',
-        'scontent.instagram.com', 'fbcdn.net', 'platform.twitter.com',
-        'pbs.twimg.com', 'cdn.bsky.app', 'imdb.com'
-      ];
-
-      const isSocialMedia = socialMediaDomains.some(domain =>
-        normalizedUrl.includes(domain)
-      );
-
-      if (isSocialMedia) continue;
-
-      const mediaItem = createMediaItem(url, 'website', match);
-      if (mediaItem) {
-        mediaItems.push(mediaItem);
-        processedUrls.add(normalizedUrl);
+      if (!processedUrls.has(url)) {
+        const mediaItem = createMediaItem(url, 'website', match);
+        if (mediaItem) {
+          mediaItems.push(mediaItem);
+          processedUrls.add(url);
+        }
       }
     }
   }
@@ -179,8 +148,6 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
 
     // Validate and normalize URL
     const cleanUrl = normalizeUrl(fullUrl);
-
-
 
     switch (type) {
       case 'directImage':
@@ -390,54 +357,6 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
             spotifyId
           }
         };
-
-      case 'twitter':
-        const twitterUsername = match[1];
-        const twitterStatusId = match[2];
-        return {
-          type: 'twitter',
-          url: cleanUrl,
-          title: `Post by @${twitterUsername}`,
-          metadata: {
-            username: twitterUsername,
-            statusId: twitterStatusId
-          }
-        };
-
-      case 'facebook':
-        const facebookPostId = match[1];
-        return {
-          type: 'facebook',
-          url: cleanUrl,
-          title: 'Facebook Post',
-          metadata: {
-            postId: facebookPostId
-          }
-        };
-
-      case 'instagram':
-        const instagramPostId = match[1];
-        return {
-          type: 'instagram',
-          url: cleanUrl,
-          title: 'Instagram Post',
-          metadata: {
-            postId: instagramPostId
-          }
-        };
-
-      case 'linkedin':
-        const linkedinActivityId = match[1];
-        return {
-          type: 'linkedin',
-          url: cleanUrl,
-          title: 'LinkedIn Post',
-          metadata: {
-            activityId: linkedinActivityId
-          }
-        };
-
-      // Reddit URLs are now handled as website links, not special embeds
 
       case 'imdb':
         const imdbData = extractImdbData(url);
