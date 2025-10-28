@@ -718,21 +718,58 @@ export async function fetchImdbData(url: string): Promise<{ title: string; type:
     const [, itemType, imdbId] = match;
     const isMovie = itemType === 'title';
 
-    // Use allorigins.win CORS proxy to fetch IMDB page
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    // Try multiple CORS proxies with timeout
+    const proxies = [
+      `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+    ];
 
-    const response = await fetch(proxyUrl, {
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
+    let html = '';
+    let lastError: Error | null = null;
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch IMDB data: ${response.statusText}`);
+    // Try each proxy with a 5 second timeout
+    for (const proxyUrl of proxies) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch(proxyUrl, {
+          headers: {
+            'Accept': 'application/json, text/html',
+          },
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        // Handle different proxy response formats
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await response.json();
+          html = data.contents || data.body || '';
+        } else {
+          html = await response.text();
+        }
+
+        if (html) {
+          console.log(`✅ Successfully fetched IMDB data via ${proxyUrl.split('?')[0]}`);
+          break; // Success, exit the loop
+        }
+      } catch (error) {
+        lastError = error as Error;
+        console.warn(`Failed to fetch from ${proxyUrl.split('?')[0]}:`, error);
+        continue; // Try next proxy
+      }
     }
 
-    const data = await response.json();
-    const html = data.contents;
+    if (!html) {
+      throw lastError || new Error('All proxies failed');
+    }
 
     // Parse HTML to extract data
     const parser = new DOMParser();

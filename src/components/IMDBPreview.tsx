@@ -51,22 +51,27 @@ export function IMDBPreview({ url, className }: IMDBPreviewProps) {
         <CardContent className="p-0">
           <div className="flex">
             {/* Loading skeleton for poster */}
-            <div className="flex-shrink-0 w-24 h-36 bg-amber-500/10">
-              <Skeleton className="w-full h-full" />
+            <div className="flex-shrink-0 w-24 h-36 bg-amber-500/10 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
             </div>
 
             {/* Loading skeleton for content */}
             <div className="flex-1 p-4 space-y-3">
-              <Skeleton className="h-6 w-3/4" />
-              <div className="flex space-x-2">
-                <Skeleton className="h-4 w-16" />
-                <Skeleton className="h-4 w-12" />
-                <Skeleton className="h-4 w-12" />
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-3/4" />
+                <div className="flex space-x-2">
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-4 w-12" />
+                  <Skeleton className="h-4 w-12" />
+                </div>
               </div>
               <div className="space-y-2">
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-5/6" />
               </div>
+              <p className="text-xs text-amber-500/60 italic">
+                Loading movie info from IMDb...
+              </p>
             </div>
           </div>
         </CardContent>
