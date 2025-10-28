@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ExternalLink, Star } from 'lucide-react';
+import { ExternalLink, Star, Film, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getOpenGraphData } from '@/lib/mediaParser';
 
 interface IMDBData {
   title: string;
@@ -19,7 +20,7 @@ interface IMDBPreviewProps {
   className?: string;
 }
 
-// Movie database with real IMDB IDs and data
+// Movie database with real IMDB IDs and data for popular/demo movies
 const MOVIE_DATABASE: Record<string, IMDBData> = {
   // Cockneys vs Zombies - using a realistic IMDB ID
   'tt1234567': {
@@ -34,9 +35,9 @@ const MOVIE_DATABASE: Record<string, IMDBData> = {
   'tt1362058': {
     title: 'Cockneys vs Zombies',
     type: 'Movie',
-    year: '2024',
+    year: '2014',
     rating: '6.2',
-    thumbnail: 'https://picsum.photos/300/450?random=cockneys',
+    thumbnail: 'https://m.media-amazon.com/images/M/MV5BMTQwNTk1NjU3N15BMl5BanBnXkFtZTcwNDI3NjMxNw@@._V1_UY1200_CR88,0,630,1200_AL_.jpg',
     description: 'A group of Cockney bank robbers find themselves battling through zombie apocalypse of East London.'
   },
   // The Grand Budapest Hotel
@@ -72,7 +73,7 @@ const MOVIE_DATABASE: Record<string, IMDBData> = {
     type: 'Movie',
     year: '2008',
     rating: '9.0',
-    thumbnail: 'https://picsum.photos/300/450?random=darkknight',
+    thumbnail: 'https://m.media-amazon.com/images/M/MV5BMTMxNTMwODM0NF5BMl5BanBnXkFtZTcwODAyMTk2Mw@@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
     description: 'When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.'
   },
   // Inception
@@ -81,7 +82,7 @@ const MOVIE_DATABASE: Record<string, IMDBData> = {
     type: 'Movie',
     year: '2010',
     rating: '8.8',
-    thumbnail: 'https://m.media-amazon.com/images/M/V5BMjAxMzY3ODEyNF5BMl5BanBnXkFtZTgwMDI5OTI0Nw@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+    thumbnail: 'https://m.media-amazon.com/images/M/MV5BMjAxMzY3ODEyNV5BMl5BanBnXkFtZTcwNTI5OTM0Mw@@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
     description: 'A thief who steals corporate secrets through dream-sharing technology is given the task of planting an idea into the mind of a C.E.O.'
   },
   // Pulp Fiction
@@ -90,8 +91,26 @@ const MOVIE_DATABASE: Record<string, IMDBData> = {
     type: 'Movie',
     year: '1994',
     rating: '8.9',
-    thumbnail: 'https://m.media-amazon.com/images/M/V5BMjE1MDQ1MTYxOGFlJhM2Y4OTk0MTM3NjQ0OGEwMTM5NkEyXkFqcGdeQXVyMTQxNzMzNDI@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+    thumbnail: 'https://m.media-amazon.com/images/M/MV5BNDYxNjQyMjAtNTdiOS00NGYwLWFmNTAtNThmYjU5ZGI2YTI1XkEyXkFqcGdeQXVyMTMxODk2OTU@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
     description: 'The lives of two mob hitmen, a boxer, a gangster and his wife, and a pair of diner bandits intertwine in four tales of violence and redemption.'
+  },
+  // Avatar
+  'tt0499549': {
+    title: 'Avatar',
+    type: 'Movie',
+    year: '2009',
+    rating: '7.8',
+    thumbnail: 'https://m.media-amazon.com/images/M/MV5BZDA0OGQ4MDAtMWRhMi00Y2YzLThkY2QtYzlkMjJlOWQwMTZjXkEyXkFqcGdeQXVyMjUzOTY1NTc@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+    description: 'A paraplegic Marine dispatched to the moon Pandora on a unique mission becomes torn between following his orders and protecting the world he feels is his home.'
+  },
+  // Avengers: Endgame
+  'tt4154796': {
+    title: 'Avengers: Endgame',
+    type: 'Movie',
+    year: '2019',
+    rating: '8.4',
+    thumbnail: 'https://m.media-amazon.com/images/M/MV5BMTc5MDE2ODcwNV5BMl5BanBnXkFtZTgwMzI2NzQ2NzM@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+    description: 'After the devastating events of Avengers: Infinity War, the universe is in ruins. With the help of remaining allies, the Avengers assemble once more in order to reverse Thanos actions and restore balance to the universe.'
   }
 };
 
@@ -117,73 +136,78 @@ export function IMDBPreview({ url, className }: IMDBPreviewProps) {
         // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 800));
 
-        // Look up movie in our database
+        // Look up movie in our database first
         let movieData = MOVIE_DATABASE[imdbId];
 
         if (movieData) {
           setData(movieData);
-        } else {
-          // Try to extract movie info from URL path as fallback
-          const urlPath = url.toLowerCase();
+          return;
+        }
 
-          if (urlPath.includes('cockneys') && urlPath.includes('zombies')) {
-            movieData = {
-              title: 'Cockneys vs Zombies',
-              type: 'Movie',
-              year: '2024',
-              rating: '6.2',
-              thumbnail: 'https://picsum.photos/300/450?random=zombies',
-              description: 'A group of Cockney bank robbers find themselves battling through zombie apocalypse of East London.'
-            };
-          } else if (urlPath.includes('grand') && urlPath.includes('budapest')) {
-            movieData = {
-              title: 'The Grand Budapest Hotel',
-              type: 'Movie',
-              year: '2014',
-              rating: '8.1',
-              thumbnail: 'https://picsum.photos/300/450?random=budapest',
-              description: 'A legendary concierge at a famous European hotel between the wars and his protégé become involved in a story involving the theft of a priceless painting.'
-            };
-          } else if (urlPath.includes('shawshank')) {
-            movieData = {
-              title: 'The Shawshank Redemption',
-              type: 'Movie',
-              year: '1994',
-              rating: '9.3',
-              thumbnail: 'https://picsum.photos/300/450?random=shawshank',
-              description: 'Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.'
-            };
-          } else if (urlPath.includes('godfather')) {
-            movieData = {
-              title: 'The Godfather',
-              type: 'Movie',
-              year: '1972',
-              rating: '9.2',
-              thumbnail: 'https://picsum.photos/300/450?random=godfather',
-              description: 'The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.'
-            };
-          } else if (urlPath.includes('dark') && urlPath.includes('knight')) {
-            movieData = {
-              title: 'The Dark Knight',
-              type: 'Movie',
-              year: '2008',
-              rating: '9.0',
-              thumbnail: 'https://picsum.photos/300/450?random=darkknight',
-              description: 'When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.'
-            };
+        // Try to extract movie info from URL path as fallback for known titles
+        const urlPath = url.toLowerCase();
+        const knownPatterns = [
+          { pattern: /cockneys.*zombies/, data: MOVIE_DATABASE['tt1362058'] },
+          { pattern: /grand.*budapest/, data: MOVIE_DATABASE['tt2278388'] },
+          { pattern: /shawshank/, data: MOVIE_DATABASE['tt0111161'] },
+          { pattern: /godfather/, data: MOVIE_DATABASE['tt0068646'] },
+          { pattern: /dark.*knight/, data: MOVIE_DATABASE['tt0468569'] },
+          { pattern: /inception/, data: MOVIE_DATABASE['tt1375666'] },
+          { pattern: /pulp.*fiction/, data: MOVIE_DATABASE['tt0110912'] },
+          { pattern: /avatar/, data: MOVIE_DATABASE['tt0499549'] },
+          { pattern: /avengers.*endgame/, data: MOVIE_DATABASE['tt4154796'] }
+        ];
+
+        for (const { pattern, data: patternData } of knownPatterns) {
+          if (pattern.test(urlPath) && patternData) {
+            movieData = patternData;
+            break;
+          }
+        }
+
+        if (movieData) {
+          setData(movieData);
+          return;
+        }
+
+        // Final fallback: Use Open Graph data for real IMDB pages
+        try {
+          const ogData = await getOpenGraphData(url);
+          
+          // Determine if it's a movie/title or person/name page
+          const isMoviePage = url.includes('/title/');
+          const isPersonPage = url.includes('/name/');
+          
+          let defaultThumbnail = '';
+          if (ogData.image) {
+            // Try to get a higher resolution IMDB image if possible
+            if (ogData.image.includes('@._')) {
+              const baseUrl = ogData.image.split('@._')[0];
+              defaultThumbnail = `${baseUrl}@._V1_UX300_CR0,0,300,450_AL_.jpg`;
+            } else {
+              defaultThumbnail = ogData.image;
+            }
           }
 
-          if (movieData) {
-            setData(movieData);
-          } else {
-            // Final fallback for unknown movies
-            setData({
-              title: `IMDb Movie (${imdbId})`,
-              type: 'Movie',
-              thumbnail: '',
-              description: 'Visit IMDb for more information about this movie.'
-            });
-          }
+          const fallbackData: IMDBData = {
+            title: ogData.title || `IMDb ${isMoviePage ? 'Movie' : isPersonPage ? 'Person' : 'Page'} (${imdbId})`,
+            type: isMoviePage ? 'Movie' : isPersonPage ? 'Person' : 'Unknown',
+            thumbnail: defaultThumbnail,
+            description: ogData.description || 'Visit IMDb for more information about this movie.'
+          };
+
+          setData(fallbackData);
+        } catch (ogError) {
+          // If Open Graph fails, use minimal fallback
+          const isMoviePage = url.includes('/title/');
+          const isPersonPage = url.includes('/name/');
+          
+          setData({
+            title: `IMDb ${isMoviePage ? 'Movie' : isPersonPage ? 'Person' : 'Page'} (${imdbId})`,
+            type: isMoviePage ? 'Movie' : isPersonPage ? 'Person' : 'Unknown',
+            thumbnail: '',
+            description: 'Visit IMDb for more information about this movie.'
+          });
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch IMDB data');
@@ -268,7 +292,11 @@ export function IMDBPreview({ url, className }: IMDBPreviewProps) {
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 flex items-center justify-center">
-                <Star className="h-8 w-8 text-amber-500/60" />
+                {data.type === 'Person' ? (
+                  <User className="h-8 w-8 text-amber-500/60" />
+                ) : (
+                  <Film className="h-8 w-8 text-amber-500/60" />
+                )}
               </div>
             )}
           </div>

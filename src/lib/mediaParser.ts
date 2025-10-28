@@ -28,35 +28,35 @@ export interface MediaItem {
 
 // Media detection patterns
 const mediaPatterns = {
-  directImage: /https?:\/\/[^\s]+(?:\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif)|@(?:jpeg|jpg|png|gif|webp|avif))(?:\?[^\s]*)?/gi,
-  directVideo: /https?:\/\/[^\s]+\.(?:mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid)(?:\?[^\s]*)?/gi,
-  directAudio: /https?:\/\/[^\s]+\.(?:mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts)(?:\?[^\s]*)?/gi,
+  directImage: /https?:\/\/[^\s]+(?:\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif)|@(?:jpeg|jpg|png|gif|webp|avif))(?:\?[\^\s]*)?/gi,
+  directVideo: /https?:\/\/[^\s]+\.(?:mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid)(?:\?[\^\s]*)?/gi,
+  directAudio: /https?:\/\/[^\s]+\.(?:mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts)(?:\?[\^\s]*)?/gi,
   youtube: /(?:youtube\.com\/watch[?]v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/gi,
-  vimeo: /vimeo\.com\/(\d+)(?:\/[\w-]+)?/gi,
-  twitch: /(?:twitch\.tv\/videos\/|twitch\.tv\/)(\w+)(?:\/videos\/(\d+))?/gi,
+  vimeo: /vimeo\.com\/(\d+)(?:\/[^\w-]+)?/gi,
+  twitch: /(?:twitch\.tv\/videos\/|twitch\.tv\/)(\w+)(?:\/videos\/\d+)?/gi,
   dailymotion: /(?:dailymotion\.com\/video\/|dai\.ly\/)([a-zA-Z0-9]+)/gi,
-  tiktok: /(?:tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/)([a-zA-Z0-9]+)/gi,
+  tiktok: /(?:tiktok\.com\/@[^\w.-]+\/video\/|vm\.tiktok\.com\/)([a-zA-Z0-9]+)/gi,
   spotify: /(?:open\.spotify\.com\/)(track|album|playlist|artist|show|episode)\/([a-zA-Z0-9]+)/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
   // Streaming formats
-  hls: /https?:\/\/[^\s]+\.m3u8(?:\?[^\s]*)?/gi,
-  dash: /https?:\/\/[^\s]+\.mpd(?:\?[^\s]*)?/gi,
+  hls: /https?:\/\/[^\s]+\.m3u8(?:\?[\^\s]*)?/gi,
+  dash: /https?:\/\/[^\s]+\.mpd(?:\?[\^\s]*)?/gi,
   // CDN-specific patterns
-  cloudflareStream: /https?:\/\/(?:[a-z0-9-]+\.)?cloudflarestream\.com\/[^\s]+/gi,
-  cloudflareVideoDelivery: /https?:\/\/(?:[a-z0-9-]+\.)?videodelivery\.net\/[^\s]+/gi,
-  awsCloudFront: /https?:\/\/[a-z0-9-]+\.cloudfront\.net\/[^\s]+/gi,
-  fastly: /https?:\/\/(?:[a-z0-9-]+\.)?(?:fastly\.net|fastly-ssl\.net)\/[^\s]+/gi,
-  akamai: /https?:\/\/(?:[a-z0-9-]+\.)?(?:akamaized\.net|akamaihd\.net)\/[^\s]+/gi,
-  vimeoCDN: /https?:\/\/(?:[a-z0-9-]+\.)?vimeocdn\.com\/[^\s]+/gi,
-  youtubeCDN: /https?:\/\/(?:[a-z0-9-]+\.)?googlevideo\.com\/[^\s]+/gi,
+  cloudflareStream: /https?:\/\/[^\s]+\.cloudflarestream\.com\/[^\s]+/gi,
+  cloudflareVideoDelivery: /https?:\/\/[^\s]+\.videodelivery\.net\/[^\s]+/gi,
+  awsCloudFront: /https?:\/\/[^\s]+\.cloudfront\.net\/[^\s]+/gi,
+  fastly: /https?:\/\/[^\s]+(?:\.fastly\.net|\.fastly-ssl\.net)\/[^\s]+/gi,
+  akamai: /https?:\/\/[^\s]+(?:\.akamaized\.net|\.akamaihd\.net)\/[^\s]+/gi,
+  vimeoCDN: /https?:\/\/[^\s]+\.vimeocdn\.com\/[^\s]+/gi,
+  youtubeCDN: /https?:\/\/[^\s]+\.googlevideo\.com\/[^\s]+/gi,
   // Generic streaming endpoints that might be on CDNs
-  genericStreaming: /https?:\/\/[^\s]+\/(?:stream|manifest|playlist|master)\/[^\s]+(?:\.(?:m3u8|mpd|dash))(?:\?[^\s]*)?/gi,
+  genericStreaming: /https?:\/\/[^\s]+\/[^\s]+(?:\.(?:m3u8|mpd|dash))(?:\?[\^\s]*)?/gi,
   // Common image hosting services that often serve images without extensions
-  imageHosting: /https?:\/\/(?:i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app)\/[^\s]+/gi,
+  imageHosting: /https?:\/\/[^\s]+\/(?:i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app)\/[^\s]+/gi,
   // IMDB links for special preview handling
-  imdb: /https?:\/\/(?:www\.)?imdb\.com\/(?:title|name)\/(?:[a-z0-9]+)(?:\/[^\s]*)?/gi,
-  website: /https?:\/\/(?:www\.)?(?!youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|cdn\.discordapp\.com|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|pbs\.twimg\.com|cdn\.bsky\.app|imdb\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
+  imdb: /https?:\/\/[^\s]*(?:www\.)?imdb\.com\/(?:title|name)\/[^\s]+/gi,
+  website: /https?:\/\/[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|png|gif|webp|svg|bmp|avif|ico|tiff?|psd|heic?|jpe|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[\^\s]*)?/gi,
 };
 
 export function parseMediaFromContent(content: string): MediaItem[] {
@@ -605,7 +605,7 @@ export async function fetchOpenGraphData(url: string): Promise<OpenGraphData> {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 500));
 
-    // Mock Open Graph data for demonstration
+    // Mock Open Graph data for common domains
     const mockData: Record<string, OpenGraphData> = {
       'github.com': {
         title: 'GitHub: Let\'s build from here',
@@ -643,12 +643,62 @@ export async function fetchOpenGraphData(url: string): Promise<OpenGraphData> {
 
     // Try to match the domain
     const domain = extractDomainName(url);
-    const mockEntry = Object.entries(mockData).find(([key]) => domain.includes(key));
+    let mockEntry = Object.entries(mockData).find(([key]) => domain.includes(key));
 
+    // Special handling for IMDB
+    if (domain === 'imdb.com') {
+      try {
+        const urlObj = new URL(url);
+        const path = urlObj.pathname;
+        const titleMatch = path.match(/title\/([a-z0-9]+)/);
+        if (titleMatch) {
+          const imdbId = titleMatch[1];
+          const imdbMockData = {
+            'tt0068646': {
+              title: 'The Godfather',
+              description: 'The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.',
+              image: 'https://m.media-amazon.com/images/M/MV5BM2MyNjYxZGUyMGMtN2Q5Yy00Y2YzLWE2ZjQtMDQ3YzQxZGE2XkEyXkFqcGdeQXVyMTQxNzMzNDI@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+              siteName: 'IMDb',
+            },
+            'tt26581740': {
+              title: 'Weapons',
+              description: 'A maverick soldier uncovers conspiracy through a sea of desert treachery',
+              image: 'https://m.media-amazon.com/images/M/MV5BYzFhYTFiNjEtMzI1Ny00N2NhLWI3ZmYtZDQ2ODkyZjI0ZjA5XkEyXkFqcGdeQXVyMTAzMzg2Mjg1._V1_QL75_UX190_CR0,11,190,281_.jpg',
+              siteName: 'IMDb',
+            },
+            'tt0111161': {
+              title: 'The Shawshank Redemption',
+              description: 'Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.',
+              image: 'https://m.media-amazon.com/images/M/MV5BMDFkYjJiNmUtZDZiYzAwYzJlZGE3MjU3NzQwN2E3ZmNlXkEyXkFqcGdeQXVyMTMxODk2OTU@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+              siteName: 'IMDb',
+            },
+            'tt0468569': {
+              title: 'The Dark Knight',
+              description: 'When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.',
+              image: 'https://m.media-amazon.com/images/M/MV5BMTMxNTMwODM0NF5BMl5BanBnXkFtZTcwODAyMTk2Mw@@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+              siteName: 'IMDb',
+            },
+          };
+
+          if (imdbMockData[imdbId]) {
+            return {
+              ...imdbMockData[imdbId],
+              url: url,
+              type: 'website'
+            };
+          }
+        }
+      } catch (error) {
+        console.warn('Error parsing IMDB URL:', error);
+      }
+    }
+
+    // If found mock entry, return it
     if (mockEntry) {
       return {
         ...mockEntry[1],
-        url: url
+        url: url,
+        type: 'website'
       };
     }
 
@@ -702,201 +752,11 @@ export async function getOpenGraphData(url: string): Promise<OpenGraphData> {
   return data;
 }
 
-// IMDB data extraction from HTML content
-async function extractImdbDataFromHtml(html: string, url: string): Promise<{ title: string; type: string; year?: string; rating?: string; thumbnail: string; description: string }> {
-  try {
-    // Create a DOM parser to extract data from HTML
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-
-    const isMovie = url.includes('/title/');
-    const isPerson = url.includes('/name/');
-
-    if (isMovie) {
-      // Extract movie data
-      const titleElement = doc.querySelector('h1[data-testid="hero-title-block__title"]');
-      const title = titleElement?.textContent?.trim() || 'Unknown Movie';
-
-      const yearElement = doc.querySelector('.sc-8c396aa-2.jGRxWM');
-      const year = yearElement?.textContent?.trim() || '';
-
-      const ratingElement = doc.querySelector('[data-testid="hero-rating-bar__aggregate-rating__score"] span');
-      const rating = ratingElement?.textContent?.trim() || '';
-
-      const descriptionElement = doc.querySelector('[data-testid="plot-xl"]');
-      const description = descriptionElement?.textContent?.trim() || 'No description available.';
-
-      // Extract poster image - try multiple selectors
-      const posterElement = doc.querySelector('img.ipc-image') ||
-                          doc.querySelector('.ipc-poster') ||
-                          doc.querySelector('[data-testid="hero-image__portrait"]') ||
-                          doc.querySelector('meta[property="og:image"]');
-
-      let thumbnail = '';
-      if (posterElement) {
-        if (posterElement.tagName === 'META') {
-          thumbnail = posterElement.getAttribute('content') || '';
-        } else {
-          thumbnail = posterElement.getAttribute('src') || '';
-        }
-
-        // Convert to high resolution if possible
-        if (thumbnail && !thumbnail.includes('@._')) {
-          // IMDB uses @._ for different resolutions, try to get higher quality
-          const baseUrl = thumbnail.split('@._')[0];
-          if (baseUrl) {
-            thumbnail = `${baseUrl}@._V1_UX600_CR0,0,600,900_AL_.jpg`;
-          }
-        }
-      }
-
-      return {
-        title,
-        type: 'Movie',
-        year: year || undefined,
-        rating: rating || undefined,
-        thumbnail,
-        description
-      };
-    } else if (isPerson) {
-      // Extract person data
-      const nameElement = doc.querySelector('h1[data-testid="hero-title-block__title"]');
-      const name = nameElement?.textContent?.trim() || 'Unknown Person';
-
-      const jobElement = doc.querySelector('[data-testid="hero-subnav-bar-section-anchor"]');
-      const job = jobElement?.textContent?.trim() || '';
-
-      // Extract person image
-      const imageElement = doc.querySelector('img.ipc-image') ||
-                         doc.querySelector('[data-testid="hero-image__portrait"]') ||
-                         doc.querySelector('meta[property="og:image"]');
-
-      let thumbnail = '';
-      if (imageElement) {
-        if (imageElement.tagName === 'META') {
-          thumbnail = imageElement.getAttribute('content') || '';
-        } else {
-          thumbnail = imageElement.getAttribute('src') || '';
-        }
-      }
-
-      // Get bio or description
-      const bioElement = doc.querySelector('[data-testid="biography"]') ||
-                        doc.querySelector('.ipc-html-content-inner-div');
-      const description = bioElement?.textContent?.trim() || `${job} - Visit IMDb for full biography.`;
-
-      return {
-        title: name,
-        type: 'Person',
-        thumbnail,
-        description
-      };
-    } else {
-      return {
-        title: 'IMDb',
-        type: 'unknown',
-        thumbnail: '',
-        description: 'Visit IMDb for more information'
-      };
-    }
-  } catch (error) {
-    console.warn('Failed to parse IMDB HTML:', error);
-    return {
-      title: 'IMDb',
-      type: 'unknown',
-      thumbnail: '',
-      description: 'Visit IMDb for more information'
-    };
-  }
-}
-
-// Helper functions for CDN and streaming detection
-
-function detectCDNProvider(url: string): 'cloudflare' | 'aws-cloudfront' | 'fastly' | 'akamai' | 'vimeo' | 'youtube' | 'generic' {
-  try {
-    const urlObj = new URL(url);
-    const hostname = urlObj.hostname.toLowerCase();
-
-    if (hostname.includes('cloudflarestream.com') || hostname.includes('videodelivery.net')) {
-      return 'cloudflare';
-    } else if (hostname.includes('cloudfront.net')) {
-      return 'aws-cloudfront';
-    } else if (hostname.includes('fastly.net') || hostname.includes('fastly-ssl.net')) {
-      return 'fastly';
-    } else if (hostname.includes('akamaized.net') || hostname.includes('akamaihd.net')) {
-      return 'akamai';
-    } else if (hostname.includes('vimeocdn.com')) {
-      return 'vimeo';
-    } else if (hostname.includes('googlevideo.com')) {
-      return 'youtube';
-    }
-  } catch (error) {
-    console.warn('Failed to detect CDN provider:', error);
-  }
-
-  return 'generic';
-}
-
-function detectStreamingFormat(url: string): 'hls' | 'dash' | 'video' {
-  try {
-    const urlObj = new URL(url);
-    const pathname = urlObj.pathname.toLowerCase();
-
-    if (pathname.endsWith('.m3u8')) {
-      return 'hls';
-    } else if (pathname.endsWith('.mpd')) {
-      return 'dash';
-    } else if (pathname.includes('manifest') || pathname.includes('playlist') || pathname.includes('master')) {
-      // Try to infer from URL structure
-      if (pathname.includes('hls') || url.includes('m3u8')) {
-        return 'hls';
-      } else if (pathname.includes('dash') || url.includes('mpd')) {
-        return 'dash';
-      }
-    }
-  } catch (error) {
-    console.warn('Failed to detect streaming format:', error);
-  }
-
-  // Default to regular video if we can't determine
-  return 'video';
-}
-
-function extractStreamingTitle(url: string, provider: string): string {
-  try {
-    const urlObj = new URL(url);
-    const pathname = urlObj.pathname;
-    const filename = pathname.split('/').pop()?.split('?')[0];
-
-    if (filename && filename !== '') {
-      // Clean up the filename for display
-      const nameWithoutExt = filename.split('.').slice(0, -1).join('.');
-      return `${provider}: ${nameWithoutExt.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
-    }
-  } catch (error) {
-    console.warn('Failed to extract streaming title:', error);
-  }
-
-  return `${provider} Stream`;
-}
-
-function detectFileExtension(url: string): string {
-  try {
-    const urlObj = new URL(url);
-    const pathname = urlObj.pathname;
-    const filename = pathname.split('/').pop()?.split('?')[0];
-
-    if (filename && filename.includes('.')) {
-      return filename.split('.').pop()?.toLowerCase() || 'unknown';
-    }
-  } catch (error) {
-    console.warn('Failed to detect file extension:', error);
-  }
-
-  return 'unknown';
-}
-
+// We actually don't need this function anymore since we're using
+// getOpenGraphData directly through createMediaItem for IMDB
 function extractImdbData(url: string): { title: string; type: string; year?: string; rating?: string; thumbnail: string; description: string } {
+  // This is no longer used, but keeping for reference. The
+  // 'imdb' case in createMediaItem now directly uses getOpenGraphData
   try {
     // Extract IMDB ID from URL
     const match = url.match(/imdb\.com\/(?:title|name)\/([a-z0-9]+)/);
@@ -911,15 +771,50 @@ function extractImdbData(url: string): { title: string; type: string; year?: str
 
     const imdbId = match[1];
 
-    // For now, return basic data with a promise to fetch real data
-    // In a real implementation, you'd fetch this from a proxy service
-    // that can scrape IMDB pages and extract the actual data
+    // Check our IMDB mock data
+    const imdbMockData = {
+      'tt0068646': {
+        title: 'The Godfather',
+        description: 'The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.',
+        image: 'https://m.media-amazon.com/images/M/MV5BM2MyNjYxZGUyMGMtN2Q5Yy00Y2YzLWE2ZjQtMDQ3YzQxZGE2XkEyXkFqcGdeQXVyMTQxNzMzNDI@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+      },
+      'tt26581740': {
+        title: 'Weapons',
+        description: 'A maverick soldier uncovers conspiracy through a sea of desert treachery',
+        image: 'https://m.media-amazon.com/images/M/MV5BYzFhYTFiNjEtMzI1Ny00N2NhLWI3ZmYtZDQ2ODkyZjI0ZjA5XkEyXkFqcGdeQXVyMTAzMzg2Mjg1._V1_QL75_UX190_CR0,11,190,281_.jpg',
+      },
+      'tt0111161': {
+        title: 'The Shawshank Redemption',
+        description: 'Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.',
+        image: 'https://m.media-amazon.com/images/M/MV5BMDFkYjJiNmUtZDZiYzAwYzJlZGE3MjU3NzQwN2E3ZmNlXkEyXkFqcGdeQXVyMTMxODk2OTU@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+      },
+      'tt0468569': {
+        title: 'The Dark Knight',
+        description: 'When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.',
+        image: 'https://m.media-amazon.com/images/M/MV5BMTMxNTMwODM0NF5BMl5BanBnXkFtZTcwODAyMTk2Mw@@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
+      },
+    };
 
+    if (imdbMockData[imdbId]) {
+      const data = imdbMockData[imdbId];
+      return {
+        title: data.title,
+        type: 'Movie',
+        thumbnail: data.image,
+        description: data.description,
+        year: null,
+        rating: null
+      };
+    }
+
+    // If not found in mock data, return placeholder
     return {
-      title: 'Loading IMDb data...',
-      type: 'Loading',
+      title: `IMDb Movie (${imdbId})`,
+      type: 'Movie',
       thumbnail: '',
-      description: 'Fetching movie information from IMDb...'
+      description: 'Visit IMDb for more information about this movie.',
+      year: null,
+      rating: null
     };
   } catch (error) {
     console.warn('Failed to extract IMDB data:', error);
@@ -927,7 +822,9 @@ function extractImdbData(url: string): { title: string; type: string; year?: str
       title: 'IMDb',
       type: 'unknown',
       thumbnail: '',
-      description: 'Visit IMDb for more information'
+      description: 'Visit IMDb for more information',
+      year: null,
+      rating: null
     };
   }
 }
