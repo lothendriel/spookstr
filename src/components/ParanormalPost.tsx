@@ -99,7 +99,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const reposterDisplayName = getDisplayName(reposterMetadata, event.pubkey);
 
   // Get metadata for the original author (if this is a repost)
-  const originalAuthorMetadata = repostedEvent ? repostedAuthor.data?.metadata : metadata;
+  const originalAuthorMetadata = repostedEvent ? repostedAuthor.data?.metadata : reposterMetadata;
   const displayName = repostedEvent
     ? getDisplayName(originalAuthorMetadata, repostedEvent.pubkey)
     : getDisplayName(reposterMetadata, event.pubkey);
