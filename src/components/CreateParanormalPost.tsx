@@ -41,6 +41,7 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<Array<{tags: string[]; file: File}>>([]);
   const [postToSpookstr2Only, setPostToSpookstr2Only] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleTagToggle = (tag: string) => {
     setSelectedTags(prev =>
@@ -113,7 +114,10 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
   };
 
   const handleSubmit = () => {
-    if (!user || !content.trim() || selectedTags.length === 0) return;
+    // Prevent double submission
+    if (!user || !content.trim() || selectedTags.length === 0 || isSubmitting || isPending) return;
+
+    setIsSubmitting(true);
 
     const tags = selectedTags.map(tag => ['t', tag]);
 
@@ -159,11 +163,15 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
     });
     console.log('📋 Final event tags array:', tags);
 
+    // Generate timestamp for better duplicate detection
+    const created_at = Math.floor(Date.now() / 1000);
+
     createEvent({
       event: {
         kind: 1,
         content: content.trim(),
-        tags
+        tags,
+        created_at,
       },
       options: postToSpookstr2Only ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
     }, {
@@ -173,11 +181,16 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
         setSelectedTags([]);
         setUploadedFiles([]);
         setPostToSpookstr2Only(false);
+        setIsSubmitting(false);
 
         // Call the success callback to close the modal
         if (onSuccess) {
           onSuccess();
         }
+      },
+      onError: () => {
+        // Re-enable form on error
+        setIsSubmitting(false);
       }
     });
   };
@@ -192,6 +205,9 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
       </Card>
     );
   }
+
+  // Combined disabled state
+  const formDisabled = isPending || isSubmitting || isUploading;
 
   return (
     <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm">
@@ -209,6 +225,7 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
           onChange={(e) => setContent(e.target.value)}
           className="bg-black/20 border-lime-500/30 text-lime-100 placeholder:text-lime-500/50 resize-none"
           rows={4}
+          disabled={formDisabled}
         />
 
         {/* File Upload Section */}
@@ -226,12 +243,12 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
               accept="image/*,video/*,audio/*"
               onChange={handleFileUpload}
               className="hidden"
-              disabled={isUploading}
+              disabled={formDisabled}
             />
             <label
               htmlFor="media-upload"
               className={`inline-flex items-center px-4 py-2 border rounded-md text-sm font-medium cursor-pointer transition-colors ${
-                isUploading
+                formDisabled
                   ? 'border-lime-500/30 text-lime-500/50 cursor-not-allowed'
                   : 'border-lime-500/50 text-lime-400 hover:border-lime-400 hover:text-lime-300'
               }`}
@@ -308,6 +325,7 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
               checked={postToSpookstr2Only}
               onCheckedChange={(checked) => setPostToSpookstr2Only(checked as boolean)}
               className="border-lime-500/50 data-[state=checked]:bg-lime-500 data-[state=checked]:border-lime-500"
+              disabled={formDisabled}
             />
           </div>
           <div className="flex-1 space-y-1">
@@ -330,12 +348,16 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
               <Badge
                 key={tag}
                 variant={selectedTags.includes(tag) ? "default" : "outline"}
-                className={`cursor-pointer transition-all ${
+                className={`transition-all ${
+                  formDisabled
+                    ? "cursor-not-allowed opacity-50"
+                    : "cursor-pointer"
+                } ${
                   selectedTags.includes(tag)
                     ? "bg-lime-500 text-black border-lime-500"
                     : "border-lime-500/50 text-lime-400 hover:border-lime-400 hover:text-lime-300"
                 }`}
-                onClick={() => handleTagToggle(tag)}
+                onClick={() => !formDisabled && handleTagToggle(tag)}
               >
                 #{tag}
               </Badge>
@@ -352,11 +374,11 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
 
             <Button
               onClick={handleSubmit}
-              disabled={!content.trim() || selectedTags.length === 0 || isPending || isUploading}
+              disabled={!content.trim() || selectedTags.length === 0 || formDisabled}
               className="bg-lime-500 hover:bg-lime-400 text-black font-semibold w-full mt-2"
             >
               <Send className="h-4 w-4 mr-2" />
-              {isPending ? 'Sharing...' : 'Share Experience'}
+              {formDisabled ? 'Sharing...' : 'Share Experience'}
             </Button>
           </div>
         </div>

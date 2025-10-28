@@ -28,6 +28,7 @@ export function CommentForm({
   compact = false
 }: CommentFormProps) {
   const [content, setContent] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useCurrentUser();
   const { mutate: postComment, isPending } = usePostComment();
 
@@ -50,15 +51,23 @@ export function CommentForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!content.trim() || !user) return;
+    // Prevent double submission
+    if (!content.trim() || !user || isSubmitting || isPending) return;
+
+    setIsSubmitting(true);
 
     postComment(
       { content: content.trim(), root, reply },
       {
         onSuccess: () => {
           // Clear content but keep the mention if replying
-          setContent(reply ? `${nip19.npubEncode(reply.pubkey)} ` : '');
+          setContent(reply ? `nostr:${nip19.npubEncode(reply.pubkey)} ` : '');
+          setIsSubmitting(false);
           onSuccess?.();
+        },
+        onError: () => {
+          // Re-enable form on error
+          setIsSubmitting(false);
         },
       }
     );
@@ -79,6 +88,9 @@ export function CommentForm({
       </Card>
     );
   }
+
+  // Combined disabled state
+  const formDisabled = isPending || isSubmitting;
 
   return (
     <Card className={compact ? "border-dashed" : ""}>
@@ -103,7 +115,7 @@ export function CommentForm({
             onChange={(e) => setContent(e.target.value)}
             placeholder={reply ? "Type your reply after the mention..." : placeholder}
             className={compact ? "min-h-[80px]" : "min-h-[100px]"}
-            disabled={isPending}
+            disabled={formDisabled}
           />
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">
@@ -111,11 +123,11 @@ export function CommentForm({
             </span>
             <Button
               type="submit"
-              disabled={!content.trim() || isPending}
+              disabled={!content.trim() || formDisabled}
               size={compact ? "sm" : "default"}
             >
               <Send className="h-4 w-4 mr-2" />
-              {isPending ? 'Posting...' : (reply ? 'Reply' : 'Comment')}
+              {formDisabled ? 'Posting...' : (reply ? 'Reply' : 'Comment')}
             </Button>
           </div>
         </form>

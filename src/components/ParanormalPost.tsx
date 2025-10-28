@@ -58,6 +58,9 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const [isQuoteDialogOpen, setIsQuoteDialogOpen] = useState(false);
   const [quoteContent, setQuoteContent] = useState('');
   const [postToSpookstr2Only, setPostToSpookstr2Only] = useState(false);
+  const [isLiking, setIsLiking] = useState(false);
+  const [isReposting, setIsReposting] = useState(false);
+  const [isQuoting, setIsQuoting] = useState(false);
 
   // Fetch all interaction counts with real-time updates
   const { data: interactionCounts, isLoading: isLoadingCounts, optimisticUpdate } = useRealtimeInteractions(event.id);
@@ -106,35 +109,63 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   };
 
   const handleLike = () => {
-    if (!user) return;
+    if (!user || isLiking) return;
+
+    setIsLiking(true);
 
     // Optimistic update - increment count immediately
     optimisticUpdate(7, 1);
+
+    // Generate timestamp for better duplicate detection
+    const created_at = Math.floor(Date.now() / 1000);
 
     createEvent({
       event: {
         kind: 7,
         content: '+',
-        tags: [['e', event.id], ['p', event.pubkey]]
+        tags: [['e', event.id], ['p', event.pubkey]],
+        created_at,
+      }
+    }, {
+      onSuccess: () => {
+        setIsLiking(false);
+        setLiked(true);
+      },
+      onError: () => {
+        setIsLiking(false);
+        optimisticUpdate(7, -1); // Revert on error
       }
     });
-    setLiked(true);
   };
 
   const handleRepost = () => {
-    if (!user) return;
+    if (!user || isReposting) return;
+
+    setIsReposting(true);
 
     // Optimistic update - increment count immediately
     optimisticUpdate(6, 1);
+
+    // Generate timestamp for better duplicate detection
+    const created_at = Math.floor(Date.now() / 1000);
 
     createEvent({
       event: {
         kind: 6,
         content: JSON.stringify(event),
-        tags: [['e', event.id], ['p', event.pubkey]]
+        tags: [['e', event.id], ['p', event.pubkey]],
+        created_at,
+      }
+    }, {
+      onSuccess: () => {
+        setIsReposting(false);
+        setReposted(true);
+      },
+      onError: () => {
+        setIsReposting(false);
+        optimisticUpdate(6, -1); // Revert on error
       }
     });
-    setReposted(true);
   };
 
   const handleQuoteRepost = () => {
@@ -143,7 +174,9 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   };
 
   const handleQuoteSubmit = () => {
-    if (!user || !quoteContent.trim()) return;
+    if (!user || !quoteContent.trim() || isQuoting) return;
+
+    setIsQuoting(true);
 
     // Optimistic update - increment comment count immediately (since it's a kind 1 event)
     optimisticUpdate(1, 1);
@@ -155,6 +188,9 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
 
     console.log('Creating quote repost with original tags:', originalTags);
 
+    // Generate timestamp for better duplicate detection
+    const created_at = Math.floor(Date.now() / 1000);
+
     // Create quote repost with q tag and inherited tags
     createEvent({
       event: {
@@ -164,14 +200,23 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
           ['q', event.id, '', event.pubkey],
           ['p', event.pubkey],
           ...originalTags
-        ]
+        ],
+        created_at,
       },
       options: postToSpookstr2Only ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
+    }, {
+      onSuccess: () => {
+        setIsQuoting(false);
+        setQuoteContent('');
+        setIsQuoteDialogOpen(false);
+        setReposted(true);
+        setPostToSpookstr2Only(false); // Reset the checkbox
+      },
+      onError: () => {
+        setIsQuoting(false);
+        optimisticUpdate(1, -1); // Revert on error
+      }
     });
-    setQuoteContent('');
-    setIsQuoteDialogOpen(false);
-    setReposted(true);
-    setPostToSpookstr2Only(false); // Reset the checkbox
   };
 
   return (
@@ -233,6 +278,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                       e.stopPropagation();
                       handleLike();
                     }}
+                    disabled={isLiking}
                     className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
                   >
                     <Heart className={`h-4 w-4 ${liked ? 'fill-lime-500 text-lime-500' : ''}`} />
@@ -245,6 +291,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                         variant="ghost"
                         size="sm"
                         onClick={(e) => e.stopPropagation()}
+                        disabled={isReposting}
                         className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
                       >
                         <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
@@ -336,6 +383,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
             value={quoteContent}
             onChange={(e) => setQuoteContent(e.target.value)}
             className="min-h-[100px] resize-none"
+            disabled={isQuoting}
           />
           <div className="p-3 bg-lime-500/10 rounded-lg border border-lime-500/20 overflow-hidden">
             <p className="text-xs text-lime-500/60 mb-1">Original post:</p>
@@ -353,6 +401,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                 checked={postToSpookstr2Only}
                 onCheckedChange={(checked) => setPostToSpookstr2Only(checked as boolean)}
                 className="border-lime-500/50 data-[state=checked]:bg-lime-500 data-[state=checked]:border-lime-500"
+                disabled={isQuoting}
               />
             </div>
             <div className="flex-1 space-y-1">
@@ -378,10 +427,10 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
           </Button>
           <Button
             onClick={handleQuoteSubmit}
-            disabled={!quoteContent.trim()}
+            disabled={!quoteContent.trim() || isQuoting}
             className="bg-lime-500 hover:bg-lime-600 text-black"
           >
-            Quote Repost
+            {isQuoting ? 'Posting...' : 'Quote Repost'}
           </Button>
         </DialogFooter>
       </DialogContent>

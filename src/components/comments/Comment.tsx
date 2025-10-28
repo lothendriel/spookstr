@@ -37,6 +37,7 @@ interface CommentProps {
 export function Comment({ root, comment, children = [], depth = 0, maxDepth = 6 }: CommentProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showReplies, setShowReplies] = useState(depth < 2); // Auto-expand first 2 levels
+  const [isLiking, setIsLiking] = useState(false);
   const { user } = useCurrentUser();
   const { mutate: publishEvent } = useNostrPublish();
   const { toast } = useToast();
@@ -80,8 +81,16 @@ export function Comment({ root, comment, children = [], depth = 0, maxDepth = 6 
       return;
     }
 
+    // Prevent double-liking
+    if (isLiking) return;
+
+    setIsLiking(true);
+
     // Optimistic update
     optimisticUpdate(7, 1);
+
+    // Generate timestamp for better duplicate detection
+    const created_at = Math.floor(Date.now() / 1000);
 
     publishEvent(
       {
@@ -91,17 +100,21 @@ export function Comment({ root, comment, children = [], depth = 0, maxDepth = 6 
           tags: [
             ['e', comment.id],
             ['p', comment.pubkey]
-          ]
+          ],
+          created_at,
         }
       },
       {
         onSuccess: () => {
+          setIsLiking(false);
           toast({
             title: "Liked!",
             description: "Your like has been recorded",
           });
         },
         onError: (error) => {
+          setIsLiking(false);
+
           // Revert optimistic update on error
           optimisticUpdate(7, -1);
 
@@ -176,7 +189,7 @@ export function Comment({ root, comment, children = [], depth = 0, maxDepth = 6 
                     variant="ghost"
                     size="sm"
                     onClick={handleLike}
-                    disabled={!user}
+                    disabled={!user || isLiking}
                     className={`h-8 px-2 text-xs flex items-center space-x-1 transition-colors ${
                       userHasLiked
                         ? 'text-red-500 hover:text-red-600'

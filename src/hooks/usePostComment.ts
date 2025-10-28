@@ -36,11 +36,15 @@ export function usePostComment() {
       // Add client tag for identification
       tags.push(['client', 'spookstr']);
 
+      // Generate timestamp for better duplicate detection
+      const created_at = Math.floor(Date.now() / 1000);
+
       const event = await publishEvent({
         event: {
           kind: 1, // Use kind 1 for NIP-10 compliant text notes
           content,
           tags,
+          created_at,
         }
       });
 
