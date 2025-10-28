@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useAppContext } from './useAppContext';
@@ -20,41 +20,49 @@ export function useNotifications() {
   const { user } = useCurrentUser();
   const { config } = useAppContext();
 
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['notifications', user?.pubkey],
-    queryFn: async (c) => {
+    queryFn: async ({ pageParam = undefined, signal: querySignal }) => {
       if (!user?.pubkey) {
-        return [];
+        return { notifications: [], hasMore: false, oldestTimestamp: undefined };
       }
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
+      const signal = AbortSignal.any([querySignal, AbortSignal.timeout(5000)]);
 
-      // First, get all posts by the current user
+      // First, get user posts (increase limit to catch more)
       const userPosts = await nostr.query(
-        [{ kinds: [1], authors: [user.pubkey], limit: 100 }],
+        [{ kinds: [1], authors: [user.pubkey], limit: 500 }],
         { signal }
       );
 
       const userPostIds = userPosts.map(post => post.id);
 
       if (userPostIds.length === 0) {
-        return [];
+        return { notifications: [], hasMore: false, oldestTimestamp: undefined };
       }
 
-      // Use ALL selected relays for notifications
-      const relayGroup = nostr.group(config.selectedRelays || [config.relayUrl]);
+      // Get read relays from config
+      const readRelays = config.relays
+        ?.filter(r => r.mode === 'read' || r.mode === 'both')
+        .map(r => r.url) || [config.relayUrl];
 
-      // Query for all interactions with user's posts from ALL relays
-      const interactions = await relayGroup.query(
-        [
-          {
-            kinds: [1, 6, 7, 9735],
-            '#e': userPostIds,
-            limit: 200,
-          }
-        ],
-        { signal }
-      );
+      // Use all read relays for notifications
+      const relayGroup = readRelays.length > 0 ? nostr.group(readRelays) : nostr;
+
+      // Build query filter with pagination
+      const filter: any = {
+        kinds: [1, 6, 7, 9735],
+        '#e': userPostIds,
+        limit: 100, // Load 100 interactions at a time
+      };
+
+      // Add pagination using until timestamp
+      if (pageParam) {
+        filter.until = pageParam;
+      }
+
+      // Query for interactions with user's posts from ALL read relays
+      const interactions = await relayGroup.query([filter], { signal });
 
       // Filter out the user's own interactions
       const otherUserInteractions = interactions.filter(
@@ -104,7 +112,24 @@ export function useNotifications() {
       });
 
       // Sort by timestamp (newest first)
-      return notifications.sort((a, b) => b.timestamp - a.timestamp);
+      const sortedNotifications = notifications.sort((a, b) => b.timestamp - a.timestamp);
+
+      // Determine if there are more notifications to load
+      const hasMore = sortedNotifications.length === 100; // If we got full limit, there might be more
+      const oldestTimestamp = sortedNotifications.length > 0
+        ? sortedNotifications[sortedNotifications.length - 1].timestamp
+        : undefined;
+
+      return {
+        notifications: sortedNotifications,
+        hasMore,
+        oldestTimestamp,
+      };
+    },
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => {
+      // Return the oldest timestamp for pagination
+      return lastPage.hasMore ? lastPage.oldestTimestamp : undefined;
     },
     enabled: !!user?.pubkey,
     refetchInterval: 30000, // Refetch every 30 seconds

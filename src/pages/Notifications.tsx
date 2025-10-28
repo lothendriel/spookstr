@@ -141,17 +141,28 @@ export default function Notifications() {
   });
 
   const { user } = useCurrentUser();
-  const { data: notifications, isLoading } = useNotifications();
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useNotifications();
   const { isRead, markAsRead, markAllAsRead } = useNotificationState();
   const navigate = useNavigate();
 
+  // Flatten all pages of notifications
+  const allNotifications = useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flatMap(page => page.notifications);
+  }, [data]);
+
   const notificationsWithReadState = useMemo(() => {
-    if (!notifications) return [];
-    return notifications.map(n => ({
+    return allNotifications.map(n => ({
       ...n,
       read: isRead(n.id),
     }));
-  }, [notifications, isRead]);
+  }, [allNotifications, isRead]);
 
   const unreadCount = useMemo(() => {
     return notificationsWithReadState.filter(n => !n.read).length;
@@ -169,8 +180,8 @@ export default function Notifications() {
   };
 
   const handleMarkAllAsRead = () => {
-    if (notifications) {
-      markAllAsRead(notifications.map(n => n.id));
+    if (allNotifications.length > 0) {
+      markAllAsRead(allNotifications.map(n => n.id));
     }
   };
 
@@ -257,17 +268,40 @@ export default function Notifications() {
         )}
 
         {!isLoading && notificationsWithReadState.length > 0 && (
-          <div className="space-y-3">
-            {notificationsWithReadState.map((notification) => (
-              <NotificationItem
-                key={notification.id}
-                notification={notification}
-                isRead={notification.read}
-                onMarkAsRead={() => markAsRead(notification.id)}
-                onClick={() => handleNotificationClick(notification)}
-              />
-            ))}
-          </div>
+          <>
+            <div className="space-y-3">
+              {notificationsWithReadState.map((notification) => (
+                <NotificationItem
+                  key={notification.id}
+                  notification={notification}
+                  isRead={notification.read}
+                  onMarkAsRead={() => markAsRead(notification.id)}
+                  onClick={() => handleNotificationClick(notification)}
+                />
+              ))}
+            </div>
+
+            {/* Load More Button */}
+            {hasNextPage && (
+              <div className="mt-6 text-center">
+                <Button
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  variant="outline"
+                  className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10"
+                >
+                  {isFetchingNextPage ? (
+                    <>
+                      <Ghost className="h-4 w-4 mr-2 animate-pulse" />
+                      Loading more...
+                    </>
+                  ) : (
+                    'Load More Notifications'
+                  )}
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>
