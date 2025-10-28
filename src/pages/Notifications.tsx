@@ -13,7 +13,7 @@ import { getDisplayName } from '@/lib/getDisplayName';
 import { formatDistanceToNow } from 'date-fns';
 import { Heart, Repeat, Zap as ZapIcon, MessageCircle, Ghost, CheckCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { nip19 } from 'nostr-tools';
 import { LoginArea } from '@/components/auth/LoginArea';
 
@@ -37,15 +37,20 @@ function NotificationItem({ notification, isRead, onMarkAsRead, onClick }: Notif
   const displayName = getDisplayName(metadata, notification.author);
   const timeAgo = formatDistanceToNow(new Date(notification.timestamp * 1000), { addSuffix: true });
 
-  useEffect(() => {
-    // Mark as read when the notification is viewed
+  const handleMouseEnter = () => {
+    // Mark as read when user hovers over the notification
     if (!isRead) {
-      const timer = setTimeout(() => {
-        onMarkAsRead();
-      }, 1000);
-      return () => clearTimeout(timer);
+      onMarkAsRead();
     }
-  }, [isRead, onMarkAsRead]);
+  };
+
+  const handleClick = () => {
+    // Mark as read when clicked (in case they didn't hover)
+    if (!isRead) {
+      onMarkAsRead();
+    }
+    onClick();
+  };
 
   const getIcon = () => {
     switch (notification.type) {
@@ -91,7 +96,8 @@ function NotificationItem({ notification, isRead, onMarkAsRead, onClick }: Notif
       className={`border-lime-500/20 hover:border-lime-500/40 transition-all duration-200 cursor-pointer bg-black/40 backdrop-blur-sm ${
         !isRead ? 'border-l-4 border-l-orange-500' : ''
       }`}
-      onClick={onClick}
+      onMouseEnter={handleMouseEnter}
+      onClick={handleClick}
     >
       <CardContent className="p-4">
         <div className="flex items-start space-x-3">
@@ -169,10 +175,7 @@ export default function Notifications() {
   }, [notificationsWithReadState]);
 
   const handleNotificationClick = (notification: NotificationItemProps['notification']) => {
-    // Mark as read
-    markAsRead(notification.id);
-
-    // Navigate to the post
+    // Navigate to the post (marking as read is handled by NotificationItem)
     const nevent = nip19.neventEncode({
       id: notification.targetEventId,
     });
