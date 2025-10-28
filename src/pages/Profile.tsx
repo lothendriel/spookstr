@@ -62,17 +62,23 @@ export default function Profile({ pubkey }: ProfileProps) {
   };
 
   // Fetch user's posts using outbox model (queries their write relays)
+  // Include kind 1 (notes), kind 6 (reposts), and kind 16 (generic reposts)
   const { data: posts, isLoading: isLoadingPosts } = useOutboxQuery({
     authorPubkey: pubkey,
-    filters: [{ kinds: [1], authors: [pubkey], limit: 50 }],
+    filters: [{ kinds: [1, 6, 16], authors: [pubkey], limit: 50 }],
     enabled: !!pubkey,
     staleTime: 30000,
   });
 
-  // Process posts to filter out replies
+  // Process posts to filter out replies (only for kind 1)
+  // Keep all reposts (kind 6 and 16) regardless of tags
   const processedPosts = posts ?
-    posts.filter(event => !event.tags.some(([tagName]) => tagName === 'e'))
-      .sort((a, b) => b.created_at - a.created_at) :
+    posts.filter(event => {
+      // Keep all reposts
+      if (event.kind === 6 || event.kind === 16) return true;
+      // For kind 1, filter out replies (events with 'e' tags)
+      return event.kind === 1 && !event.tags.some(([tagName]) => tagName === 'e');
+    }).sort((a, b) => b.created_at - a.created_at) :
     null;
 
   // Fetch user's replies using outbox model (queries their write relays)
