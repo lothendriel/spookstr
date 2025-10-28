@@ -23,7 +23,13 @@ export function useNotifications() {
   return useInfiniteQuery({
     queryKey: ['notifications', user?.pubkey],
     queryFn: async ({ pageParam = undefined, signal: querySignal }) => {
+      console.log('[Notifications] 🔔 Query function called', {
+        pubkey: user?.pubkey?.slice(0, 8) + '...',
+        pageParam
+      });
+
       if (!user?.pubkey) {
+        console.log('[Notifications] ❌ No user pubkey, returning empty');
         return { notifications: [], hasMore: false, oldestTimestamp: undefined };
       }
 
@@ -85,16 +91,27 @@ export function useNotifications() {
 
       console.log(`[Notifications] ${uniqueInteractions.length} unique interactions after deduplication`);
 
+      // Count kind 1 events before filtering
+      const kind1Before = uniqueInteractions.filter(e => e.kind === 1).length;
+      console.log(`[Notifications] ${kind1Before} kind 1 events (comments) before NSFW filter`);
+
       // Filter out NSFW content from comments (kind 1 events only)
       const filteredInteractions = uniqueInteractions.filter(event => {
         // Only filter kind 1 events (comments) - other kinds (likes, reposts, zaps) are metadata
         if (event.kind === 1) {
-          return filterNSFWContent([event]).length === 0; // Keep if not NSFW (empty array means passed filter)
+          // filterNSFWContent returns non-NSFW events, so length > 0 means it passed
+          const passed = filterNSFWContent([event]).length > 0;
+          if (!passed) {
+            console.log('[Notifications] ❌ Filtered out NSFW comment:', event.content.substring(0, 50));
+          }
+          return passed; // Keep if not NSFW
         }
         return true; // Keep all other interaction types
       });
 
-      console.log(`[Notifications] ${filteredInteractions.length} interactions after NSFW filter`);
+      const kind1After = filteredInteractions.filter(e => e.kind === 1).length;
+      console.log(`[Notifications] ${kind1After} kind 1 events (comments) after NSFW filter (filtered ${kind1Before - kind1After})`);
+      console.log(`[Notifications] ${filteredInteractions.length} total interactions after NSFW filter`);
 
       // Log breakdown by type
       const breakdown = filteredInteractions.reduce((acc, event) => {
