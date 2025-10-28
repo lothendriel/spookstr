@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useComments } from '@/hooks/useComments';
+import { useBatchInteractions } from '@/hooks/useBatchInteractions';
 import { useRealtimeInteractionUpdates } from '@/hooks/useRealtimeInteractionUpdates';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -36,7 +37,7 @@ export function CommentsSection({
   const threadTree = commentsData?.threadTree || [];
   const topLevelComments = commentsData?.topLevelComments || [];
 
-  // Collect all comment IDs for real-time updates
+  // Collect all comment IDs for batch fetching and real-time updates
   const allCommentIds = useMemo(() => {
     const collectIds = (nodes: any[]): string[] => {
       return nodes.flatMap(node => [
@@ -46,6 +47,9 @@ export function CommentsSection({
     };
     return collectIds(threadTree);
   }, [threadTree]);
+
+  // Fetch batch interactions for all comments
+  useBatchInteractions(allCommentIds);
 
   // Enable real-time updates for all visible comments
   useRealtimeInteractionUpdates(allCommentIds);

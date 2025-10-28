@@ -14,11 +14,12 @@ import { Heart, Zap, MessageSquare, ChevronDown, ChevronRight, MoreHorizontal } 
 import { formatDistanceToNow } from 'date-fns';
 import { getDisplayName } from '@/lib/getDisplayName';
 import { useNostr } from '@nostrify/react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { ZapDialog } from '@/components/ZapDialog';
 import { useToast } from '@/hooks/useToast';
+import { useRealtimeInteractions } from '@/hooks/useRealtimeInteractions';
 
 interface ThreadNode {
   event: NostrEvent;
@@ -38,31 +39,28 @@ export function Comment({ root, comment, children = [], depth = 0, maxDepth = 6 
   const [showReplies, setShowReplies] = useState(depth < 2); // Auto-expand first 2 levels
   const { user } = useCurrentUser();
   const { mutate: publishEvent } = useNostrPublish();
-  const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const author = useAuthor(comment.pubkey);
 
-  // Fetch counts for likes and zaps
+  // Use real-time interactions for counts
+  const { data: interactionCounts, optimisticUpdate } = useRealtimeInteractions(comment.id);
+
+  const likeCount = interactionCounts?.likes || 0;
+  const zapCount = interactionCounts?.zaps || 0;
+  const commentCount = interactionCounts?.comments || 0;
+
+  // Fetch like events to check if user has liked
   const { nostr } = useNostr();
   const { data: likeEvents } = useQuery({
     queryKey: ['likes', comment.id],
     queryFn: async () => {
       const events = await nostr.query([{ kinds: [7], '#e': [comment.id] }]);
       return events;
-    }
+    },
+    staleTime: 30000, // 30 seconds
   });
-  const likeCount = likeEvents?.length || 0;
   const userHasLiked = user ? likeEvents?.some(event => event.pubkey === user.pubkey) : false;
-
-  const { data: zapEvents } = useQuery({
-    queryKey: ['zaps', comment.id],
-    queryFn: async () => {
-      const events = await nostr.query([{ kinds: [9734], '#e': [comment.id] }]);
-      return events;
-    }
-  });
-  const zapCount = zapEvents?.length || 0;
 
   const metadata = author.data?.metadata;
   const displayName = getDisplayName(metadata, comment.pubkey);
@@ -82,6 +80,9 @@ export function Comment({ root, comment, children = [], depth = 0, maxDepth = 6 
       return;
     }
 
+    // Optimistic update
+    optimisticUpdate(7, 1);
+
     publishEvent(
       {
         event: {
@@ -95,15 +96,15 @@ export function Comment({ root, comment, children = [], depth = 0, maxDepth = 6 
       },
       {
         onSuccess: () => {
-          // Invalidate likes query to refresh the count
-          queryClient.invalidateQueries({ queryKey: ['likes', comment.id] });
-
           toast({
             title: "Liked!",
             description: "Your like has been recorded",
           });
         },
         onError: (error) => {
+          // Revert optimistic update on error
+          optimisticUpdate(7, -1);
+
           console.error('Failed to like comment:', error);
           toast({
             title: "Failed to like",

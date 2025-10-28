@@ -11,7 +11,7 @@ import { NoteContent } from '@/components/NoteContent';
 import { ZapButton } from '@/components/ZapButton';
 import { ZapDialog } from '@/components/ZapDialog';
 import { CommentsSection } from '@/components/comments/CommentsSection';
-import { useRealtimeInteractionUpdates } from '@/hooks/useRealtimeInteractionUpdates';
+import { useRealtimeInteractions } from '@/hooks/useRealtimeInteractions';
 import { ArrowLeft, Heart, Repeat, MessageCircle, Zap, Quote, RadioTower } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { getDisplayName } from '@/lib/getDisplayName';
@@ -52,36 +52,15 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const [quoteContent, setQuoteContent] = useState('');
   const [postToSpookstr2Only, setPostToSpookstr2Only] = useState(false);
 
-  // Enable real-time updates for this post
-  useRealtimeInteractionUpdates([event.id]);
-
-  // Fetch all interaction counts in a single query
-  const { nostr } = useNostr();
-  const { data: interactionCounts, isLoading: isLoadingCounts } = useQuery({
-    queryKey: ['post-interactions', event.id],
-    queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
-
-      // Single query with all interaction kinds
-      const events = await nostr.query([{
-        kinds: [6, 7, 9734, 1111], // reposts, likes, zaps, comments
-        '#e': [event.id],
-        limit: 200,
-      }], { signal });
-
-      // Process counts in JavaScript
-      return {
-        likes: events.filter(e => e.kind === 7).length,
-        reposts: events.filter(e => e.kind === 6).length,
-        zaps: events.filter(e => e.kind === 9734).length,
-        comments: events.filter(e => e.kind === 1111).length,
-      };
-    },
-  });
+  // Use real-time interactions for counts
+  const { data: interactionCounts, optimisticUpdate } = useRealtimeInteractions(event.id);
 
   const likeCount = interactionCounts?.likes || 0;
   const repostCount = interactionCounts?.reposts || 0;
   const zapCount = interactionCounts?.zaps || 0;
+  const commentCount = interactionCounts?.comments || 0;
+
+  const { nostr } = useNostr();
 
   const metadata = author.data?.metadata;
   const displayName = getDisplayName(metadata, event.pubkey);
@@ -97,26 +76,52 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
 
   const handleLike = () => {
     if (!user) return;
-    createEvent({
-      event: {
-        kind: 7,
-        content: '+',
-        tags: [['e', event.id], ['p', event.pubkey]]
-      }
-    });
+
+    // Optimistic update
+    optimisticUpdate(7, 1);
     setLiked(true);
+
+    createEvent(
+      {
+        event: {
+          kind: 7,
+          content: '+',
+          tags: [['e', event.id], ['p', event.pubkey]]
+        }
+      },
+      {
+        onError: () => {
+          // Revert on error
+          optimisticUpdate(7, -1);
+          setLiked(false);
+        }
+      }
+    );
   };
 
   const handleRepost = () => {
     if (!user) return;
-    createEvent({
-      event: {
-        kind: 6,
-        content: JSON.stringify(event),
-        tags: [['e', event.id], ['p', event.pubkey]]
-      }
-    });
+
+    // Optimistic update
+    optimisticUpdate(6, 1);
     setReposted(true);
+
+    createEvent(
+      {
+        event: {
+          kind: 6,
+          content: JSON.stringify(event),
+          tags: [['e', event.id], ['p', event.pubkey]]
+        }
+      },
+      {
+        onError: () => {
+          // Revert on error
+          optimisticUpdate(6, -1);
+          setReposted(false);
+        }
+      }
+    );
   };
 
   const handleQuoteRepost = () => {

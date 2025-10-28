@@ -11,6 +11,7 @@ import { useNostr } from '@/hooks/useNostr';
 import { useCommunity } from '@/hooks/useCommunity';
 import { ArrowLeft } from 'lucide-react';
 import { CommentsSection } from '@/components/comments/CommentsSection';
+import { useBatchInteractions } from '@/hooks/useBatchInteractions';
 import { useRealtimeInteractionUpdates } from '@/hooks/useRealtimeInteractionUpdates';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import type { NostrEvent } from '@nostrify/nostrify';
@@ -19,6 +20,9 @@ export default function PostDetailPage() {
   const { communityId, postId } = useParams<{ communityId: string; postId: string }>();
   const navigate = useNavigate();
   const { nostr } = useNostr();
+
+  // Fetch batch interactions for this post
+  useBatchInteractions(postId ? [postId] : []);
 
   // Enable real-time updates for this post
   useRealtimeInteractionUpdates(postId ? [postId] : []);
