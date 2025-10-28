@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Maximize2, Play } from 'lucide-react';
 import { usePodcast } from '@/contexts/PodcastContext';
+import { useToast } from '@/hooks/useToast';
 
 const podcastEmbeds = [
   {
@@ -28,7 +29,18 @@ const podcastEmbeds = [
 
 export function ParanormalPodcastsCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const { playPodcast, togglePopOut, currentPodcast, isPoppedOut } = usePodcast();
+  const { playPodcast, togglePopOut, currentPodcast, isPoppedOut, iframeKey } = usePodcast();
+  const { toast } = useToast();
+
+  // Sync currentIndex with currentPodcast when popout closes
+  useEffect(() => {
+    if (!isPoppedOut && currentPodcast) {
+      const index = podcastEmbeds.findIndex(p => p.title === currentPodcast.title);
+      if (index !== -1 && index !== currentIndex) {
+        setCurrentIndex(index);
+      }
+    }
+  }, [isPoppedOut, currentPodcast, currentIndex]);
 
   const goToPrevious = () => {
     setCurrentIndex((prev) => (prev === 0 ? podcastEmbeds.length - 1 : prev - 1));
@@ -41,9 +53,18 @@ export function ParanormalPodcastsCarousel() {
   const currentPodcastData = podcastEmbeds[currentIndex];
 
   const handlePlayAndPopOut = () => {
+    // First ensure the current podcast is set
     playPodcast(currentPodcastData);
+    // Then pop it out
     if (!isPoppedOut) {
       togglePopOut();
+
+      // Show helpful toast explaining the behavior
+      toast({
+        title: "Podcast Popped Out",
+        description: "The podcast player has been moved to a popout window. The same show will continue playing - you may need to resume playback manually.",
+        duration: 6000,
+      });
     }
   };
 
@@ -83,40 +104,49 @@ export function ParanormalPodcastsCarousel() {
         </div>
       </div>
 
-      {isPoppedOut ? (
-        <div className="mt-2 h-[400px] flex items-center justify-center border border-lime-500/20 rounded-lg bg-black/20">
-          <div className="text-center space-y-2">
-            <div className="w-2 h-2 bg-lime-400 rounded-full animate-pulse mx-auto"></div>
-            <p className="text-lime-400 text-sm font-medium">
-              Player in popout mode
-            </p>
-            <p className="text-lime-300/60 text-xs">
-              Close popout to restore player here
-            </p>
+      <div className="relative">
+        {isPoppedOut ? (
+          <div className="mt-2 h-[400px] flex items-center justify-center border border-lime-500/20 rounded-lg bg-black/20">
+            <div className="text-center space-y-2">
+              <div className="w-2 h-2 bg-lime-400 rounded-full animate-pulse mx-auto"></div>
+              <p className="text-lime-400 text-sm font-medium">
+                Player in popout mode
+              </p>
+              <p className="text-lime-300/60 text-xs">
+                Close popout to restore player here
+              </p>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="relative">
+        ) : (
           <div className="overflow-x-hidden whitespace-nowrap">
             <div
               className="inline-flex transition-transform duration-300 ease-in-out"
               style={{ transform: `translateX(-${currentIndex * 100}%)` }}
             >
-              {podcastEmbeds.map((podcast, index) => (
-                <div
-                  key={index}
-                  className="w-[100%] min-w-[100%] inline-block align-top"
-                >
+              {podcastEmbeds.map((podcast, index) => {
+                // Only render the iframe for the current podcast to preserve state
+                const isCurrentPodcast = index === currentIndex;
+                const shouldRender = isCurrentPodcast || Math.abs(index - currentIndex) <= 1;
+
+                return (
                   <div
-                    dangerouslySetInnerHTML={{ __html: podcast.embedCode }}
-                    className="mt-2"
-                  />
-                </div>
-              ))}
+                    key={index}
+                    className="w-[100%] min-w-[100%] inline-block align-top"
+                  >
+                    {shouldRender && (
+                      <div
+                        key={`${podcast.title}-${iframeKey}`}
+                        dangerouslySetInnerHTML={{ __html: podcast.embedCode }}
+                        className="mt-2"
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="flex items-center justify-between mt-3">
         <p className="text-lime-100 text-sm font-medium truncate flex-1">

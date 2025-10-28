@@ -32,25 +32,11 @@ export function PopOutPodcastPlayer() {
     currentPodcast,
     isPoppedOut,
     closePopOut,
-    playPodcast
+    playPodcast,
+    iframeKey
   } = usePodcast();
 
   const [currentPodcastIndex, setCurrentPodcastIndex] = useState(0);
-
-  // Handle iframe messaging for play/pause state
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      // Handle messages from the iframe if needed
-      if (event.data.type === 'podcast-state') {
-        // Update local state based on iframe messages
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
-
 
   // Find current podcast index
   useEffect(() => {
@@ -124,6 +110,7 @@ export function PopOutPodcastPlayer() {
         {/* Minimal Content - Ultra Compact */}
         <CardContent className="p-0">
           <div
+            key={`popout-${currentPodcast.title}-${iframeKey}`}
             dangerouslySetInnerHTML={{ __html: currentPodcast.embedCode.replace('height="400"', 'height="120"') }}
             style={{ transform: 'scale(0.85)', transformOrigin: 'top center', height: '102px', overflow: 'hidden' }}
           />
