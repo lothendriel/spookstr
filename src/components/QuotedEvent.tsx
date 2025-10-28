@@ -8,6 +8,7 @@ import { NoteContent } from '@/components/NoteContent';
 import { useMultiRelayEvent } from '@/hooks/useMultiRelayQuery';
 import { nip19 } from 'nostr-tools';
 import { formatDistanceToNow } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface QuotedEventProps {
@@ -98,12 +99,23 @@ interface QuotedEventContentProps {
 
 function QuotedEventContent({ event, className }: QuotedEventContentProps) {
   const author = useAuthor(event.pubkey);
+  const navigate = useNavigate();
   const metadata = author.data?.metadata;
   const displayName = metadata?.name || genUserName(event.pubkey);
   const timeAgo = formatDistanceToNow(new Date(event.created_at * 1000), { addSuffix: true });
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Navigate to the quoted event using note1 format
+    const noteId = nip19.noteEncode(event.id);
+    navigate(`/${noteId}`);
+  };
+
   return (
-    <Card className={`border-lime-500/20 bg-lime-500/5 hover:border-lime-500/30 transition-colors cursor-pointer ${className}`}>
+    <Card
+      className={`border-lime-500/20 bg-lime-500/5 hover:border-lime-500/30 transition-colors cursor-pointer ${className}`}
+      onClick={handleClick}
+    >
       <CardContent className="p-3">
         <div className="flex items-start space-x-2 mb-2">
           <Avatar className="h-6 w-6 flex-shrink-0">
