@@ -9,14 +9,20 @@ import { useMemo } from 'react';
 
 export function NotificationBell() {
   const { user } = useCurrentUser();
-  const { data: notifications } = useNotifications();
+  const { data } = useNotifications();
   const { getUnreadCount } = useNotificationState();
   const navigate = useNavigate();
 
+  // Flatten all pages of notifications
+  const allNotifications = useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flatMap(page => page.notifications);
+  }, [data]);
+
   const unreadCount = useMemo(() => {
-    if (!notifications || notifications.length === 0) return 0;
-    return getUnreadCount(notifications.map(n => n.id));
-  }, [notifications, getUnreadCount]);
+    if (allNotifications.length === 0) return 0;
+    return getUnreadCount(allNotifications.map(n => n.id));
+  }, [allNotifications, getUnreadCount]);
 
   if (!user) {
     return null;
