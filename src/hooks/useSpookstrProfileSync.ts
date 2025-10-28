@@ -18,15 +18,20 @@ export function useSpookstrProfileSync() {
   const syncedPubkeys = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    if (!user?.pubkey) return;
+    if (!user?.pubkey) {
+      return;
+    }
 
     // Check if we've already synced this pubkey
     const storageKey = `spookstr-synced-${user.pubkey}`;
     const alreadySynced = localStorage.getItem(storageKey);
 
     if (alreadySynced || syncedPubkeys.current.has(user.pubkey)) {
+      console.log('Profile already synced to Spookstr relay (skipping)');
       return;
     }
+
+    console.log('Starting profile sync to Spookstr relay...');
 
     // Mark as synced immediately to prevent duplicate attempts
     syncedPubkeys.current.add(user.pubkey);
@@ -34,15 +39,19 @@ export function useSpookstrProfileSync() {
     // Fetch the user's profile from any relay
     (async () => {
       try {
+        console.log('Fetching profile from relays...');
         const [profileEvent] = await nostr.query(
           [{ kinds: [0], authors: [user.pubkey], limit: 1 }],
           { signal: AbortSignal.timeout(5000) }
         );
 
         if (!profileEvent) {
-          console.log('No profile found to sync to Spookstr relay');
+          console.log('❌ No profile found to sync to Spookstr relay');
+          syncedPubkeys.current.delete(user.pubkey);
           return;
         }
+
+        console.log('✅ Profile found, publishing to Spookstr relay...');
 
         // Publish the profile event to the Spookstr relay
         const spookstrRelay = nostr.relay(SPOOKSTR_RELAY);
@@ -61,9 +70,9 @@ export function useSpookstrProfileSync() {
 
         // Mark as successfully synced
         localStorage.setItem(storageKey, Date.now().toString());
-        console.log('Successfully synced profile to Spookstr relay');
+        console.log('✅ Successfully synced profile to Spookstr relay!');
       } catch (error) {
-        console.error('Failed to sync profile to Spookstr relay:', error);
+        console.error('❌ Failed to sync profile to Spookstr relay:', error);
         // Remove from synced set so it can be retried
         syncedPubkeys.current.delete(user.pubkey);
       }
