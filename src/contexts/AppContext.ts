@@ -30,6 +30,10 @@ export interface AppConfig {
   relays?: RelayConfig[];
   /** When enabled, only read from the Spookstr relay */
   spookstrOnlyMode?: boolean;
+  /** Search relays for content discovery and hashtag queries */
+  searchRelays?: string[];
+  /** Blossom servers for file uploads (with fallback support) */
+  blossomServers?: string[];
 }
 
 export interface AppContextType {

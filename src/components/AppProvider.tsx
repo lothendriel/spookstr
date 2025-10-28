@@ -30,6 +30,8 @@ const AppConfigSchema: z.ZodType<AppConfig, z.ZodTypeDef, unknown> = z.object({
   selectedRelays: z.array(z.string().url()).optional(),
   relays: z.array(RelayConfigSchema).optional(),
   spookstrOnlyMode: z.boolean().optional(),
+  searchRelays: z.array(z.string().url()).optional(),
+  blossomServers: z.array(z.string().url()).optional(),
 });
 
 export function AppProvider(props: AppProviderProps) {
@@ -76,6 +78,22 @@ export function AppProvider(props: AppProviderProps) {
         // Ensure selectedRelays exists for backward compatibility
         if (parsed.selectedRelays === undefined) {
           parsed.selectedRelays = [parsed.relayUrl];
+        }
+
+        // Ensure searchRelays has defaults
+        if (!parsed.searchRelays || parsed.searchRelays.length === 0) {
+          parsed.searchRelays = [
+            'wss://relay.nostr.band',
+            'wss://relay.nos.social',
+          ];
+        }
+
+        // Ensure blossomServers has defaults
+        if (!parsed.blossomServers || parsed.blossomServers.length === 0) {
+          parsed.blossomServers = [
+            'https://blossom.primal.net',
+            'https://cdn.satellite.earth',
+          ];
         }
 
         return AppConfigSchema.parse(parsed);

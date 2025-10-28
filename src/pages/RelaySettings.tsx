@@ -38,6 +38,14 @@ export default function RelaySettings() {
   const [newRelayMode, setNewRelayMode] = useState<RelayMode>('both');
   const [hasChanges, setHasChanges] = useState(false);
 
+  // Search relays state
+  const [localSearchRelays, setLocalSearchRelays] = useState<string[]>([]);
+  const [newSearchRelay, setNewSearchRelay] = useState('');
+
+  // Blossom servers state
+  const [localBlossomServers, setLocalBlossomServers] = useState<string[]>([]);
+  const [newBlossomServer, setNewBlossomServer] = useState('');
+
   // Initialize local state from config or NIP-65
   useEffect(() => {
     // Always initialize with defaults first
@@ -66,7 +74,21 @@ export default function RelaySettings() {
     } else {
       setLocalRelays(defaults);
     }
-  }, [config.relays, nip65Relays]);
+
+    // Initialize search relays
+    if (config.searchRelays && config.searchRelays.length > 0) {
+      setLocalSearchRelays(config.searchRelays);
+    } else {
+      setLocalSearchRelays(['wss://relay.nostr.band', 'wss://relay.nos.social']);
+    }
+
+    // Initialize Blossom servers
+    if (config.blossomServers && config.blossomServers.length > 0) {
+      setLocalBlossomServers(config.blossomServers);
+    } else {
+      setLocalBlossomServers(['https://blossom.primal.net', 'https://cdn.satellite.earth']);
+    }
+  }, [config.relays, config.searchRelays, config.blossomServers, nip65Relays]);
 
   // Always include Spookstr relay in health monitoring
   const relaysToMonitor: RelayConfig[] = [
@@ -158,13 +180,15 @@ export default function RelaySettings() {
       relays: relaysToSave,
       // Keep relayUrl for backward compatibility with first relay
       relayUrl: relaysToSave[0]?.url || current.relayUrl,
+      searchRelays: localSearchRelays,
+      blossomServers: localBlossomServers,
     }));
 
     setHasChanges(false);
 
     toast({
-      title: 'Relays saved locally',
-      description: 'Your relay configuration has been saved to this browser',
+      title: 'Configuration saved',
+      description: 'Your relay and server settings have been saved to this browser',
     });
   };
 
@@ -224,6 +248,83 @@ export default function RelaySettings() {
       title: 'Relay list loaded',
       description: `Loaded ${nip65Relays.length} relays from your Nostr profile`,
     });
+  };
+
+  const handleAddSearchRelay = () => {
+    if (!isValidRelayUrl(newSearchRelay)) {
+      toast({
+        title: 'Invalid relay URL',
+        description: 'Please enter a valid WebSocket URL',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const normalizedUrl = normalizeRelayUrl(newSearchRelay);
+
+    if (localSearchRelays.includes(normalizedUrl)) {
+      toast({
+        title: 'Relay already exists',
+        description: 'This search relay is already in your list',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setLocalSearchRelays([...localSearchRelays, normalizedUrl]);
+    setNewSearchRelay('');
+    setHasChanges(true);
+  };
+
+  const handleRemoveSearchRelay = (url: string) => {
+    setLocalSearchRelays(localSearchRelays.filter((r) => r !== url));
+    setHasChanges(true);
+  };
+
+  const handleAddBlossomServer = () => {
+    const trimmed = newBlossomServer.trim();
+    if (!trimmed) {
+      toast({
+        title: 'Invalid server URL',
+        description: 'Please enter a valid HTTPS URL',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let normalizedUrl = trimmed;
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+      normalizedUrl = `https://${trimmed}`;
+    }
+
+    try {
+      new URL(normalizedUrl);
+    } catch {
+      toast({
+        title: 'Invalid server URL',
+        description: 'Please enter a valid HTTPS URL',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (localBlossomServers.includes(normalizedUrl)) {
+      toast({
+        title: 'Server already exists',
+        description: 'This Blossom server is already in your list',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setLocalBlossomServers([...localBlossomServers, normalizedUrl]);
+    setNewBlossomServer('');
+    setHasChanges(true);
+  };
+
+  const handleRemoveBlossomServer = (url: string) => {
+    setLocalBlossomServers(localBlossomServers.filter((s) => s !== url));
+    setHasChanges(true);
   };
 
   const getStatusIcon = (status?: string) => {
@@ -497,6 +598,149 @@ export default function RelaySettings() {
         </CardContent>
       </Card>
 
+      {/* Search Relays Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            🔍 Search Relays ({localSearchRelays.length})
+          </CardTitle>
+          <CardDescription>
+            Specialized relays for content discovery, hashtags, and advanced search queries. These relays maintain indexes for faster searching.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Add Search Relay */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="search-relay-url">Search Relay URL</Label>
+              <Input
+                id="search-relay-url"
+                placeholder="wss://relay.nostr.band"
+                value={newSearchRelay}
+                onChange={(e) => setNewSearchRelay(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddSearchRelay();
+                  }
+                }}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button onClick={handleAddSearchRelay} className="w-full sm:w-auto">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Search Relay
+              </Button>
+            </div>
+          </div>
+
+          {/* Search Relay List */}
+          {localSearchRelays.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
+              <p>No search relays configured</p>
+              <p className="text-sm mt-1">Add a search relay for better content discovery</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {localSearchRelays.map((url) => (
+                <div
+                  key={url}
+                  className="flex items-center justify-between p-3 border rounded-lg bg-card"
+                >
+                  <div className="font-mono text-sm truncate flex-1">
+                    {url.replace(/^wss?:\/\//, '')}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveSearchRelay(url)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 ml-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Blossom Servers Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            🌸 Blossom Servers ({localBlossomServers.length})
+          </CardTitle>
+          <CardDescription>
+            File hosting servers for uploading images, videos, and audio. Multiple servers provide redundancy and fallback options.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Add Blossom Server */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="blossom-server-url">Blossom Server URL</Label>
+              <Input
+                id="blossom-server-url"
+                placeholder="https://blossom.primal.net"
+                value={newBlossomServer}
+                onChange={(e) => setNewBlossomServer(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddBlossomServer();
+                  }
+                }}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button onClick={handleAddBlossomServer} className="w-full sm:w-auto">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Server
+              </Button>
+            </div>
+          </div>
+
+          {/* Blossom Server List */}
+          {localBlossomServers.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
+              <p>No Blossom servers configured</p>
+              <p className="text-sm mt-1">Add a server to enable file uploads</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {localBlossomServers.map((url, index) => (
+                <div
+                  key={url}
+                  className="flex items-center justify-between p-3 border rounded-lg bg-card"
+                >
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Badge variant="outline" className="text-xs">
+                      {index === 0 ? 'Primary' : `Fallback ${index}`}
+                    </Badge>
+                    <div className="font-mono text-sm truncate">
+                      {url.replace(/^https?:\/\//, '')}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveBlossomServer(url)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 ml-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Alert className="mt-4 border-blue-500/30 bg-blue-500/5">
+            <AlertDescription className="text-sm">
+              💡 Servers are tried in order. If the primary server fails, the uploader will automatically try the next server.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-3">
         <Button
@@ -547,19 +791,22 @@ export default function RelaySettings() {
       {/* Info Card */}
       <Card className="border-dashed">
         <CardHeader>
-          <CardTitle className="text-lg">About Relay Modes</CardTitle>
+          <CardTitle className="text-lg">Configuration Guide</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
+        <CardContent className="space-y-4 text-sm text-muted-foreground">
           <div>
-            <p>
-              <strong className="text-emerald-700">Read & Write:</strong> Use this relay for both fetching and publishing events.
-            </p>
-            <p>
-              <strong className="text-blue-700">Read Only:</strong> Only fetch events from this relay. Useful for public indexers.
-            </p>
-            <p>
-              <strong className="text-purple-700">Write Only:</strong> Only publish your events to this relay. Useful for personal relays.
-            </p>
+            <p className="font-semibold text-foreground mb-2">General Relay Modes</p>
+            <div className="space-y-1">
+              <p>
+                <strong className="text-emerald-700">Read & Write:</strong> Use this relay for both fetching and publishing events.
+              </p>
+              <p>
+                <strong className="text-blue-700">Read Only:</strong> Only fetch events from this relay. Useful for public indexers.
+              </p>
+              <p>
+                <strong className="text-purple-700">Write Only:</strong> Only publish your events to this relay. Useful for personal relays.
+              </p>
+            </div>
           </div>
 
           <div className="pt-2 border-t border-lime-500/20">
@@ -575,8 +822,30 @@ export default function RelaySettings() {
             </ul>
           </div>
 
+          <div className="pt-2 border-t border-lime-500/20">
+            <p className="font-semibold text-foreground mb-2">🔍 Search Relays</p>
+            <p className="text-xs">
+              Search relays maintain specialized indexes for fast content discovery. They excel at hashtag searches,
+              keyword queries, and finding historical content across the network. Using dedicated search relays improves
+              performance and reduces load on your general relays.
+            </p>
+          </div>
+
+          <div className="pt-2 border-t border-lime-500/20">
+            <p className="font-semibold text-foreground mb-2">🌸 Blossom Servers</p>
+            <p className="text-xs mb-2">
+              Blossom servers store your uploaded files (images, videos, audio). Configure multiple servers for redundancy:
+            </p>
+            <ul className="text-xs space-y-1 ml-4 list-disc">
+              <li>The uploader tries servers in order until one succeeds</li>
+              <li>Popular servers may have rate limits or size restrictions</li>
+              <li>Some servers are free, others may require payment</li>
+              <li>Consider self-hosting for full control and privacy</li>
+            </ul>
+          </div>
+
           <p className="pt-2 text-xs border-t border-lime-500/20">
-            💡 Tip: Keep your relay list small (2-4 relays) for best performance and discoverability across the Nostr network.
+            💡 Tip: Keep your relay list small (2-4 general relays) for best performance. Use 1-2 search relays and 2-3 Blossom servers for optimal redundancy.
           </p>
         </CardContent>
       </Card>

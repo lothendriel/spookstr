@@ -41,6 +41,14 @@ const queryClient = new QueryClient({
 const defaultConfig: AppConfig = {
   theme: "dark",
   relayUrl: "wss://relay.primal.net",
+  searchRelays: [
+    "wss://relay.nostr.band",
+    "wss://relay.nos.social",
+  ],
+  blossomServers: [
+    "https://blossom.primal.net",
+    "https://cdn.satellite.earth",
+  ],
 };
 
 const presetRelays = [
