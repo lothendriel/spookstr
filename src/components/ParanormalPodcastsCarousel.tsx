@@ -131,12 +131,12 @@ export function ParanormalPodcastsCarousel() {
           {isCurrentPodcastPlaying ? (
             <>
               <Maximize2 className="h-3 w-3" />
-              <span className="text-xs">Pop-out</span>
+              <span className="text-xs">Popout Player</span>
             </>
           ) : (
             <>
               <Play className="h-3 w-3" />
-              <span className="text-xs">Play & Pop-out</span>
+              <span className="text-xs">Popout Player</span>
             </>
           )}
         </Button>
