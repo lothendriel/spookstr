@@ -40,34 +40,42 @@ export default function RelaySettings() {
 
   // Initialize local state from config or NIP-65
   useEffect(() => {
+    // Always initialize with defaults first
+    const defaults: RelayConfig[] = [
+      {
+        url: 'wss://spookstr2.nostr1.com',
+        mode: 'both',
+        name: 'Spookstr2',
+      },
+      {
+        url: 'wss://relay.primal.net',
+        mode: 'both',
+        name: 'Primal',
+      },
+      {
+        url: 'wss://relay.nostr.band',
+        mode: 'both',
+        name: 'Nostr.Band',
+      },
+    ];
+
     if (config.relays && config.relays.length > 0) {
       setLocalRelays(config.relays);
     } else if (nip65Relays && nip65Relays.length > 0) {
       setLocalRelays(nip65Relays);
     } else {
-      // Default relays for Spookstr - prioritize Spookstr relay
-      setLocalRelays([
-        {
-          url: 'wss://spookstr2.nostr1.com',
-          mode: 'both',
-          name: 'Spookstr2',
-        },
-        {
-          url: 'wss://relay.primal.net',
-          mode: 'both',
-          name: 'Primal',
-        },
-        {
-          url: 'wss://relay.nostr.band',
-          mode: 'both',
-          name: 'Nostr.Band',
-        },
-      ]);
+      setLocalRelays(defaults);
     }
-  }, [config.relays, config.relayUrl, nip65Relays]);
+  }, [config.relays, nip65Relays]);
+
+  // Always include Spookstr relay in health monitoring
+  const relaysToMonitor: RelayConfig[] = [
+    { url: SPOOKSTR_RELAY, mode: 'both', name: 'Spookstr2' },
+    ...localRelays,
+  ];
 
   // Monitor relay health (only checks once per relay)
-  const healthStatus = useRelayHealth(localRelays);
+  const healthStatus = useRelayHealth(relaysToMonitor);
 
   const normalizeRelayUrl = (url: string): string => {
     const trimmed = url.trim();
@@ -135,11 +143,21 @@ export default function RelaySettings() {
   };
 
   const handleSaveLocal = () => {
+    // Always ensure Spookstr relay is included
+    const relaysToSave = [...localRelays];
+    if (!relaysToSave.some(r => r.url === SPOOKSTR_RELAY)) {
+      relaysToSave.unshift({
+        url: SPOOKSTR_RELAY,
+        mode: 'both',
+        name: 'Spookstr2',
+      });
+    }
+
     updateConfig((current) => ({
       ...current,
-      relays: localRelays,
+      relays: relaysToSave,
       // Keep relayUrl for backward compatibility with first relay
-      relayUrl: localRelays[0]?.url || current.relayUrl,
+      relayUrl: relaysToSave[0]?.url || current.relayUrl,
     }));
 
     setHasChanges(false);
@@ -160,7 +178,17 @@ export default function RelaySettings() {
       return;
     }
 
-    const event = createRelayListEvent(localRelays);
+    // Always ensure Spookstr relay is included in published list
+    const relaysToPublish = [...localRelays];
+    if (!relaysToPublish.some(r => r.url === SPOOKSTR_RELAY)) {
+      relaysToPublish.unshift({
+        url: SPOOKSTR_RELAY,
+        mode: 'both',
+        name: 'Spookstr2',
+      });
+    }
+
+    const event = createRelayListEvent(relaysToPublish);
 
     publishEvent(event, {
       onSuccess: () => {
@@ -262,6 +290,54 @@ export default function RelaySettings() {
         </Alert>
       )}
 
+      {/* Spookstr Default Relay */}
+      <Card className="border-lime-500/30 bg-lime-500/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lime-400">
+            <Star className="h-5 w-5 fill-lime-400" />
+            Spookstr Network Relay
+          </CardTitle>
+          <CardDescription>
+            Official relay for the Spookstr paranormal community - always connected
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 border border-lime-500/20 rounded-lg bg-background/50">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {getStatusIcon(healthStatus[SPOOKSTR_RELAY]?.status)}
+            </div>
+
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="font-mono text-sm font-medium">
+                {SPOOKSTR_RELAY.replace(/^wss?:\/\//, '')}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {getStatusBadge(healthStatus[SPOOKSTR_RELAY]?.status)}
+                {healthStatus[SPOOKSTR_RELAY]?.error && (
+                  <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                    {healthStatus[SPOOKSTR_RELAY].error}
+                  </Badge>
+                )}
+                {healthStatus[SPOOKSTR_RELAY]?.latency && (
+                  <Badge variant="outline" className="text-xs">
+                    {healthStatus[SPOOKSTR_RELAY].latency}ms
+                  </Badge>
+                )}
+                <Badge className="bg-lime-500 text-black">
+                  Default
+                </Badge>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                Read & Write
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Add New Relay */}
       <Card>
         <CardHeader>
@@ -314,14 +390,14 @@ export default function RelaySettings() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5" />
-            Your Relays ({localRelays.length})
+            Additional Relays ({localRelays.filter(r => r.url !== SPOOKSTR_RELAY).length})
           </CardTitle>
           <CardDescription>
-            Manage your relay connections and monitor their health status
+            Add more relays to expand your reach across the Nostr network
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {localRelays.length === 0 ? (
+          {localRelays.filter(r => r.url !== SPOOKSTR_RELAY).length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Activity className="h-12 w-12 mx-auto mb-3 opacity-50" />
               <p>No relays configured</p>
@@ -329,31 +405,20 @@ export default function RelaySettings() {
             </div>
           ) : (
             <div className="space-y-3">
-              {localRelays.map((relay) => {
+              {localRelays.filter(r => r.url !== SPOOKSTR_RELAY).map((relay) => {
                 const health = healthStatus[relay.url];
-                const isSpookstrRelay = relay.url === SPOOKSTR_RELAY;
                 return (
                   <div
                     key={relay.url}
-                    className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 border rounded-lg ${
-                      isSpookstrRelay ? 'bg-lime-500/5 border-lime-500/30' : 'bg-card'
-                    }`}
+                    className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 border rounded-lg bg-card"
                   >
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {getStatusIcon(health?.status)}
                     </div>
 
                     <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <div className="font-mono text-sm truncate">
-                          {relay.url.replace(/^wss?:\/\//, '')}
-                        </div>
-                        {isSpookstrRelay && (
-                          <Badge className="bg-lime-500 text-black hover:bg-lime-400 flex items-center gap-1">
-                            <Star className="h-3 w-3 fill-current" />
-                            Spookstr
-                          </Badge>
-                        )}
+                      <div className="font-mono text-sm truncate">
+                        {relay.url.replace(/^wss?:\/\//, '')}
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {getStatusBadge(health?.status)}
