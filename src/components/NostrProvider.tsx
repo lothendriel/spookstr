@@ -27,6 +27,11 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     queryClient.resetQueries();
   }, [config.relays, config.relayUrl, queryClient]);
 
+  // Reset queries when spookstrOnlyMode changes to refresh the feed
+  useEffect(() => {
+    queryClient.resetQueries();
+  }, [config.spookstrOnlyMode, queryClient]);
+
   // Spookstr relay URL
   const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
 
