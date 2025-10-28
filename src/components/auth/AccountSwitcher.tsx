@@ -60,7 +60,11 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
         {otherUsers.map((user) => (
           <DropdownMenuItem
             key={user.id}
-            onClick={() => setLogin(user.id)}
+            onClick={() => {
+              setLogin(user.id);
+              // Refresh the page to clear all cached data and load the new user's data
+              window.location.reload();
+            }}
             className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
           >
             <Avatar className='w-8 h-8'>
