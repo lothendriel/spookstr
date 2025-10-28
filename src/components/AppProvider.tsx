@@ -13,10 +13,22 @@ interface AppProviderProps {
   presetRelays?: { name: string; url: string }[];
 }
 
+// Zod schema for RelayConfig
+const RelayConfigSchema = z.object({
+  url: z.string().url(),
+  mode: z.enum(['read', 'write', 'both']),
+  name: z.string().optional(),
+  status: z.enum(['connected', 'connecting', 'disconnected', 'error']).optional(),
+  error: z.string().optional(),
+  lastConnected: z.number().optional(),
+});
+
 // Zod schema for AppConfig validation
 const AppConfigSchema: z.ZodType<AppConfig, z.ZodTypeDef, unknown> = z.object({
   theme: z.enum(['dark', 'light', 'system']),
   relayUrl: z.string().url(),
+  selectedRelays: z.array(z.string().url()).optional(),
+  relays: z.array(RelayConfigSchema).optional(),
 });
 
 export function AppProvider(props: AppProviderProps) {
@@ -35,10 +47,24 @@ export function AppProvider(props: AppProviderProps) {
       serialize: JSON.stringify,
       deserialize: (value: string) => {
         const parsed = JSON.parse(value);
-        // Ensure selectedRelays exists, defaulting to [relayUrl] for backward compatibility
+
+        // Migrate old single relay config to new multi-relay system
+        if (!parsed.relays || parsed.relays.length === 0) {
+          if (parsed.relayUrl) {
+            parsed.relays = [
+              {
+                url: parsed.relayUrl,
+                mode: 'both' as const,
+              }
+            ];
+          }
+        }
+
+        // Ensure selectedRelays exists for backward compatibility
         if (parsed.selectedRelays === undefined) {
           parsed.selectedRelays = [parsed.relayUrl];
         }
+
         return AppConfigSchema.parse(parsed);
       }
     }

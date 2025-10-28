@@ -3,6 +3,7 @@ import { NostrEvent, NPool, NRelay1 } from '@nostrify/nostrify';
 import { NostrContext } from '@nostrify/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppContext } from '@/hooks/useAppContext';
+import { RelayConfig } from '@/contexts/AppContext';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -18,13 +19,34 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   const pool = useRef<NPool | undefined>(undefined);
 
   // Use refs so the pool always has the latest data
-  const relayUrl = useRef<string>(config.relayUrl);
+  const relays = useRef<RelayConfig[]>([]);
+
+  // Get read and write relays from config
+  const getReadRelays = (): string[] => {
+    if (config.relays && config.relays.length > 0) {
+      return config.relays
+        .filter((r) => r.mode === 'read' || r.mode === 'both')
+        .map((r) => r.url);
+    }
+    // Fallback to legacy relayUrl
+    return [config.relayUrl];
+  };
+
+  const getWriteRelays = (): string[] => {
+    if (config.relays && config.relays.length > 0) {
+      return config.relays
+        .filter((r) => r.mode === 'write' || r.mode === 'both')
+        .map((r) => r.url);
+    }
+    // Fallback to legacy relayUrl
+    return [config.relayUrl];
+  };
 
   // Update refs when config changes
   useEffect(() => {
-    relayUrl.current = config.relayUrl;
+    relays.current = config.relays || [{ url: config.relayUrl, mode: 'both' }];
     queryClient.resetQueries();
-  }, [config.relayUrl, queryClient]);
+  }, [config.relays, config.relayUrl, queryClient]);
 
   // Initialize NPool only once
   if (!pool.current) {
@@ -33,6 +55,8 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return new NRelay1(url);
       },
       reqRouter(filters) {
+        const readRelays = getReadRelays();
+
         // For profile metadata, community definitions, and interaction events with specific event references, query multiple relays
         const isMultiRelayQuery = filters.some(filter =>
           filter.kinds?.includes(0) || // Profile metadata
@@ -47,10 +71,10 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         );
 
         if (isMultiRelayQuery) {
-          // For these important queries, use the selected relay plus preset relays for better data availability
-          const relays = new Set<string>([relayUrl.current]);
+          // For these important queries, use read relays plus preset relays for better data availability
+          const relays = new Set<string>(readRelays);
 
-          // Add preset relays, capped at 5 total
+          // Add preset relays for better discovery, capped at 5 total
           for (const { url } of (presetRelays ?? [])) {
             relays.add(url);
             if (relays.size >= 5) break;
@@ -63,19 +87,24 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
           return relayMap;
         }
 
-        // For other queries (including main feed), use only the selected relay
-        return new Map([[relayUrl.current, filters]]);
+        // For other queries (including main feed), use configured read relays
+        const relayMap = new Map();
+        for (const relayUrl of readRelays) {
+          relayMap.set(relayUrl, filters);
+        }
+        return relayMap;
       },
       eventRouter(_event: NostrEvent) {
-        // Publish to the selected relay
-        const allRelays = new Set<string>([relayUrl.current]);
+        const writeRelays = getWriteRelays();
 
-        // Also publish to the preset relays, capped to 5
-        for (const { url } of (presetRelays ?? [])) {
-          allRelays.add(url);
+        // Publish to configured write relays
+        const allRelays = new Set<string>(writeRelays);
 
-          if (allRelays.size >= 5) {
-            break;
+        // If we have very few write relays, add some preset relays for redundancy
+        if (allRelays.size < 2) {
+          for (const { url } of (presetRelays ?? [])) {
+            allRelays.add(url);
+            if (allRelays.size >= 3) break;
           }
         }
 

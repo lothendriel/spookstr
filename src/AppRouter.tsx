@@ -5,6 +5,7 @@ import Index from "./pages/Index";
 import CalendarPage from "./pages/Calendar";
 import { NIP19Page } from "./pages/NIP19Page";
 import Notifications from "./pages/Notifications";
+import RelaySettings from "./pages/RelaySettings";
 import NotFound from "./pages/NotFound";
 import Hashtag from "./pages/Hashtag";
 import CommunityPage from "./pages/CommunityPage";
@@ -19,6 +20,7 @@ export function AppRouter() {
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/settings/relays" element={<RelaySettings />} />
         <Route path="/t/:tag" element={<Hashtag />} />
         <Route path="/calendar" element={<CalendarPage />} />
         {/* Community Routes */}

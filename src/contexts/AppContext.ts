@@ -2,13 +2,32 @@ import { createContext } from "react";
 
 export type Theme = "dark" | "light" | "system";
 
+export type RelayMode = "read" | "write" | "both";
+
+export interface RelayConfig {
+  /** Relay WebSocket URL */
+  url: string;
+  /** Relay mode: read, write, or both */
+  mode: RelayMode;
+  /** Optional custom name for the relay */
+  name?: string;
+  /** Connection status */
+  status?: "connected" | "connecting" | "disconnected" | "error";
+  /** Last connection error message */
+  error?: string;
+  /** Last successful connection timestamp */
+  lastConnected?: number;
+}
+
 export interface AppConfig {
   /** Current theme */
   theme: Theme;
-  /** Selected relay URL (for feed display) */
+  /** Selected relay URL (for feed display) - DEPRECATED, use relays array */
   relayUrl: string;
-  /** List of relays selected for notifications (optional, defaults to [relayUrl]) */
+  /** List of relays selected for notifications (optional, defaults to [relayUrl]) - DEPRECATED */
   selectedRelays?: string[];
+  /** User's configured relays with read/write modes */
+  relays?: RelayConfig[];
 }
 
 export interface AppContextType {

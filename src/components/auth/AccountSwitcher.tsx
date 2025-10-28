@@ -1,7 +1,7 @@
 // NOTE: This file is stable and usually should not be modified.
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
-import { ChevronDown, LogOut, UserIcon, UserPlus, Wallet, User } from 'lucide-react';
+import { ChevronDown, LogOut, UserIcon, UserPlus, Wallet, User, Activity } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu.tsx';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar.tsx';
-import { RelaySelector } from '@/components/RelaySelector';
 import { WalletModal } from '@/components/WalletModal';
 import { useLoggedInAccounts, type Account } from '@/hooks/useLoggedInAccounts';
 import { genUserName } from '@/lib/genUserName';
@@ -46,9 +45,6 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className='w-56 p-2 animate-scale-in'>
-        <div className='font-medium text-sm px-2 py-1.5'>Switch Relay</div>
-        <RelaySelector className="w-full" />
-        <DropdownMenuSeparator />
         <div className='font-medium text-sm px-2 py-1.5'>Switch Account</div>
         {otherUsers.map((user) => (
           <DropdownMenuItem
@@ -76,6 +72,13 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
         >
           <User className='w-4 h-4' />
           <span>View Profile</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => navigate('/settings/relays')}
+          className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
+        >
+          <Activity className='w-4 h-4' />
+          <span>Relay Settings</span>
         </DropdownMenuItem>
         <WalletModal>
           <DropdownMenuItem
