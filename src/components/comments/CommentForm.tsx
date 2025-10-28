@@ -51,7 +51,7 @@ export function CommentForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Prevent double submission - check both local state and mutation pending
+    // Prevent double submission
     if (!content.trim() || !user || isSubmitting) return;
 
     setIsSubmitting(true);
