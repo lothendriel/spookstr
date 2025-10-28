@@ -51,8 +51,8 @@ export function CommentForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Prevent double submission
-    if (!content.trim() || !user || isSubmitting || isPending) return;
+    // Prevent double submission - check both local state and mutation pending
+    if (!content.trim() || !user || isSubmitting) return;
 
     setIsSubmitting(true);
 
@@ -65,7 +65,8 @@ export function CommentForm({
           setIsSubmitting(false);
           onSuccess?.();
         },
-        onError: () => {
+        onError: (error) => {
+          console.error('Failed to post comment:', error);
           // Re-enable form on error
           setIsSubmitting(false);
         },
@@ -90,7 +91,7 @@ export function CommentForm({
   }
 
   // Combined disabled state
-  const formDisabled = isPending || isSubmitting;
+  const formDisabled = isSubmitting;
 
   return (
     <Card className={compact ? "border-dashed" : ""}>

@@ -115,7 +115,7 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
 
   const handleSubmit = () => {
     // Prevent double submission
-    if (!user || !content.trim() || selectedTags.length === 0 || isSubmitting || isPending) return;
+    if (!user || !content.trim() || selectedTags.length === 0 || isSubmitting) return;
 
     setIsSubmitting(true);
 
@@ -207,7 +207,7 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
   }
 
   // Combined disabled state
-  const formDisabled = isPending || isSubmitting || isUploading;
+  const formDisabled = isSubmitting || isUploading;
 
   return (
     <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm">
