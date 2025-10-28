@@ -8,7 +8,7 @@ const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
 /**
  * Hook that automatically syncs the logged-in user's profile metadata
  * to the Spookstr relay when they first log in.
- * 
+ *
  * This ensures user profiles are always available on the Spookstr relay
  * even when using Spookstr-only mode.
  */
@@ -16,21 +16,21 @@ export function useSpookstrProfileSync() {
   const { user } = useCurrentUser();
   const { nostr } = useNostr();
   const syncedPubkeys = useRef<Set<string>>(new Set());
-  
+
   useEffect(() => {
     if (!user?.pubkey) return;
-    
+
     // Check if we've already synced this pubkey
     const storageKey = `spookstr-synced-${user.pubkey}`;
     const alreadySynced = localStorage.getItem(storageKey);
-    
+
     if (alreadySynced || syncedPubkeys.current.has(user.pubkey)) {
       return;
     }
-    
+
     // Mark as synced immediately to prevent duplicate attempts
     syncedPubkeys.current.add(user.pubkey);
-    
+
     // Fetch the user's profile from any relay
     (async () => {
       try {
@@ -38,24 +38,27 @@ export function useSpookstrProfileSync() {
           [{ kinds: [0], authors: [user.pubkey], limit: 1 }],
           { signal: AbortSignal.timeout(5000) }
         );
-        
+
         if (!profileEvent) {
           console.log('No profile found to sync to Spookstr relay');
           return;
         }
-        
+
         // Publish the profile event to the Spookstr relay
         const spookstrRelay = nostr.relay(SPOOKSTR_RELAY);
-        
-        // Re-sign the event with the user's current timestamp to make it fresh
-        const freshEvent: NostrEvent = {
-          ...profileEvent,
+
+        // Create unsigned event template and sign it fresh
+        const unsignedEvent = {
+          kind: profileEvent.kind,
+          content: profileEvent.content,
+          tags: profileEvent.tags,
           created_at: Math.floor(Date.now() / 1000),
+          pubkey: user.pubkey,
         };
-        
-        await user.signer.signEvent(freshEvent);
-        await spookstrRelay.event(freshEvent);
-        
+
+        const signedEvent = await user.signer.signEvent(unsignedEvent);
+        await spookstrRelay.event(signedEvent);
+
         // Mark as successfully synced
         localStorage.setItem(storageKey, Date.now().toString());
         console.log('Successfully synced profile to Spookstr relay');
