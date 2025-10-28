@@ -20,17 +20,14 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
   // Use refs so the pool always has the latest data
   const relays = useRef<RelayConfig[]>([]);
+  const spookstrOnlyMode = useRef<boolean>(false);
 
   // Update refs when config changes
   useEffect(() => {
     relays.current = config.relays || [{ url: config.relayUrl, mode: 'both' }];
+    spookstrOnlyMode.current = config.spookstrOnlyMode ?? false;
     queryClient.resetQueries();
-  }, [config.relays, config.relayUrl, queryClient]);
-
-  // Reset queries when spookstrOnlyMode changes to refresh the feed
-  useEffect(() => {
-    queryClient.resetQueries();
-  }, [config.spookstrOnlyMode, queryClient]);
+  }, [config.relays, config.relayUrl, config.spookstrOnlyMode, queryClient]);
 
   // Spookstr relay URL
   const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
@@ -38,7 +35,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   // Get read and write relays from refs
   const getReadRelays = (): string[] => {
     // If Spookstr-only mode is enabled, only use the Spookstr relay
-    if (config.spookstrOnlyMode) {
+    if (spookstrOnlyMode.current) {
       return [SPOOKSTR_RELAY];
     }
 
@@ -53,7 +50,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
   const getWriteRelays = (): string[] => {
     // If Spookstr-only mode is enabled, only use the Spookstr relay
-    if (config.spookstrOnlyMode) {
+    if (spookstrOnlyMode.current) {
       return [SPOOKSTR_RELAY];
     }
 
@@ -90,7 +87,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
         if (isMultiRelayQuery) {
           // If Spookstr-only mode is enabled, only use Spookstr relay even for multi-relay queries
-          if (config.spookstrOnlyMode) {
+          if (spookstrOnlyMode.current) {
             const relayMap = new Map();
             relayMap.set(SPOOKSTR_RELAY, filters);
             return relayMap;
@@ -126,7 +123,8 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         const allRelays = new Set<string>(writeRelays);
 
         // If we have very few write relays, add some preset relays for redundancy
-        if (allRelays.size < 2) {
+        // But only if not in Spookstr-only mode
+        if (allRelays.size < 2 && !spookstrOnlyMode.current) {
           for (const { url } of (presetRelays ?? [])) {
             allRelays.add(url);
             if (allRelays.size >= 3) break;
