@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ExternalLink, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { fetchImdbData } from '@/lib/mediaParser';
 
 interface IMDBData {
   title: string;
@@ -19,180 +20,29 @@ interface IMDBPreviewProps {
   className?: string;
 }
 
-// Movie database with real IMDB IDs and data
-const MOVIE_DATABASE: Record<string, IMDBData> = {
-  // Cockneys vs Zombies - using a realistic IMDB ID
-  'tt1234567': {
-    title: 'Cockneys vs Zombies',
-    type: 'Movie',
-    year: '2024',
-    rating: '6.2',
-    thumbnail: 'https://m.media-amazon.com/images/M/MV5BZjgxOTBiM2QtZmYzYy00YjRlLWE0MDYtZjI3YjRiXkEyXkFqcGdeQXVyMTQxNzMzNDI@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
-    description: 'A group of Cockney bank robbers find themselves battling through the zombie apocalypse of East London.'
-  },
-  // Add the specific movie that was requested
-  'tt1362058': {
-    title: 'Cockneys vs Zombies',
-    type: 'Movie',
-    year: '2024',
-    rating: '6.2',
-    thumbnail: 'https://picsum.photos/300/450?random=cockneys',
-    description: 'A group of Cockney bank robbers find themselves battling through zombie apocalypse of East London.'
-  },
-  // The Grand Budapest Hotel
-  'tt2278388': {
-    title: 'The Grand Budapest Hotel',
-    type: 'Movie',
-    year: '2014',
-    rating: '8.1',
-    thumbnail: 'https://m.media-amazon.com/images/M/MV5BMzM5NjUxOTkyMV5BMl5BanBnXkFtZTgwOTE5NzU1ODE@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
-    description: 'A legendary concierge at a famous European hotel between the wars and his protégé become involved in a story involving the theft of a priceless painting.'
-  },
-  // The Shawshank Redemption
-  'tt0111161': {
-    title: 'The Shawshank Redemption',
-    type: 'Movie',
-    year: '1994',
-    rating: '9.3',
-    thumbnail: 'https://m.media-amazon.com/images/M/MV5BMDFkYjJiNmUtZDZiYzAwYzJlZGE3MjU3NzQwN2E3ZmNlXkEyXkFqcGdeQXVyMTMxODk2OTU@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
-    description: 'Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.'
-  },
-  // The Godfather
-  'tt0068646': {
-    title: 'The Godfather',
-    type: 'Movie',
-    year: '1972',
-    rating: '9.2',
-    thumbnail: 'https://m.media-amazon.com/images/M/MV5BM2MyNjYxZGUyMGMtN2Q5Yy00Y2YzLWE2ZjQtMDQ3YzQxZGE2XkEyXkFqcGdeQXVyMTQxNzMzNDI@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
-    description: 'The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.'
-  },
-  // The Dark Knight
-  'tt0468569': {
-    title: 'The Dark Knight',
-    type: 'Movie',
-    year: '2008',
-    rating: '9.0',
-    thumbnail: 'https://picsum.photos/300/450?random=darkknight',
-    description: 'When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.'
-  },
-  // Inception
-  'tt1375666': {
-    title: 'Inception',
-    type: 'Movie',
-    year: '2010',
-    rating: '8.8',
-    thumbnail: 'https://m.media-amazon.com/images/M/V5BMjAxMzY3ODEyNF5BMl5BanBnXkFtZTgwMDI5OTI0Nw@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
-    description: 'A thief who steals corporate secrets through dream-sharing technology is given the task of planting an idea into the mind of a C.E.O.'
-  },
-  // Pulp Fiction
-  'tt0110912': {
-    title: 'Pulp Fiction',
-    type: 'Movie',
-    year: '1994',
-    rating: '8.9',
-    thumbnail: 'https://m.media-amazon.com/images/M/V5BMjE1MDQ1MTYxOGFlJhM2Y4OTk0MTM3NjQ0OGEwMTM5NkEyXkFqcGdeQXVyMTQxNzMzNDI@._V1_UY1200_CR90,0,630,1200_AL_.jpg',
-    description: 'The lives of two mob hitmen, a boxer, a gangster and his wife, and a pair of diner bandits intertwine in four tales of violence and redemption.'
-  }
-};
-
 export function IMDBPreview({ url, className }: IMDBPreviewProps) {
   const [data, setData] = useState<IMDBData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchIMDBData = async () => {
+    const loadIMDBData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // Extract IMDB ID from URL
-        const match = url.match(/imdb\.com\/(?:title|name)\/([a-z0-9]+)/);
-        if (!match) {
-          throw new Error('Invalid IMDB URL');
-        }
-
-        const imdbId = match[1];
-
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        // Look up movie in our database
-        let movieData = MOVIE_DATABASE[imdbId];
-
-        if (movieData) {
-          setData(movieData);
-        } else {
-          // Try to extract movie info from URL path as fallback
-          const urlPath = url.toLowerCase();
-
-          if (urlPath.includes('cockneys') && urlPath.includes('zombies')) {
-            movieData = {
-              title: 'Cockneys vs Zombies',
-              type: 'Movie',
-              year: '2024',
-              rating: '6.2',
-              thumbnail: 'https://picsum.photos/300/450?random=zombies',
-              description: 'A group of Cockney bank robbers find themselves battling through zombie apocalypse of East London.'
-            };
-          } else if (urlPath.includes('grand') && urlPath.includes('budapest')) {
-            movieData = {
-              title: 'The Grand Budapest Hotel',
-              type: 'Movie',
-              year: '2014',
-              rating: '8.1',
-              thumbnail: 'https://picsum.photos/300/450?random=budapest',
-              description: 'A legendary concierge at a famous European hotel between the wars and his protégé become involved in a story involving the theft of a priceless painting.'
-            };
-          } else if (urlPath.includes('shawshank')) {
-            movieData = {
-              title: 'The Shawshank Redemption',
-              type: 'Movie',
-              year: '1994',
-              rating: '9.3',
-              thumbnail: 'https://picsum.photos/300/450?random=shawshank',
-              description: 'Two imprisoned men bond over a number of years, finding solace and eventual redemption through acts of common decency.'
-            };
-          } else if (urlPath.includes('godfather')) {
-            movieData = {
-              title: 'The Godfather',
-              type: 'Movie',
-              year: '1972',
-              rating: '9.2',
-              thumbnail: 'https://picsum.photos/300/450?random=godfather',
-              description: 'The aging patriarch of an organized crime dynasty transfers control of his clandestine empire to his reluctant son.'
-            };
-          } else if (urlPath.includes('dark') && urlPath.includes('knight')) {
-            movieData = {
-              title: 'The Dark Knight',
-              type: 'Movie',
-              year: '2008',
-              rating: '9.0',
-              thumbnail: 'https://picsum.photos/300/450?random=darkknight',
-              description: 'When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.'
-            };
-          }
-
-          if (movieData) {
-            setData(movieData);
-          } else {
-            // Final fallback for unknown movies
-            setData({
-              title: `IMDb Movie (${imdbId})`,
-              type: 'Movie',
-              thumbnail: '',
-              description: 'Visit IMDb for more information about this movie.'
-            });
-          }
-        }
+        // Fetch real IMDB data
+        const movieData = await fetchImdbData(url);
+        setData(movieData);
       } catch (err) {
+        console.error('Failed to fetch IMDB data:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch IMDB data');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchIMDBData();
+    loadIMDBData();
   }, [url]);
 
   if (loading) {

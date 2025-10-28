@@ -1,7 +1,7 @@
 import { type NostrEvent } from '@nostrify/nostrify';
 
 export interface MediaItem {
-  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'hls' | 'dash';
+  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'hls' | 'dash' | 'imdb';
   url: string;
   alt?: string;
   title?: string;
@@ -23,6 +23,10 @@ export interface MediaItem {
     isAdaptive?: boolean;
     qualities?: Array<{ height: number; bitrate: number; url?: string }>;
     masterPlaylist?: string;
+    // IMDB-specific metadata
+    type?: string;
+    year?: string;
+    rating?: string;
   };
 }
 
@@ -702,110 +706,110 @@ export async function getOpenGraphData(url: string): Promise<OpenGraphData> {
   return data;
 }
 
-// IMDB data extraction from HTML content
-async function extractImdbDataFromHtml(html: string, url: string): Promise<{ title: string; type: string; year?: string; rating?: string; thumbnail: string; description: string }> {
+// IMDB data extraction - fetch real movie data
+export async function fetchImdbData(url: string): Promise<{ title: string; type: string; year?: string; rating?: string; thumbnail: string; description: string }> {
   try {
-    // Create a DOM parser to extract data from HTML
+    // Extract IMDB ID from URL
+    const match = url.match(/imdb\.com\/(title|name)\/([a-z0-9]+)/);
+    if (!match) {
+      throw new Error('Invalid IMDB URL');
+    }
+
+    const [, itemType, imdbId] = match;
+    const isMovie = itemType === 'title';
+
+    // Use allorigins.win CORS proxy to fetch IMDB page
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+
+    const response = await fetch(proxyUrl, {
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch IMDB data: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const html = data.contents;
+
+    // Parse HTML to extract data
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
 
-    const isMovie = url.includes('/title/');
-    const isPerson = url.includes('/name/');
-
     if (isMovie) {
-      // Extract movie data
-      const titleElement = doc.querySelector('h1[data-testid="hero-title-block__title"]');
-      const title = titleElement?.textContent?.trim() || 'Unknown Movie';
+      // Extract movie data from meta tags (more reliable than DOM structure)
+      const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content') || '';
+      const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') || '';
+      const ogDescription = doc.querySelector('meta[property="og:description"]')?.getAttribute('content') || '';
 
-      const yearElement = doc.querySelector('.sc-8c396aa-2.jGRxWM');
-      const year = yearElement?.textContent?.trim() || '';
+      // Extract title and year from og:title (format: "Movie Title (Year)")
+      const titleMatch = ogTitle.match(/^(.+?)\s*\((\d{4})\)/);
+      const title = titleMatch ? titleMatch[1] : ogTitle || 'Unknown Movie';
+      const year = titleMatch ? titleMatch[2] : undefined;
 
-      const ratingElement = doc.querySelector('[data-testid="hero-rating-bar__aggregate-rating__score"] span');
-      const rating = ratingElement?.textContent?.trim() || '';
-
-      const descriptionElement = doc.querySelector('[data-testid="plot-xl"]');
-      const description = descriptionElement?.textContent?.trim() || 'No description available.';
-
-      // Extract poster image - try multiple selectors
-      const posterElement = doc.querySelector('img.ipc-image') ||
-                          doc.querySelector('.ipc-poster') ||
-                          doc.querySelector('[data-testid="hero-image__portrait"]') ||
-                          doc.querySelector('meta[property="og:image"]');
-
-      let thumbnail = '';
-      if (posterElement) {
-        if (posterElement.tagName === 'META') {
-          thumbnail = posterElement.getAttribute('content') || '';
-        } else {
-          thumbnail = posterElement.getAttribute('src') || '';
-        }
-
-        // Convert to high resolution if possible
-        if (thumbnail && !thumbnail.includes('@._')) {
-          // IMDB uses @._ for different resolutions, try to get higher quality
-          const baseUrl = thumbnail.split('@._')[0];
-          if (baseUrl) {
-            thumbnail = `${baseUrl}@._V1_UX600_CR0,0,600,900_AL_.jpg`;
+      // Try to extract rating from JSON-LD script
+      let rating: string | undefined;
+      const scripts = doc.querySelectorAll('script[type="application/ld+json"]');
+      for (const script of Array.from(scripts)) {
+        try {
+          const jsonData = JSON.parse(script.textContent || '{}');
+          if (jsonData.aggregateRating?.ratingValue) {
+            rating = String(jsonData.aggregateRating.ratingValue);
+            break;
           }
+        } catch {
+          // Ignore JSON parse errors
+        }
+      }
+
+      // Convert image to higher resolution
+      let thumbnail = ogImage;
+      if (thumbnail && thumbnail.includes('._V1_')) {
+        // IMDB uses ._V1_ for different resolutions
+        const baseUrl = thumbnail.split('._V1_')[0];
+        if (baseUrl) {
+          thumbnail = `${baseUrl}._V1_QL75_UX380_CR0,0,380,562_.jpg`;
         }
       }
 
       return {
         title,
         type: 'Movie',
-        year: year || undefined,
-        rating: rating || undefined,
+        year,
+        rating,
         thumbnail,
-        description
+        description: ogDescription || 'No description available.'
       };
-    } else if (isPerson) {
+    } else {
       // Extract person data
-      const nameElement = doc.querySelector('h1[data-testid="hero-title-block__title"]');
-      const name = nameElement?.textContent?.trim() || 'Unknown Person';
+      const ogTitle = doc.querySelector('meta[property="og:title"]')?.getAttribute('content') || 'Unknown Person';
+      const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') || '';
+      const ogDescription = doc.querySelector('meta[property="og:description"]')?.getAttribute('content') || '';
 
-      const jobElement = doc.querySelector('[data-testid="hero-subnav-bar-section-anchor"]');
-      const job = jobElement?.textContent?.trim() || '';
-
-      // Extract person image
-      const imageElement = doc.querySelector('img.ipc-image') ||
-                         doc.querySelector('[data-testid="hero-image__portrait"]') ||
-                         doc.querySelector('meta[property="og:image"]');
-
-      let thumbnail = '';
-      if (imageElement) {
-        if (imageElement.tagName === 'META') {
-          thumbnail = imageElement.getAttribute('content') || '';
-        } else {
-          thumbnail = imageElement.getAttribute('src') || '';
+      let thumbnail = ogImage;
+      if (thumbnail && thumbnail.includes('._V1_')) {
+        const baseUrl = thumbnail.split('._V1_')[0];
+        if (baseUrl) {
+          thumbnail = `${baseUrl}._V1_QL75_UX380_.jpg`;
         }
       }
 
-      // Get bio or description
-      const bioElement = doc.querySelector('[data-testid="biography"]') ||
-                        doc.querySelector('.ipc-html-content-inner-div');
-      const description = bioElement?.textContent?.trim() || `${job} - Visit IMDb for full biography.`;
-
       return {
-        title: name,
+        title: ogTitle,
         type: 'Person',
         thumbnail,
-        description
-      };
-    } else {
-      return {
-        title: 'IMDb',
-        type: 'unknown',
-        thumbnail: '',
-        description: 'Visit IMDb for more information'
+        description: ogDescription || 'Visit IMDb for full biography.'
       };
     }
   } catch (error) {
-    console.warn('Failed to parse IMDB HTML:', error);
+    console.warn('Failed to fetch IMDB data:', error);
     return {
       title: 'IMDb',
-      type: 'unknown',
+      type: 'Movie',
       thumbnail: '',
-      description: 'Visit IMDb for more information'
+      description: 'Unable to load movie information. Visit IMDb for more details.'
     };
   }
 }
@@ -896,36 +900,35 @@ function detectFileExtension(url: string): string {
   return 'unknown';
 }
 
+// Placeholder data for IMDB links (actual data will be fetched asynchronously by the component)
 function extractImdbData(url: string): { title: string; type: string; year?: string; rating?: string; thumbnail: string; description: string } {
   try {
-    // Extract IMDB ID from URL
-    const match = url.match(/imdb\.com\/(?:title|name)\/([a-z0-9]+)/);
+    // Extract IMDB ID from URL for the placeholder
+    const match = url.match(/imdb\.com\/(title|name)\/([a-z0-9]+)/);
     if (!match) {
       return {
         title: 'IMDb',
-        type: 'unknown',
+        type: 'Movie',
         thumbnail: '',
         description: 'Visit IMDb for more information'
       };
     }
 
-    const imdbId = match[1];
+    const [, itemType] = match;
+    const isMovie = itemType === 'title';
 
-    // For now, return basic data with a promise to fetch real data
-    // In a real implementation, you'd fetch this from a proxy service
-    // that can scrape IMDB pages and extract the actual data
-
+    // Return placeholder that will be replaced by the component
     return {
-      title: 'Loading IMDb data...',
-      type: 'Loading',
+      title: 'Loading...',
+      type: isMovie ? 'Movie' : 'Person',
       thumbnail: '',
-      description: 'Fetching movie information from IMDb...'
+      description: 'Fetching information from IMDb...'
     };
   } catch (error) {
     console.warn('Failed to extract IMDB data:', error);
     return {
       title: 'IMDb',
-      type: 'unknown',
+      type: 'Movie',
       thumbnail: '',
       description: 'Visit IMDb for more information'
     };
