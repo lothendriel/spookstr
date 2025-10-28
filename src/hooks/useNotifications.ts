@@ -51,7 +51,7 @@ export function useNotifications() {
 
       // Build query filter with pagination
       const filter: any = {
-        kinds: [1, 6, 7, 9735],
+        kinds: [1, 6, 7, 9735, 16], // 1=comment, 6=repost, 7=like, 9735=zap, 16=generic repost
         '#e': userPostIds,
         limit: 100, // Load 100 interactions at a time
       };
@@ -78,7 +78,7 @@ export function useNotifications() {
       const filteredInteractions = uniqueInteractions.filter(event => {
         // Only filter kind 1 events (comments) - other kinds (likes, reposts, zaps) are metadata
         if (event.kind === 1) {
-          return !filterNSFWContent([event]).length === 0; // Keep if not NSFW
+          return filterNSFWContent([event]).length === 0; // Keep if not NSFW (empty array means passed filter)
         }
         return true; // Keep all other interaction types
       });
@@ -89,7 +89,7 @@ export function useNotifications() {
 
         if (event.kind === 7) {
           type = 'like';
-        } else if (event.kind === 6) {
+        } else if (event.kind === 6 || event.kind === 16) {
           type = 'repost';
         } else if (event.kind === 9735) {
           type = 'zap';
