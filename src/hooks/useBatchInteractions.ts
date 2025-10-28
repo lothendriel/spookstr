@@ -32,16 +32,6 @@ export function useBatchInteractions(eventIds: string[]) {
         limit: 1000, // Higher limit to capture interactions for multiple posts
       }], { signal });
 
-      console.log('[Batch Interactions] Query results:', {
-        totalEvents: events.length,
-        kinds: events.reduce((acc, e) => {
-          acc[e.kind] = (acc[e.kind] || 0) + 1;
-          return acc;
-        }, {} as Record<number, number>),
-        zapCount: events.filter(e => e.kind === 9735).length,
-        eventIds: eventIds.slice(0, 3),
-      });
-
       // Group interactions by event ID
       const countsMap: Record<string, InteractionCounts> = {};
 
@@ -55,27 +45,8 @@ export function useBatchInteractions(eventIds: string[]) {
       }
 
       // Count interactions for each event
-      const zapEvents = events.filter(e => e.kind === 9735);
-      if (zapEvents.length > 0) {
-        console.log('[Batch Interactions] Found zap receipts:', zapEvents.length);
-        console.log('[Batch Interactions] Sample zap tags:', zapEvents[0].tags);
-        console.log('[Batch Interactions] Sample zap e-tag:', zapEvents[0].tags.find(([tag]) => tag === 'e'));
-      }
-
       for (const event of events) {
         const referencedEventId = event.tags.find(([tag]) => tag === 'e')?.[1];
-
-        // Special logging for zaps
-        if (event.kind === 9735) {
-          console.log('[Batch Interactions] Processing zap:', {
-            eventId: event.id,
-            referencedEventId,
-            hasReference: !!referencedEventId,
-            inCountsMap: !!countsMap[referencedEventId],
-            tags: event.tags,
-          });
-        }
-
         if (!referencedEventId || !countsMap[referencedEventId]) continue;
 
         switch (event.kind) {
@@ -87,7 +58,6 @@ export function useBatchInteractions(eventIds: string[]) {
             break;
           case 9735: // Zap
             countsMap[referencedEventId].zaps++;
-            console.log('[Batch Interactions] Counted zap for event:', referencedEventId);
             break;
           case 1: // Text note reply
           case 1111: // Comment
@@ -95,8 +65,6 @@ export function useBatchInteractions(eventIds: string[]) {
             break;
         }
       }
-
-      console.log('[Batch Interactions] Final counts sample:', Object.entries(countsMap).slice(0, 2));
 
       return countsMap;
     },
@@ -108,6 +76,14 @@ export function useBatchInteractions(eventIds: string[]) {
   // Update individual post interaction caches
   useEffect(() => {
     if (!batchData) return;
+
+    // Log zap counts for debugging
+    const zapCounts = Object.entries(batchData).filter(([_, counts]) => counts.zaps > 0);
+    if (zapCounts.length > 0) {
+      console.log('[Batch Interactions] Updating caches with zap counts:',
+        zapCounts.map(([id, counts]) => ({ id: id.slice(0, 8), zaps: counts.zaps }))
+      );
+    }
 
     for (const [eventId, counts] of Object.entries(batchData)) {
       queryClient.setQueryData(['post-interactions', eventId], counts);
