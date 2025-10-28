@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { RelayConfig } from '@/contexts/AppContext';
 
 interface RelayHealthStatus {
@@ -11,15 +11,22 @@ interface RelayHealthStatus {
 
 /**
  * Monitor the health of multiple relays by attempting WebSocket connections
+ * Only checks once per relay URL to avoid infinite reconnection loops
  */
 export function useRelayHealth(relays: RelayConfig[]) {
   const [healthStatus, setHealthStatus] = useState<Record<string, RelayHealthStatus>>({});
+  const checkedRelays = useRef<Set<string>>(new Set());
+  const socketsRef = useRef<Map<string, WebSocket>>(new Map());
+  const timeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
-    const sockets = new Map<string, WebSocket>();
-    const timeouts = new Map<string, NodeJS.Timeout>();
-
     const checkRelay = (relay: RelayConfig) => {
+      // Skip if already checked
+      if (checkedRelays.current.has(relay.url)) {
+        return;
+      }
+
+      checkedRelays.current.add(relay.url);
       const startTime = Date.now();
 
       // Set connecting status
@@ -33,11 +40,11 @@ export function useRelayHealth(relays: RelayConfig[]) {
 
       try {
         const ws = new WebSocket(relay.url);
-        sockets.set(relay.url, ws);
+        socketsRef.current.set(relay.url, ws);
 
         // Connection timeout (5 seconds)
         const timeout = setTimeout(() => {
-          if (ws.readyState !== WebSocket.OPEN) {
+          if (ws.readyState !== WebSocket.OPEN && ws.readyState !== WebSocket.CLOSED) {
             ws.close();
             setHealthStatus((prev) => ({
               ...prev,
@@ -50,11 +57,15 @@ export function useRelayHealth(relays: RelayConfig[]) {
           }
         }, 5000);
 
-        timeouts.set(relay.url, timeout);
+        timeoutsRef.current.set(relay.url, timeout);
 
         ws.onopen = () => {
           const latency = Date.now() - startTime;
-          clearTimeout(timeout);
+          const currentTimeout = timeoutsRef.current.get(relay.url);
+          if (currentTimeout) {
+            clearTimeout(currentTimeout);
+            timeoutsRef.current.delete(relay.url);
+          }
 
           setHealthStatus((prev) => ({
             ...prev,
@@ -65,10 +76,22 @@ export function useRelayHealth(relays: RelayConfig[]) {
               latency,
             },
           }));
+
+          // Close connection after successful health check
+          setTimeout(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.close();
+            }
+          }, 1000);
         };
 
         ws.onerror = () => {
-          clearTimeout(timeout);
+          const currentTimeout = timeoutsRef.current.get(relay.url);
+          if (currentTimeout) {
+            clearTimeout(currentTimeout);
+            timeoutsRef.current.delete(relay.url);
+          }
+
           setHealthStatus((prev) => ({
             ...prev,
             [relay.url]: {
@@ -79,15 +102,28 @@ export function useRelayHealth(relays: RelayConfig[]) {
           }));
         };
 
-        ws.onclose = () => {
-          clearTimeout(timeout);
-          setHealthStatus((prev) => ({
-            ...prev,
-            [relay.url]: {
-              ...prev[relay.url],
-              status: 'disconnected',
-            },
-          }));
+        ws.onclose = (event) => {
+          const currentTimeout = timeoutsRef.current.get(relay.url);
+          if (currentTimeout) {
+            clearTimeout(currentTimeout);
+            timeoutsRef.current.delete(relay.url);
+          }
+
+          // Only update to disconnected if not already in error or connected state
+          setHealthStatus((prev) => {
+            const current = prev[relay.url];
+            if (current && (current.status === 'error' || current.status === 'connected')) {
+              return prev;
+            }
+            return {
+              ...prev,
+              [relay.url]: {
+                url: relay.url,
+                status: 'disconnected',
+                error: event.code !== 1000 ? `Closed with code ${event.code}` : undefined,
+              },
+            };
+          });
         };
       } catch (error) {
         setHealthStatus((prev) => ({
@@ -101,7 +137,7 @@ export function useRelayHealth(relays: RelayConfig[]) {
       }
     };
 
-    // Check all relays
+    // Check new relays
     relays.forEach((relay) => {
       checkRelay(relay);
     });
@@ -109,17 +145,23 @@ export function useRelayHealth(relays: RelayConfig[]) {
     // Cleanup function
     return () => {
       // Close all WebSocket connections
-      sockets.forEach((ws) => {
-        ws.close();
+      socketsRef.current.forEach((ws, url) => {
+        try {
+          if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+            ws.close(1000, 'Component unmounting');
+          }
+        } catch (e) {
+          console.error(`Error closing WebSocket for ${url}:`, e);
+        }
       });
 
       // Clear all timeouts
-      timeouts.forEach((timeout) => {
+      timeoutsRef.current.forEach((timeout) => {
         clearTimeout(timeout);
       });
 
-      sockets.clear();
-      timeouts.clear();
+      socketsRef.current.clear();
+      timeoutsRef.current.clear();
     };
   }, [relays]);
 

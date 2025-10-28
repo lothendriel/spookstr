@@ -35,9 +35,6 @@ export default function RelaySettings() {
   const [newRelayMode, setNewRelayMode] = useState<RelayMode>('both');
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Monitor relay health
-  const healthStatus = useRelayHealth(localRelays);
-
   // Initialize local state from config or NIP-65
   useEffect(() => {
     if (config.relays && config.relays.length > 0) {
@@ -55,17 +52,8 @@ export default function RelaySettings() {
     }
   }, [config.relays, config.relayUrl, nip65Relays]);
 
-  // Update health status in local relays
-  useEffect(() => {
-    setLocalRelays((prev) =>
-      prev.map((relay) => ({
-        ...relay,
-        status: healthStatus[relay.url]?.status,
-        error: healthStatus[relay.url]?.error,
-        lastConnected: healthStatus[relay.url]?.lastConnected,
-      }))
-    );
-  }, [healthStatus]);
+  // Monitor relay health (only checks once per relay)
+  const healthStatus = useRelayHealth(localRelays);
 
   const normalizeRelayUrl = (url: string): string => {
     const trimmed = url.trim();
@@ -327,33 +315,35 @@ export default function RelaySettings() {
             </div>
           ) : (
             <div className="space-y-3">
-              {localRelays.map((relay) => (
-                <div
-                  key={relay.url}
-                  className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 border rounded-lg bg-card"
-                >
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {getStatusIcon(relay.status)}
-                  </div>
+              {localRelays.map((relay) => {
+                const health = healthStatus[relay.url];
+                return (
+                  <div
+                    key={relay.url}
+                    className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 border rounded-lg bg-card"
+                  >
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {getStatusIcon(health?.status)}
+                    </div>
 
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="font-mono text-sm truncate">
-                      {relay.url.replace(/^wss?:\/\//, '')}
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="font-mono text-sm truncate">
+                        {relay.url.replace(/^wss?:\/\//, '')}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {getStatusBadge(health?.status)}
+                        {health?.error && (
+                          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                            {health.error}
+                          </Badge>
+                        )}
+                        {health?.latency && (
+                          <Badge variant="outline" className="text-xs">
+                            {health.latency}ms
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {getStatusBadge(relay.status)}
-                      {relay.error && (
-                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                          {relay.error}
-                        </Badge>
-                      )}
-                      {healthStatus[relay.url]?.latency && (
-                        <Badge variant="outline" className="text-xs">
-                          {healthStatus[relay.url].latency}ms
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
 
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <Select
@@ -392,7 +382,8 @@ export default function RelaySettings() {
                     </Button>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </CardContent>
