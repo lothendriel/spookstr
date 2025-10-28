@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSeoMeta } from '@unhead/react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useParanormalFeed } from '@/hooks/useParanormalFeed';
+import { useBatchInteractions } from '@/hooks/useBatchInteractions';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { CreateParanormalPost } from '@/components/CreateParanormalPost';
 import { CreatePostModal } from '@/components/CreatePostModal';
@@ -27,6 +28,15 @@ const Index = () => {
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [postsToShow, setPostsToShow] = useState(12); // Show 12 posts initially on all devices
   const isMobile = useIsMobile();
+
+  // Memoize visible post IDs to prevent unnecessary re-renders
+  const visiblePostIds = useMemo(() => {
+    if (!posts) return [];
+    return posts.slice(0, postsToShow).map(post => post.id);
+  }, [posts, postsToShow]);
+
+  // Batch fetch interactions for all visible posts
+  useBatchInteractions(visiblePostIds);
 
   // Reset pagination when new posts are loaded
   useEffect(() => {

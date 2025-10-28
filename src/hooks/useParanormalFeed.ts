@@ -96,9 +96,6 @@ const blockedNpub = 'npub1uhen8835huh3dhgrcck266ad3fxj02dhwmeh6eg3txp7yz2j64xs7n
 const decoded = nip19.decode(blockedNpub);
 const blockedHexPubkey = decoded.data;
 
-console.log('Blocked npub:', blockedNpub);
-console.log('Decoded hex pubkey:', blockedHexPubkey);
-
 // List of blocked pubkeys (hex format) to filter out from the feed
 const BLOCKED_PUBKEYS = [
   blockedHexPubkey, // npub1uhen8835huh3dhgrcck266ad3fxj02dhwmeh6eg3txp7yz2j64xs7nh4p0
@@ -119,7 +116,7 @@ export function useParanormalFeed() {
   return useQuery({
     queryKey: ['paranormal-feed'],
     queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
       // Query for notes with paranormal tags
       const events = await nostr.query([{
@@ -137,7 +134,9 @@ export function useParanormalFeed() {
       return filteredEvents;
     },
     refetchOnWindowFocus: false,
-    staleTime: 30000, // 30 seconds
+    staleTime: 60000, // 1 minute
+    gcTime: 300000, // 5 minutes
+    retry: 1,
   });
 }
 

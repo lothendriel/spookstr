@@ -12,6 +12,25 @@ export default defineConfig(() => ({
   plugins: [
     react(),
   ],
+  build: {
+    // Optimize bundle size and performance
+    target: 'esnext',
+    minify: 'esbuild',
+    cssMinify: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separate vendor chunks for better caching
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'nostr-vendor': ['@nostrify/nostrify', '@nostrify/react', 'nostr-tools'],
+          'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-avatar'],
+          'query-vendor': ['@tanstack/react-query'],
+        },
+      },
+    },
+    // Increase chunk size warning limit to avoid unnecessary warnings
+    chunkSizeWarningLimit: 1000,
+  },
   test: {
     globals: true,
     environment: 'jsdom',

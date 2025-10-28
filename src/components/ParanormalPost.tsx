@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import { nip19 } from 'nostr-tools';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
 import { useRealtimeInteractions } from '@/hooks/useRealtimeInteractions';
+import { useInView } from 'react-intersection-observer';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,7 +43,13 @@ interface ParanormalPostProps {
 }
 
 export function ParanormalPost({ event, onClick, showActions = true }: ParanormalPostProps) {
-  const author = useAuthor(event.pubkey);
+  // Lazy loading with intersection observer
+  const { ref, inView } = useInView({
+    triggerOnce: true,
+    rootMargin: '200px', // Start loading 200px before visible
+  });
+
+  const author = useAuthor(inView ? event.pubkey : undefined);
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const navigate = useNavigate();
@@ -66,6 +73,31 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
 
   // Check if author has lightning address for zapping
   const hasLightningAddress = metadata?.lud16 || metadata?.lud06;
+
+  // Show skeleton if not yet in view
+  if (!inView) {
+    return (
+      <div ref={ref}>
+        <Card className="bg-black/60 border-lime-500/20 hover:border-lime-500/40 transition-all">
+          <CardHeader className="pb-2">
+            <div className="flex items-center space-x-3">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div className="space-y-1">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-3 w-16" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pb-2">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-4/5" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleAvatarClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -357,3 +389,6 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     </>
   );
 }
+
+// Memoize component to prevent unnecessary re-renders
+export default memo(ParanormalPost);

@@ -11,7 +11,11 @@ export function useAuthor(pubkey: string | undefined) {
     const cacheKey = `author-${pubkey}`;
     const cachedItem = localStorage.getItem(cacheKey);
     if (cachedItem) {
-      initialData = JSON.parse(cachedItem);
+      try {
+        initialData = JSON.parse(cachedItem);
+      } catch {
+        // Ignore invalid cache
+      }
     }
   }
 
@@ -48,6 +52,9 @@ export function useAuthor(pubkey: string | undefined) {
       }
     },
     initialData,
-    retry: 3,
+    enabled: !!pubkey,
+    retry: 1,
+    staleTime: 300000, // 5 minutes - profiles don't change often
+    gcTime: 600000, // 10 minutes
   });
 }

@@ -1,17 +1,20 @@
+import { lazy } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 import Index from "./pages/Index";
-import CalendarPage from "./pages/Calendar";
-import { NIP19Page } from "./pages/NIP19Page";
-import Notifications from "./pages/Notifications";
-import RelaySettings from "./pages/RelaySettings";
-import NotFound from "./pages/NotFound";
-import Hashtag from "./pages/Hashtag";
-import CommunityPage from "./pages/CommunityPage";
-import CreateCommunityPage from "./pages/CreateCommunityPage";
-import CommunityBrowsePage from "./pages/CommunityBrowsePage";
-import PostDetailPage from "./pages/PostDetailPage";
+
+// Lazy load less frequently accessed pages
+const CalendarPage = lazy(() => import("./pages/Calendar"));
+const NIP19Page = lazy(() => import("./pages/NIP19Page").then(m => ({ default: m.NIP19Page })));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const RelaySettings = lazy(() => import("./pages/RelaySettings"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Hashtag = lazy(() => import("./pages/Hashtag"));
+const CommunityPage = lazy(() => import("./pages/CommunityPage"));
+const CreateCommunityPage = lazy(() => import("./pages/CreateCommunityPage"));
+const CommunityBrowsePage = lazy(() => import("./pages/CommunityBrowsePage"));
+const PostDetailPage = lazy(() => import("./pages/PostDetailPage"));
 
 export function AppRouter() {
   return (
