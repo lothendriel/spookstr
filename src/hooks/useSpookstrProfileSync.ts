@@ -53,37 +53,48 @@ export function useSpookstrProfileSync() {
 
         console.log('✅ Profile found, publishing to Spookstr relay...');
 
-        // Publish the profile event to the Spookstr relay
-        const spookstrRelay = nostr.relay(SPOOKSTR_RELAY);
+        try {
+          // Publish the profile event to the Spookstr relay
+          const spookstrRelay = nostr.relay(SPOOKSTR_RELAY);
 
-        // Create unsigned event template and sign it fresh
-        const unsignedEvent = {
-          kind: profileEvent.kind,
-          content: profileEvent.content,
-          tags: profileEvent.tags,
-          created_at: Math.floor(Date.now() / 1000),
-          pubkey: user.pubkey,
-        };
+          // Create unsigned event template and sign it fresh
+          const unsignedEvent = {
+            kind: profileEvent.kind,
+            content: profileEvent.content,
+            tags: profileEvent.tags,
+            created_at: Math.floor(Date.now() / 1000),
+            pubkey: user.pubkey,
+          };
 
-        console.log('Signing event...', { unsignedEvent });
-        const signedEvent = await user.signer.signEvent(unsignedEvent);
-        console.log('Event signed, publishing...', { eventId: signedEvent.id });
+          console.log('Signing event...', { unsignedEvent });
+          const signedEvent = await user.signer.signEvent(unsignedEvent);
+          console.log('Event signed, publishing...', { eventId: signedEvent.id });
 
-        const result = await spookstrRelay.event(signedEvent);
-        console.log('Publish result:', result);
+          const result = await spookstrRelay.event(signedEvent);
+          console.log('Publish result:', result);
 
-        // Mark as successfully synced
-        localStorage.setItem(storageKey, Date.now().toString());
-        console.log('✅ Successfully synced profile to Spookstr relay!');
+          // Mark as successfully synced
+          localStorage.setItem(storageKey, Date.now().toString());
+          console.log('✅ Successfully synced profile to Spookstr relay!');
+        } catch (publishError) {
+          console.error('❌ Publish error details:', {
+            error: publishError,
+            type: typeof publishError,
+            message: publishError instanceof Error ? publishError.message : String(publishError),
+            stack: publishError instanceof Error ? publishError.stack : undefined,
+          });
+          throw publishError; // Re-throw to be caught by outer catch
+        }
       } catch (error) {
-        console.error('❌ Failed to sync profile to Spookstr relay:', {
+        console.warn('⚠️  Could not sync profile to Spookstr relay (this is non-critical):', {
           error,
           message: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined,
           relay: SPOOKSTR_RELAY,
           pubkey: user.pubkey,
+          note: 'Profile syncing will be retried on next login. The app will continue to function normally.',
         });
-        // Remove from synced set so it can be retried
+        // Remove from synced set so it can be retried on next login
         syncedPubkeys.current.delete(user.pubkey);
       }
     })();
