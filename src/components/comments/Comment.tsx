@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { NostrEvent } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
 import { useAuthor } from '@/hooks/useAuthor';
-import { useComments } from '@/hooks/useComments';
 import { CommentForm } from './CommentForm';
 import { NoteContent } from '@/components/NoteContent';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -23,20 +22,19 @@ import { ZapDialog } from '@/components/ZapDialog';
 interface CommentProps {
   root: NostrEvent | URL;
   comment: NostrEvent;
+  replies?: NostrEvent[];
   depth?: number;
   maxDepth?: number;
-  limit?: number;
   isLastInBranch?: boolean;
 }
 
-export function Comment({ root, comment, depth = 0, maxDepth = 6, limit, isLastInBranch = false }: CommentProps) {
+export function Comment({ root, comment, replies = [], depth = 0, maxDepth = 6, isLastInBranch = false }: CommentProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showReplies, setShowReplies] = useState(depth < 2); // Auto-expand first 2 levels
   const { user } = useCurrentUser();
   const { mutate: publishEvent } = useNostrPublish();
 
   const author = useAuthor(comment.pubkey);
-  const { data: commentsData } = useComments(root, limit);
 
   // Fetch counts for likes and zaps
   const { nostr } = useNostr();
@@ -62,8 +60,7 @@ export function Comment({ root, comment, depth = 0, maxDepth = 6, limit, isLastI
   const displayName = getDisplayName(metadata, comment.pubkey);
   const timeAgo = formatDistanceToNow(new Date(comment.created_at * 1000), { addSuffix: true });
 
-  // Get direct replies to this comment
-  const replies = commentsData?.getDirectReplies(comment.id) || [];
+  // Use replies passed from parent component
   const hasReplies = replies.length > 0;
   const canExpand = depth < maxDepth;
 

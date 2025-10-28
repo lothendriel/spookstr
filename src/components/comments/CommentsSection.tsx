@@ -22,12 +22,10 @@ interface CommentsSectionProps {
 function ThreadTree({
   nodes,
   root,
-  limit,
   depth = 0
 }: {
   nodes: any[];
   root: NostrEvent | URL;
-  limit?: number;
   depth?: number;
 }) {
   return (
@@ -37,8 +35,8 @@ function ThreadTree({
           <Comment
             root={root}
             comment={node.event}
+            replies={node.children.map((child: any) => child.event)}
             depth={depth}
-            limit={limit}
             isLastInBranch={index === nodes.length - 1}
           />
           {node.children.length > 0 && (
@@ -46,7 +44,6 @@ function ThreadTree({
               <ThreadTree
                 nodes={node.children}
                 root={root}
-                limit={limit}
                 depth={depth + 1}
               />
             </div>
@@ -144,7 +141,6 @@ export function CommentsSection({
             <ThreadTree
               nodes={threadTree}
               root={root}
-              limit={limit}
             />
           </div>
         )}
