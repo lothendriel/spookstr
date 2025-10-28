@@ -13,7 +13,7 @@ import { ZapDialog } from '@/components/ZapDialog';
 import { CommentsSection } from '@/components/comments/CommentsSection';
 import { ArrowLeft, Heart, Repeat, MessageCircle, Zap, Quote, RadioTower } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { genUserName } from '@/lib/genUserName';
+import { getDisplayName } from '@/lib/getDisplayName';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 import { useNostr } from '@nostrify/react';
@@ -80,7 +80,7 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const zapCount = interactionCounts?.zaps || 0;
 
   const metadata = author.data?.metadata;
-  const displayName = metadata?.name || genUserName(event.pubkey);
+  const displayName = getDisplayName(metadata, event.pubkey);
   const timeAgo = formatDistanceToNow(new Date(event.created_at * 1000), { addSuffix: true });
 
   const hasLightningAddress = metadata?.lud16 || metadata?.lud06;

@@ -12,7 +12,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar.tsx';
 import { WalletModal } from '@/components/WalletModal';
 import { useLoggedInAccounts, type Account } from '@/hooks/useLoggedInAccounts';
-import { genUserName } from '@/lib/genUserName';
+import { getDisplayName as getDisplayNameUtil } from '@/lib/getDisplayName';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 
@@ -27,7 +27,7 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
   if (!currentUser) return null;
 
   const getDisplayName = (account: Account): string => {
-    return account.metadata.name ?? genUserName(account.pubkey);
+    return getDisplayNameUtil(account.metadata, account.pubkey);
   }
 
   return (

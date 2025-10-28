@@ -3,7 +3,7 @@ import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useFollow } from '@/hooks/useFollow';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { genUserName } from '@/lib/genUserName';
+import { getDisplayName } from '@/lib/getDisplayName';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,7 @@ export default function Profile({ pubkey }: ProfileProps) {
   const npub = nip19.npubEncode(pubkey);
 
   const metadata = author.data?.metadata;
-  const displayName = metadata?.name || genUserName(pubkey);
+  const displayName = getDisplayName(metadata, pubkey);
 
   useSeoMeta({
     title: `${displayName} - Spookstr`,

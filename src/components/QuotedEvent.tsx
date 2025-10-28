@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthor } from '@/hooks/useAuthor';
-import { genUserName } from '@/lib/genUserName';
+import { getDisplayName } from '@/lib/getDisplayName';
 import { NoteContent } from '@/components/NoteContent';
 import { useMultiRelayEvent } from '@/hooks/useMultiRelayQuery';
 import { nip19 } from 'nostr-tools';
@@ -101,7 +101,7 @@ function QuotedEventContent({ event, className }: QuotedEventContentProps) {
   const author = useAuthor(event.pubkey);
   const navigate = useNavigate();
   const metadata = author.data?.metadata;
-  const displayName = metadata?.name || genUserName(event.pubkey);
+  const displayName = getDisplayName(metadata, event.pubkey);
   const timeAgo = formatDistanceToNow(new Date(event.created_at * 1000), { addSuffix: true });
 
   const handleClick = (e: React.MouseEvent) => {

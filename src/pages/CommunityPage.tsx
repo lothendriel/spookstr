@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthor } from '@/hooks/useAuthor';
-import { genUserName } from '@/lib/genUserName';
+import { getDisplayName } from '@/lib/getDisplayName';
 import { NoteContent } from '@/components/NoteContent';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
@@ -301,7 +301,7 @@ function PostCard({ post, onClick }: { post: CommunityPost; onClick: () => void 
   const author = useAuthor(post.pubkey);
   const metadata = author.data?.metadata;
 
-  const displayName = metadata?.name || genUserName(post.pubkey);
+  const displayName = getDisplayName(metadata, post.pubkey);
   const profileImage = metadata?.picture;
 
   return (

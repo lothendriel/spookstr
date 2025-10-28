@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useAuthor } from '@/hooks/useAuthor';
-import { genUserName } from '@/lib/genUserName';
+import { getDisplayName } from '@/lib/getDisplayName';
 import { formatDistanceToNow } from 'date-fns';
 import { Heart, Repeat, Zap as ZapIcon, MessageCircle, Ghost, CheckCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -34,7 +34,7 @@ interface NotificationItemProps {
 function NotificationItem({ notification, isRead, onMarkAsRead, onClick }: NotificationItemProps) {
   const author = useAuthor(notification.author);
   const metadata = author.data?.metadata;
-  const displayName = metadata?.name || genUserName(notification.author);
+  const displayName = getDisplayName(metadata, notification.author);
   const timeAgo = formatDistanceToNow(new Date(notification.timestamp * 1000), { addSuffix: true });
 
   useEffect(() => {

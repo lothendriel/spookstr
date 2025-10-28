@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuthor } from '@/hooks/useAuthor';
-import { genUserName } from '@/lib/genUserName';
+import { getDisplayName } from '@/lib/getDisplayName';
 import { NoteContent } from '@/components/NoteContent';
 import { ZapButton } from '@/components/ZapButton';
 import { ZapDialog } from '@/components/ZapDialog';
@@ -61,7 +61,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const zapCount = interactionCounts?.zaps || 0;
 
   const metadata = author.data?.metadata;
-  const displayName = metadata?.name || genUserName(event.pubkey);
+  const displayName = getDisplayName(metadata, event.pubkey);
   const timeAgo = formatDistanceToNow(new Date(event.created_at * 1000), { addSuffix: true });
 
   // Check if author has lightning address for zapping
