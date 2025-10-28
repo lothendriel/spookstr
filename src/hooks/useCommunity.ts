@@ -97,18 +97,31 @@ export function useCommunityPosts(communityId?: string, communityAuthor?: string
       if (!communityId || !communityAuthor) return [];
 
       const signal = AbortSignal.timeout(5000);
+      const communityTag = `34550:${communityAuthor}:${communityId}`;
 
-      // Query for community posts (kind 1 with specific community a tag)
-      const events = await nostr.query([{
-        kinds: [1],
-        '#a': [`34550:${communityAuthor}:${communityId}`], // Filter by specific community association
-        limit: 50
-      }], { signal });
+      // Query for community posts (kind 1111 with uppercase A tag for NIP-72, and kind 1 for backwards compatibility)
+      const events = await nostr.query([
+        {
+          kinds: [1111],
+          '#A': [communityTag], // NIP-72 standard uppercase A tag
+          limit: 50
+        },
+        {
+          kinds: [1],
+          '#a': [communityTag], // Legacy lowercase a tag for backwards compatibility
+          limit: 50
+        }
+      ], { signal });
 
       // Filter out NSFW content from community posts
       const filteredEvents = filterNSFWContent(events);
 
-      return filteredEvents.map(event => ({
+      // Remove duplicates and sort by created_at
+      const uniqueEvents = Array.from(
+        new Map(filteredEvents.map(e => [e.id, e])).values()
+      ).sort((a, b) => b.created_at - a.created_at);
+
+      return uniqueEvents.map(event => ({
         id: event.id,
         pubkey: event.pubkey,
         content: event.content,
@@ -130,17 +143,29 @@ export function useCommunityComments(parentEventId?: string, parentEventAuthor?:
 
       const signal = AbortSignal.timeout(5000);
 
-      // Query for comments/replies (kind 1 with e tag pointing to parent)
-      const events = await nostr.query([{
-        kinds: [1],
-        '#e': [parentEventId],
-        limit: 100
-      }], { signal });
+      // Query for comments/replies (kind 1111 and kind 1 with e tag pointing to parent)
+      const events = await nostr.query([
+        {
+          kinds: [1111],
+          '#e': [parentEventId],
+          limit: 100
+        },
+        {
+          kinds: [1],
+          '#e': [parentEventId],
+          limit: 100
+        }
+      ], { signal });
 
       // Filter out NSFW content from community comments
       const filteredEvents = filterNSFWContent(events);
 
-      return filteredEvents.map(event => ({
+      // Remove duplicates and sort by created_at
+      const uniqueEvents = Array.from(
+        new Map(filteredEvents.map(e => [e.id, e])).values()
+      ).sort((a, b) => a.created_at - b.created_at); // Oldest first for comments
+
+      return uniqueEvents.map(event => ({
         id: event.id,
         pubkey: event.pubkey,
         content: event.content,

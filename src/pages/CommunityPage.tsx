@@ -43,13 +43,19 @@ export default function CommunityPage() {
     if (!user || !community || !postContent.trim()) return;
 
     try {
+      // Use kind 1111 for community posts (NIP-72 standard)
       await createEvent({
         event: {
-          kind: 1, // Use kind 1 for regular posts so they appear in all clients
+          kind: 1111,
           content: postContent,
           tags: [
-            // Primary community association (NIP-72 standard)
+            // NIP-72 uppercase tags for community definition
+            ['A', `34550:${community.author}:${community.id}`],
             ['a', `34550:${community.author}:${community.id}`],
+            ['P', community.author],
+            ['p', community.author],
+            ['K', '34550'],
+            ['k', '34550'],
 
             // Community categorization using t tags (for discoverability)
             ['t', 'community'],

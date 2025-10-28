@@ -5,13 +5,15 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
-import { Settings, Plus, Trash2, Save, Users } from 'lucide-react';
+import { Settings, Plus, Trash2, Save, Shield } from 'lucide-react';
 import { CommunityDefinition } from '@/hooks/useCommunity';
+import { ModerationPanel } from '@/components/ModerationPanel';
 
 interface CommunityManagementProps {
   community: CommunityDefinition;
@@ -22,7 +24,7 @@ export function CommunityManagement({ community, onUpdate }: CommunityManagement
   const { user } = useCurrentUser();
   const { mutate: createEvent, isPending } = useNostrPublish();
   const { toast } = useToast();
-  
+
   const [formData, setFormData] = useState({
     name: community.name,
     description: community.description,
@@ -83,7 +85,7 @@ export function CommunityManagement({ community, onUpdate }: CommunityManagement
           title: 'Community Updated',
           description: `${formData.name} has been updated successfully!`,
         });
-        
+
         if (onUpdate) {
           onUpdate();
         }
@@ -101,7 +103,7 @@ export function CommunityManagement({ community, onUpdate }: CommunityManagement
 
   const handleAddModerator = () => {
     if (!newModerator.trim()) return;
-    
+
     if (!formData.moderators.includes(newModerator.trim())) {
       setFormData(prev => ({
         ...prev,
@@ -119,18 +121,32 @@ export function CommunityManagement({ community, onUpdate }: CommunityManagement
   };
 
   return (
-    <Card className="border-purple-500/20 bg-black/40 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="text-purple-400 flex items-center space-x-2">
-          <Settings className="h-5 w-5" />
-          <span>Community Management</span>
-          {!isOwner && (
-            <Badge variant="secondary">Moderator</Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
+    <div className="space-y-6">
+      <Card className="border-purple-500/20 bg-black/40 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle className="text-purple-400 flex items-center space-x-2">
+            <Settings className="h-5 w-5" />
+            <span>Community Management</span>
+            {!isOwner && (
+              <Badge variant="secondary">Moderator</Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
 
-      <CardContent className="space-y-6">
+        <CardContent>
+          <Tabs defaultValue="settings" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 bg-black/40">
+              <TabsTrigger value="settings" className="data-[state=active]:bg-purple-500/20">
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </TabsTrigger>
+              <TabsTrigger value="moderation" className="data-[state=active]:bg-purple-500/20">
+                <Shield className="h-4 w-4 mr-2" />
+                Moderation
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="settings" className="mt-6 space-y-6">
         <div>
           <label className="text-sm font-medium text-purple-300 mb-2 block">
             Community Name
@@ -180,7 +196,7 @@ export function CommunityManagement({ community, onUpdate }: CommunityManagement
                 canRemove={isOwner && moderator !== user?.pubkey}
               />
             ))}
-            
+
             <div className="flex gap-2">
               <Input
                 value={newModerator}
@@ -200,22 +216,29 @@ export function CommunityManagement({ community, onUpdate }: CommunityManagement
           </div>
         </div>
 
-        <Button
-          onClick={handleSubmit}
-          disabled={!formData.name.trim() || isPending}
-          className="bg-purple-500 hover:bg-purple-400 text-black font-semibold w-full"
-        >
-          <Save className="h-4 w-4 mr-2" />
-          {isPending ? 'Saving Changes...' : 'Save Changes'}
-        </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={!formData.name.trim() || isPending}
+                className="bg-purple-500 hover:bg-purple-400 text-black font-semibold w-full"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {isPending ? 'Saving Changes...' : 'Save Changes'}
+              </Button>
 
-        {!isOwner && (
-          <div className="text-xs text-purple-500/60 text-center">
-            As a moderator, you can edit community details but cannot remove the owner or other moderators.
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              {!isOwner && (
+                <div className="text-xs text-purple-500/60 text-center">
+                  As a moderator, you can edit community details but cannot remove the owner or other moderators.
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="moderation" className="mt-6">
+              <ModerationPanel community={community} />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

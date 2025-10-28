@@ -9,7 +9,7 @@ interface PostCommentParams {
   uploadedFiles?: Array<{tags: string[]; file: File}>; // Optional uploaded files with NIP-94 tags
 }
 
-/** Post a NIP-10 compliant comment (kind 1 text note) on an event. */
+/** Post a NIP-10 compliant comment (kind 1 or 1111 text note) on an event. */
 export function usePostComment() {
   const { mutateAsync: publishEvent } = useNostrPublish();
   const queryClient = useQueryClient();
@@ -17,21 +17,51 @@ export function usePostComment() {
   return useMutation({
     mutationFn: async ({ root, reply, content, uploadedFiles = [] }: PostCommentParams) => {
       const tags: string[][] = [];
+      let kind = 1; // Default to kind 1 for regular comments
+      let communityTag: string | undefined;
 
       // For URL roots, we need to handle differently
       if (root instanceof URL) {
         // For URL-based roots, use the URL as a reference
         tags.push(['r', root.toString()]);
       } else {
-        // NIP-10 threading: Add root event reference
-        tags.push(['e', root.id, '', 'root']);
+        // Check if root is a community post (has 'A' tag with 34550)
+        const communityATag = root.tags.find(tag =>
+          tag[0] === 'A' && tag[1]?.startsWith('34550:')
+        );
+
+        if (communityATag) {
+          // This is a community post, use kind 1111 and NIP-72 format
+          kind = 1111;
+          communityTag = communityATag[1];
+
+          // Extract community author from the tag
+          const [, communityAuthor] = communityTag.split(':');
+
+          // Add NIP-72 uppercase tags for community definition
+          tags.push(['A', communityTag]);
+          tags.push(['P', communityAuthor]);
+          tags.push(['K', '34550']);
+        }
+
+        // NIP-10/NIP-72 threading: Add parent event reference
+        tags.push(['e', root.id, '', reply ? 'root' : 'reply']);
         tags.push(['p', root.pubkey]);
+
+        // Add lowercase tags for the parent post
+        if (communityTag) {
+          tags.push(['a', communityTag]);
+          tags.push(['k', root.kind.toString()]);
+        }
       }
 
       // If replying to another comment, add reply reference (NIP-10)
       if (reply) {
         tags.push(['e', reply.id, '', 'reply']);
         tags.push(['p', reply.pubkey]);
+        if (communityTag) {
+          tags.push(['k', reply.kind.toString()]);
+        }
       }
 
       // Add uploaded file tags (NIP-94)
@@ -60,14 +90,15 @@ export function usePostComment() {
       const created_at = Math.floor(Date.now() / 1000);
 
       console.log('📋 Final comment event structure:', {
-        kind: 1,
+        kind,
         content,
-        tags: tags
+        tags: tags,
+        isCommunityComment: !!communityTag
       });
 
       const event = await publishEvent({
         event: {
-          kind: 1, // Use kind 1 for NIP-10 compliant text notes
+          kind,
           content,
           tags,
           created_at,

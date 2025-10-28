@@ -38,10 +38,10 @@ export default function PostDetailPage() {
 
       const signal = AbortSignal.timeout(5000);
 
-      // Query for the specific post by ID (kind 1)
+      // Query for the specific post by ID (kind 1111 or kind 1 for backwards compatibility)
       const events = await nostr.query([{
         ids: [postId],
-        kinds: [1],
+        kinds: [1111, 1],
         limit: 1
       }], { signal });
 
