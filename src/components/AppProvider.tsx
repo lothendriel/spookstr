@@ -50,14 +50,26 @@ export function AppProvider(props: AppProviderProps) {
 
         // Migrate old single relay config to new multi-relay system
         if (!parsed.relays || parsed.relays.length === 0) {
-          if (parsed.relayUrl) {
-            parsed.relays = [
-              {
-                url: parsed.relayUrl,
-                mode: 'both' as const,
-              }
-            ];
-          }
+          // Set sensible defaults with Spookstr relay first
+          parsed.relays = [
+            {
+              url: 'wss://spookstr2.nostr1.com',
+              mode: 'both' as const,
+              name: 'Spookstr2',
+            },
+            {
+              url: 'wss://relay.primal.net',
+              mode: 'both' as const,
+              name: 'Primal',
+            },
+            {
+              url: 'wss://relay.nostr.band',
+              mode: 'both' as const,
+              name: 'Nostr.Band',
+            },
+          ];
+          // Keep the legacy relayUrl for backward compatibility
+          parsed.relayUrl = parsed.relayUrl || 'wss://spookstr2.nostr1.com';
         }
 
         // Ensure selectedRelays exists for backward compatibility

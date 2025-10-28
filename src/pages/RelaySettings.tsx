@@ -41,12 +41,23 @@ export default function RelaySettings() {
       setLocalRelays(config.relays);
     } else if (nip65Relays && nip65Relays.length > 0) {
       setLocalRelays(nip65Relays);
-    } else if (config.relayUrl) {
-      // Fallback to legacy single relay
+    } else {
+      // Default relays for Spookstr - prioritize Spookstr relay
       setLocalRelays([
         {
-          url: config.relayUrl,
+          url: 'wss://spookstr2.nostr1.com',
           mode: 'both',
+          name: 'Spookstr2',
+        },
+        {
+          url: 'wss://relay.primal.net',
+          mode: 'both',
+          name: 'Primal',
+        },
+        {
+          url: 'wss://relay.nostr.band',
+          mode: 'both',
+          name: 'Nostr.Band',
         },
       ]);
     }
