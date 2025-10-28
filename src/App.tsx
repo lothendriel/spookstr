@@ -18,6 +18,7 @@ import AppRouter from './AppRouter';
 import { ScrollToTop } from '@/components/ScrollToTop';
 import { PopOutPodcastPlayer } from '@/components/PopOutPodcastPlayer';
 import { PodcastIndicator } from '@/components/PodcastIndicator';
+import { SpookstrProfileSync } from '@/components/SpookstrProfileSync';
 
 const head = createHead({
   plugins: [
@@ -64,6 +65,9 @@ export function App() {
                     <Suspense>
                       <AppRouter />
                     </Suspense>
+
+                    {/* Sync user profile to Spookstr relay on login */}
+                    <SpookstrProfileSync />
 
                     {/* Global pop-out podcast player */}
                     <PopOutPodcastPlayer />
