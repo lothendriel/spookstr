@@ -90,15 +90,8 @@ export function NoteContent({
 function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> = new Set()): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
 
-  // Try to find direct NIP-19 identifiers first
-  const nip19Parts = parseNip19Identifiers(text);
-  if (nip19Parts.length > 0) {
-    // If we found any NIP-19 identifiers, use that parsed result
-    return nip19Parts;
-  }
-
-  // Otherwise fall back to the original regex approach
-  const regex = /(https?:\/\/[^\s]+)|(nostr:(npub1|note1|nprofile1|nevent1|naddr1)[023456789acdefghjklmnpqrstuvwxyz]+)|@([0-9a-fA-F]{8,})|(#\w+)/g;
+  // Regex to find URLs, Nostr references, @mentions, and hashtags
+  const regex = /(https?:\/\/[^\s]+)|(nostr:(npub1|note1|nprofile1|nevent1)[023456789acdefghjklmnpqrstuvwxyz]+)|@([0-9a-fA-F]{8,})|(#\w+)/g;
 
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -172,7 +165,7 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
         // In a real implementation, you might want to look up users by short hex
         parts.push(
           <span
-            key={`atmention-${keyCounter++}`} 
+            key={`atmention-${keyCounter++}`}
             className="text-blue-500 font-medium"
           >
             @{atMention}
@@ -207,82 +200,6 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
   // If no special content was found, just use the plain text
   if (parts.length === 0) {
     parts.push(text);
-  }
-
-  return parts;
-}
-
-// Add a component to handle direct NIP-19 identifiers in the text
-function parseNip19Identifiers(text: string): React.ReactNode[] {
-  const parts: React.ReactNode[] = [];
-  const nip19Regex = /\b(npub1|nprofile1|note1|nevent1|naddr1)[023456789acdefghjklmnpqrstuvwxyz]{62,}\b/g;
-
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-  let keyCounter = 0;
-
-  while ((match = nip19Regex.exec(text)) !== null) {
-    const fullMatch = match[0];
-    const index = match.index;
-
-    // Add text before this match
-    if (index > lastIndex) {
-      parts.push(text.substring(lastIndex, index));
-    }
-
-    // Try to decode the NIP-19 identifier
-    try {
-      const decoded = nip19.decode(fullMatch);
-      
-      if (decoded.type === 'npub') {
-        const pubkey = decoded.data;
-        parts.push(
-          <NostrMention key={`mention-${keyCounter++}`} pubkey={pubkey} />
-        );
-      } else if (decoded.type === 'nprofile') {
-        const pubkey = decoded.data.pubkey;
-        parts.push(
-          <NostrMention key={`profile-${keyCounter++}`} pubkey={pubkey} />
-        );
-      } else if (decoded.type === 'note') {
-        const eventId = decoded.data;
-        parts.push(
-          <QuotedEvent
-            key={`quoted-${keyCounter++}`} 
-            eventId={eventId}
-            className="mt-2 mb-2"
-          />
-        );
-      } else if (decoded.type === 'nevent') {
-        const eventId = decoded.data.id;
-        parts.push(
-          <QuotedEvent
-            key={`quoted-${keyCounter++}`} 
-            eventId={eventId}
-            className="mt-2 mb-2"
-          />
-        );
-      } else if (decoded.type === 'naddr') {
-        const { pubkey, kind, identifier } = decoded.data;
-        parts.push(
-          <QuotedEvent
-            key={`addressable-${keyCounter++}`} 
-            eventId={identifier}
-            className="mt-2 mb-2"
-          />
-        );
-      }
-    } catch {
-      // If decoding fails, just render as text
-      parts.push(fullMatch);
-    }
-
-    lastIndex = index + fullMatch[0].length;
-  }
-
-  // Add any remaining text
-  if (lastIndex < text.length) {
-    parts.push(text.substring(lastIndex));
   }
 
   return parts;
