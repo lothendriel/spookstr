@@ -11,7 +11,7 @@ import { ZapButton } from '@/components/ZapButton';
 import { ZapDialog } from '@/components/ZapDialog';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { Heart, Repeat, MessageCircle, Zap, Quote, RadioTower } from 'lucide-react';
+import { Heart, Repeat, MessageCircle, Zap, Quote, RadioTower, MoreVertical, Copy, Check } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/hooks/useToast';
 
 interface ParanormalPostProps {
   event: NostrEvent;
@@ -82,6 +83,8 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const [isLiking, setIsLiking] = useState(false);
   const [isReposting, setIsReposting] = useState(false);
   const [isQuoting, setIsQuoting] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  const { toast } = useToast();
 
   // Use the original event ID for interactions, not the reposted event
   const interactionEventId = isRepost && repostedEvent ? repostedEvent.id : event.id;
@@ -260,6 +263,28 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     });
   };
 
+  const handleCopyNoteId = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      // Copy the note ID (note1... format)
+      const noteId = nip19.noteEncode(displayEvent.id);
+      await navigator.clipboard.writeText(noteId);
+      setIsCopied(true);
+      toast({
+        title: "Copied!",
+        description: "Note ID copied to clipboard",
+      });
+      // Reset copied state after 2 seconds
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy note ID",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <>
       <Card
@@ -306,6 +331,36 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
             </div>
             <span className="text-xs text-lime-500/60">{timeAgo}</span>
           </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => e.stopPropagation()}
+                className="h-8 w-8 p-0 text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={handleCopyNoteId}
+                className="flex items-center space-x-2"
+              >
+                {isCopied ? (
+                  <>
+                    <Check className="h-4 w-4 text-lime-500" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" />
+                    <span>Copy Note ID</span>
+                  </>
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardHeader>
 
