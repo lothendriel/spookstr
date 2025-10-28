@@ -221,7 +221,7 @@ export default function Profile({ pubkey }: ProfileProps) {
                   )}
 
                   {metadata?.about && (
-                    <p className="text-lime-100 mb-4 whitespace-pre-wrap">{metadata.about}</p>
+                    <p className="text-lime-100 mb-4 whitespace-pre-wrap break-words">{metadata.about}</p>
                   )}
 
                   {/* Links */}
