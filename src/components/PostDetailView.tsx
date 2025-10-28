@@ -53,7 +53,7 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const [postToSpookstr2Only, setPostToSpookstr2Only] = useState(false);
 
   // Use real-time interactions for counts
-  const { data: interactionCounts, optimisticUpdate } = useRealtimeInteractions(event.id);
+  const { data: interactionCounts, isLoading: isLoadingCounts, optimisticUpdate } = useRealtimeInteractions(event.id);
 
   const likeCount = interactionCounts?.likes || 0;
   const repostCount = interactionCounts?.reposts || 0;
