@@ -14,10 +14,11 @@ import { Heart, Zap, MessageSquare, ChevronDown, ChevronRight, MoreHorizontal } 
 import { formatDistanceToNow } from 'date-fns';
 import { getDisplayName } from '@/lib/getDisplayName';
 import { useNostr } from '@nostrify/react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { ZapDialog } from '@/components/ZapDialog';
+import { useToast } from '@/hooks/useToast';
 
 interface ThreadNode {
   event: NostrEvent;
@@ -37,6 +38,8 @@ export function Comment({ root, comment, children = [], depth = 0, maxDepth = 6 
   const [showReplies, setShowReplies] = useState(depth < 2); // Auto-expand first 2 levels
   const { user } = useCurrentUser();
   const { mutate: publishEvent } = useNostrPublish();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const author = useAuthor(comment.pubkey);
 
@@ -50,6 +53,7 @@ export function Comment({ root, comment, children = [], depth = 0, maxDepth = 6 
     }
   });
   const likeCount = likeEvents?.length || 0;
+  const userHasLiked = user ? likeEvents?.some(event => event.pubkey === user.pubkey) : false;
 
   const { data: zapEvents } = useQuery({
     queryKey: ['zaps', comment.id],
@@ -69,14 +73,46 @@ export function Comment({ root, comment, children = [], depth = 0, maxDepth = 6 
   const canExpand = depth < maxDepth;
 
   const handleLike = () => {
-    if (!user) return;
-    publishEvent({
-      event: {
-        kind: 7,
-        content: '+',
-        tags: [['e', comment.id], ['p', comment.pubkey]]
+    if (!user) {
+      toast({
+        title: "Login required",
+        description: "Please log in to like comments",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    publishEvent(
+      {
+        event: {
+          kind: 7,
+          content: '+',
+          tags: [
+            ['e', comment.id],
+            ['p', comment.pubkey]
+          ]
+        }
+      },
+      {
+        onSuccess: () => {
+          // Invalidate likes query to refresh the count
+          queryClient.invalidateQueries({ queryKey: ['likes', comment.id] });
+
+          toast({
+            title: "Liked!",
+            description: "Your like has been recorded",
+          });
+        },
+        onError: (error) => {
+          console.error('Failed to like comment:', error);
+          toast({
+            title: "Failed to like",
+            description: error.message || "Please try again",
+            variant: "destructive",
+          });
+        }
       }
-    });
+    );
   };
 
   const handleAvatarClick = (e: React.MouseEvent) => {
@@ -140,9 +176,15 @@ export function Comment({ root, comment, children = [], depth = 0, maxDepth = 6 
                     size="sm"
                     onClick={handleLike}
                     disabled={!user}
-                    className="h-8 px-2 text-xs flex items-center space-x-1 hover:text-red-500"
+                    className={`h-8 px-2 text-xs flex items-center space-x-1 transition-colors ${
+                      userHasLiked
+                        ? 'text-red-500 hover:text-red-600'
+                        : 'hover:text-red-500'
+                    }`}
                   >
-                    <Heart className="h-3 w-3" />
+                    <Heart
+                      className={`h-3 w-3 ${userHasLiked ? 'fill-red-500' : ''}`}
+                    />
                     <span className="text-xs">{likeCount > 0 ? likeCount : ''}</span>
                   </Button>
 
