@@ -112,9 +112,42 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
           if (processed.has(event.id)) return;
 
           const eTags = getETags(event);
-          const isDirectReply = root instanceof URL
-            ? eTags.some(tag => tag.marker === 'root')
-            : eTags.some(tag => tag.id === root.id && (tag.marker === 'root' || !tag.marker));
+
+          // Determine if this is a top-level comment (direct reply to root with no other parent)
+          const rootId = root instanceof URL ? root.toString() : root.id;
+
+          // Find reply marker (if any)
+          const replyTag = eTags.find(tag => tag.marker === 'reply');
+
+          // An event is a direct reply to root ONLY if:
+          // 1. It has a reply marker pointing to the root, OR
+          // 2. It has no reply marker AND has a root marker pointing to root, OR
+          // 3. It has no markers but references root in first e-tag AND has no parent in our thread
+          let isDirectReply = false;
+
+          if (replyTag) {
+            // If there's a reply marker, it must point to root
+            isDirectReply = replyTag.id === rootId;
+          } else {
+            // No reply marker - check if it's a direct reply based on root marker or lack of parent
+            const rootTag = eTags.find(tag => tag.marker === 'root');
+            if (rootTag) {
+              // Has root marker - only direct reply if it has no parent in our thread
+              const hasParentInThread = eTags.some(tag =>
+                tag.id !== rootId && eventMap.has(tag.id)
+              );
+              isDirectReply = !hasParentInThread;
+            } else {
+              // No markers - check if first e-tag is root and no other parent exists
+              const firstETag = eTags[0];
+              if (firstETag && firstETag.id === rootId) {
+                const hasOtherParent = eTags.some((tag, idx) =>
+                  idx > 0 && eventMap.has(tag.id)
+                );
+                isDirectReply = !hasOtherParent;
+              }
+            }
+          }
 
           if (isDirectReply) {
             const node = buildNode(event, 0);
