@@ -20,8 +20,13 @@ export function useNotifications() {
   const { user } = useCurrentUser();
   const { config } = useAppContext();
 
+  // Create a stable relay identifier for the query key
+  const relayKey = config.spookstrOnlyMode
+    ? 'spookstr-only'
+    : config.relays?.filter(r => r.mode === 'read' || r.mode === 'both').map(r => r.url).sort().join(',') || config.relayUrl;
+
   return useInfiniteQuery({
-    queryKey: ['notifications', user?.pubkey],
+    queryKey: ['notifications', user?.pubkey, relayKey],
     queryFn: async ({ pageParam = undefined, signal: querySignal }) => {
       console.log('[Notifications] 🔔 Query function called', {
         pubkey: user?.pubkey?.slice(0, 8) + '...',
@@ -33,25 +38,39 @@ export function useNotifications() {
         return { notifications: [], hasMore: false, oldestTimestamp: undefined };
       }
 
-      const signal = AbortSignal.any([querySignal, AbortSignal.timeout(5000)]);
+      const signal = AbortSignal.any([querySignal, AbortSignal.timeout(10000)]); // Increased to 10s for multiple relays
 
-      // Get read relays from config
-      const readRelays = config.relays
-        ?.filter(r => r.mode === 'read' || r.mode === 'both')
-        .map(r => r.url) || [config.relayUrl];
+      // Get read relays from config, respecting spookstrOnlyMode
+      let readRelays: string[];
+      if (config.spookstrOnlyMode) {
+        // Only use Spookstr relay in spookstrOnlyMode
+        const spookstrRelay = config.relays?.find(r => r.url.includes('spookstr'));
+        readRelays = spookstrRelay ? [spookstrRelay.url] : ['wss://spookstr2.nostr1.com'];
+      } else {
+        // Use all configured read relays
+        readRelays = config.relays
+          ?.filter(r => r.mode === 'read' || r.mode === 'both')
+          .map(r => r.url) || [config.relayUrl];
+      }
 
       // Use all read relays for queries
       const relayGroup = readRelays.length > 0 ? nostr.group(readRelays) : nostr;
 
-      console.log(`[Notifications] Querying ${readRelays.length} relays:`, readRelays);
+      console.log(`[Notifications] Querying ${readRelays.length} relays (spookstrOnly: ${config.spookstrOnlyMode}):`, readRelays);
 
       // First, get user posts from ALL relays (increase limit to catch more)
-      const userPosts = await relayGroup.query(
-        [{ kinds: [1], authors: [user.pubkey], limit: 500 }],
-        { signal }
-      );
-
-      console.log(`[Notifications] Found ${userPosts.length} user posts`);
+      let userPosts;
+      try {
+        userPosts = await relayGroup.query(
+          [{ kinds: [1], authors: [user.pubkey], limit: 500 }],
+          { signal }
+        );
+        console.log(`[Notifications] Found ${userPosts.length} user posts`);
+      } catch (error) {
+        console.error('[Notifications] Error fetching user posts:', error);
+        // Return empty on error - query will retry automatically
+        return { notifications: [], hasMore: false, oldestTimestamp: undefined };
+      }
 
       const userPostIds = userPosts.map(post => post.id);
 
@@ -73,9 +92,15 @@ export function useNotifications() {
       }
 
       // Query for interactions with user's posts from ALL read relays
-      const interactions = await relayGroup.query([filter], { signal });
-
-      console.log(`[Notifications] Found ${interactions.length} raw interactions from relays`);
+      let interactions;
+      try {
+        interactions = await relayGroup.query([filter], { signal });
+        console.log(`[Notifications] Found ${interactions.length} raw interactions from relays`);
+      } catch (error) {
+        console.error('[Notifications] Error fetching interactions:', error);
+        // Return empty on error - query will retry automatically
+        return { notifications: [], hasMore: false, oldestTimestamp: undefined };
+      }
 
       // Filter out the user's own interactions
       const otherUserInteractions = interactions.filter(
@@ -190,5 +215,8 @@ export function useNotifications() {
     },
     enabled: !!user?.pubkey,
     refetchInterval: 30000, // Refetch every 30 seconds
+    retry: 2, // Retry failed queries up to 2 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
+    staleTime: 10000, // Consider data stale after 10 seconds
   });
 }
