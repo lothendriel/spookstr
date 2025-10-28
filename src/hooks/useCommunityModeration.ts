@@ -34,11 +34,19 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
       console.log(`📝 Found ${allPosts.length} total posts (kind 1111)`);
 
       // Query for all approval events (kind 4550) for this community
-      const approvals = await nostr.query([{
-        kinds: [4550],
-        '#a': [communityTag],
-        limit: 200
-      }], { signal });
+      // Query by both the community tag AND by author to maximize chances of finding approvals
+      const approvals = await nostr.query([
+        {
+          kinds: [4550],
+          '#a': [communityTag],
+          limit: 200
+        },
+        {
+          kinds: [4550],
+          authors: [communityAuthor],
+          limit: 200
+        }
+      ], { signal });
 
       console.log(`✅ Found ${approvals.length} approval events (kind 4550)`);
 
@@ -100,11 +108,19 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
       console.log('🔍 Fetching approved posts for community:', communityTag);
 
       // Query for all approval events (kind 4550) for this community
-      const approvals = await nostr.query([{
-        kinds: [4550],
-        '#a': [communityTag],
-        limit: 200
-      }], { signal });
+      // Query by both the community tag AND by author to maximize chances of finding approvals
+      const approvals = await nostr.query([
+        {
+          kinds: [4550],
+          '#a': [communityTag],
+          limit: 200
+        },
+        {
+          kinds: [4550],
+          authors: [communityAuthor],
+          limit: 200
+        }
+      ], { signal });
 
       console.log(`✅ Found ${approvals.length} approval events for approved posts`);
 
