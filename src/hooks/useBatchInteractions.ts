@@ -69,8 +69,10 @@ export function useBatchInteractions(eventIds: string[]) {
       return countsMap;
     },
     enabled: eventIds.length > 0,
-    staleTime: 60000, // 1 minute
+    staleTime: 30000, // 30 seconds - fresher data for better UX
     gcTime: 300000, // 5 minutes
+    refetchOnMount: false, // Don't refetch if data exists
+    refetchOnWindowFocus: false, // Rely on real-time updates instead
   });
 
   // Update individual post interaction caches

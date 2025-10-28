@@ -56,11 +56,12 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
     });
   };
 
-  // Base query for initial counts - uses batch query
+  // Base query for initial counts - reads from cache populated by batch query
   const { data: initialCounts, isLoading } = useQuery({
     queryKey: ['post-interactions', eventId],
     queryFn: () => {
-      // Return empty counts - will be populated by batch query
+      // This should never actually run since batch query populates the cache
+      // But if it does, return empty counts as fallback
       return {
         likes: 0,
         reposts: 0,
@@ -69,7 +70,8 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
       };
     },
     enabled: !!eventId,
-    staleTime: 60000, // 1 minute
+    staleTime: Infinity, // Never refetch - data comes from batch query and real-time updates
+    gcTime: 300000, // 5 minutes
   });
 
   return {
