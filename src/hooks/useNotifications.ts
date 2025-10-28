@@ -22,7 +22,7 @@ export function useNotifications() {
   const { config } = useAppContext();
 
   // Fetch the user's NIP-65 relay list for inbox model
-  const { data: userRelayList } = useUserRelays(user?.pubkey);
+  const { data: userRelayList, isLoading: isLoadingRelays } = useUserRelays(user?.pubkey);
 
   // Create a stable relay identifier for the query key
   const relayKey = config.spookstrOnlyMode
@@ -30,7 +30,7 @@ export function useNotifications() {
     : config.relays?.filter(r => r.mode === 'read' || r.mode === 'both').map(r => r.url).sort().join(',') || config.relayUrl;
 
   return useInfiniteQuery({
-    queryKey: ['notifications', user?.pubkey, relayKey],
+    queryKey: ['notifications', user?.pubkey, relayKey, userRelayList?.length],
     queryFn: async ({ pageParam = undefined, signal: querySignal }) => {
       console.log('[Notifications] 🔔 Query function called', {
         pubkey: user?.pubkey?.slice(0, 8) + '...',
@@ -233,7 +233,11 @@ export function useNotifications() {
       // Return the oldest timestamp for pagination
       return lastPage.hasMore ? lastPage.oldestTimestamp : undefined;
     },
-    enabled: !!user?.pubkey,
+    // Wait for user to be logged in AND (relay list to load OR spookstr-only mode OR using default relays)
+    enabled: !!user?.pubkey && (
+      config.spookstrOnlyMode || // Always enabled in spookstr-only mode
+      !isLoadingRelays // Or when relay list is done loading (even if null)
+    ),
     refetchInterval: 30000, // Refetch every 30 seconds
     retry: 2, // Retry failed queries up to 2 times
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
