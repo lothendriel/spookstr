@@ -17,10 +17,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Plus, Activity, AlertCircle, CheckCircle2, Loader2, RefreshCw, Save, Download } from 'lucide-react';
+import { Trash2, Plus, Activity, AlertCircle, CheckCircle2, Loader2, RefreshCw, Save, Download, Star } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
+
+// Official Spookstr relay
+const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
 
 export default function RelaySettings() {
   const { user } = useCurrentUser();
@@ -328,18 +331,29 @@ export default function RelaySettings() {
             <div className="space-y-3">
               {localRelays.map((relay) => {
                 const health = healthStatus[relay.url];
+                const isSpookstrRelay = relay.url === SPOOKSTR_RELAY;
                 return (
                   <div
                     key={relay.url}
-                    className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 border rounded-lg bg-card"
+                    className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 border rounded-lg ${
+                      isSpookstrRelay ? 'bg-lime-500/5 border-lime-500/30' : 'bg-card'
+                    }`}
                   >
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {getStatusIcon(health?.status)}
                     </div>
 
                     <div className="flex-1 min-w-0 space-y-1">
-                      <div className="font-mono text-sm truncate">
-                        {relay.url.replace(/^wss?:\/\//, '')}
+                      <div className="flex items-center gap-2">
+                        <div className="font-mono text-sm truncate">
+                          {relay.url.replace(/^wss?:\/\//, '')}
+                        </div>
+                        {isSpookstrRelay && (
+                          <Badge className="bg-lime-500 text-black hover:bg-lime-400 flex items-center gap-1">
+                            <Star className="h-3 w-3 fill-current" />
+                            Spookstr
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {getStatusBadge(health?.status)}
