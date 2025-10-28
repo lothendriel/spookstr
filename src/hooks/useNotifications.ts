@@ -2,6 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useAppContext } from './useAppContext';
+import { useUserRelays } from './useUserRelays';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 
@@ -19,6 +20,9 @@ export function useNotifications() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const { config } = useAppContext();
+
+  // Fetch the user's NIP-65 relay list for inbox model
+  const { data: userRelayList } = useUserRelays(user?.pubkey);
 
   // Create a stable relay identifier for the query key
   const relayKey = config.spookstrOnlyMode
@@ -40,14 +44,30 @@ export function useNotifications() {
 
       const signal = AbortSignal.any([querySignal, AbortSignal.timeout(10000)]); // Increased to 10s for multiple relays
 
-      // Get read relays from config, respecting spookstrOnlyMode
+      // Get read relays using inbox model (NIP-65)
       let readRelays: string[];
       if (config.spookstrOnlyMode) {
         // Only use Spookstr relay in spookstrOnlyMode
         const spookstrRelay = config.relays?.find(r => r.url.includes('spookstr'));
         readRelays = spookstrRelay ? [spookstrRelay.url] : ['wss://spookstr2.nostr1.com'];
+      } else if (userRelayList && userRelayList.length > 0) {
+        // Use user's NIP-65 read relays (inbox model)
+        const nip65ReadRelays = userRelayList
+          .filter(r => r.mode === 'read' || r.mode === 'both')
+          .map(r => r.url);
+
+        // Combine with configured relays as fallback
+        const configReadRelays = config.relays
+          ?.filter(r => r.mode === 'read' || r.mode === 'both')
+          .map(r => r.url) || [config.relayUrl];
+
+        // Use NIP-65 relays first, then add config relays
+        const relaySet = new Set([...nip65ReadRelays, ...configReadRelays]);
+        readRelays = Array.from(relaySet);
+
+        console.log('[Notifications] 📥 Using inbox model with user\'s NIP-65 read relays:', nip65ReadRelays.length);
       } else {
-        // Use all configured read relays
+        // Fallback to configured read relays
         readRelays = config.relays
           ?.filter(r => r.mode === 'read' || r.mode === 'both')
           .map(r => r.url) || [config.relayUrl];

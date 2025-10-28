@@ -277,15 +277,33 @@ export default function RelaySettings() {
 
       {/* NIP-65 Info */}
       {user && (
-        <Alert>
+        <Alert className="border-lime-500/30 bg-lime-500/5">
           <Activity className="h-4 w-4" />
           <AlertDescription>
-            Your relay list can be synced across all Nostr clients using NIP-65.
-            {nip65Relays && nip65Relays.length > 0 && (
-              <span className="block mt-2">
-                Found {nip65Relays.length} relays in your published relay list.
-              </span>
-            )}
+            <div className="space-y-2">
+              <p>Your relay list can be synced across all Nostr clients using NIP-65 (Inbox/Outbox Model).</p>
+              {nip65Relays && nip65Relays.length > 0 ? (
+                <div className="space-y-1">
+                  <p className="font-semibold">
+                    ✅ Found {nip65Relays.length} relays in your published relay list:
+                  </p>
+                  <ul className="text-sm space-y-1 ml-4">
+                    <li>
+                      📤 <strong>Write:</strong> {nip65Relays.filter(r => r.mode === 'write' || r.mode === 'both').length} relays
+                      <span className="text-muted-foreground ml-1">(where your posts are published)</span>
+                    </li>
+                    <li>
+                      📥 <strong>Read:</strong> {nip65Relays.filter(r => r.mode === 'read' || r.mode === 'both').length} relays
+                      <span className="text-muted-foreground ml-1">(where you receive mentions)</span>
+                    </li>
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-sm">
+                  💡 Publish your relay list to help other Nostr clients find your content and send you notifications.
+                </p>
+              )}
+            </div>
           </AlertDescription>
         </Alert>
       )}
@@ -531,18 +549,34 @@ export default function RelaySettings() {
         <CardHeader>
           <CardTitle className="text-lg">About Relay Modes</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>
-            <strong className="text-emerald-700">Read & Write:</strong> Use this relay for both fetching and publishing events.
-          </p>
-          <p>
-            <strong className="text-blue-700">Read Only:</strong> Only fetch events from this relay. Useful for public indexers.
-          </p>
-          <p>
-            <strong className="text-purple-700">Write Only:</strong> Only publish your events to this relay. Useful for personal relays.
-          </p>
-          <p className="pt-2 text-xs">
-            Tip: Keep your relay list small (2-4 relays) for best performance and discoverability.
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <div>
+            <p>
+              <strong className="text-emerald-700">Read & Write:</strong> Use this relay for both fetching and publishing events.
+            </p>
+            <p>
+              <strong className="text-blue-700">Read Only:</strong> Only fetch events from this relay. Useful for public indexers.
+            </p>
+            <p>
+              <strong className="text-purple-700">Write Only:</strong> Only publish your events to this relay. Useful for personal relays.
+            </p>
+          </div>
+
+          <div className="pt-2 border-t border-lime-500/20">
+            <p className="font-semibold text-lime-400 mb-2">📥 Inbox/Outbox Model (NIP-65)</p>
+            <p className="text-xs mb-2">
+              Spookstr uses the inbox/outbox model for better content discovery:
+            </p>
+            <ul className="text-xs space-y-1 ml-4 list-disc">
+              <li><strong>Write relays:</strong> Where you publish your content. Others query these to find your posts.</li>
+              <li><strong>Read relays:</strong> Where you check for mentions and notifications. Others send there when tagging you.</li>
+              <li><strong>Profile pages:</strong> Query the user's write relays to find their content.</li>
+              <li><strong>Notifications:</strong> Query your read relays to find mentions of you.</li>
+            </ul>
+          </div>
+
+          <p className="pt-2 text-xs border-t border-lime-500/20">
+            💡 Tip: Keep your relay list small (2-4 relays) for best performance and discoverability across the Nostr network.
           </p>
         </CardContent>
       </Card>

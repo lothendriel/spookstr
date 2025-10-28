@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ParanormalPost } from '@/components/ParanormalPost';
-import { useMultiRelayQuery } from '@/hooks/useMultiRelayQuery';
+import { useOutboxQuery } from '@/hooks/useOutboxQuery';
 import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
@@ -61,8 +61,9 @@ export default function Profile({ pubkey }: ProfileProps) {
     }
   };
 
-  // Fetch user's posts (excluding replies) from multiple relays
-  const { data: posts, isLoading: isLoadingPosts } = useMultiRelayQuery({
+  // Fetch user's posts using outbox model (queries their write relays)
+  const { data: posts, isLoading: isLoadingPosts } = useOutboxQuery({
+    authorPubkey: pubkey,
     filters: [{ kinds: [1], authors: [pubkey], limit: 50 }],
     enabled: !!pubkey,
     staleTime: 30000,
@@ -74,8 +75,9 @@ export default function Profile({ pubkey }: ProfileProps) {
       .sort((a, b) => b.created_at - a.created_at) :
     null;
 
-  // Fetch user's replies from multiple relays
-  const { data: replies, isLoading: isLoadingReplies } = useMultiRelayQuery({
+  // Fetch user's replies using outbox model (queries their write relays)
+  const { data: replies, isLoading: isLoadingReplies } = useOutboxQuery({
+    authorPubkey: pubkey,
     filters: [{ kinds: [1], authors: [pubkey], limit: 50 }],
     enabled: !!pubkey,
     staleTime: 30000,
