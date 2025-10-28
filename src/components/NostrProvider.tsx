@@ -27,8 +27,16 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     queryClient.resetQueries();
   }, [config.relays, config.relayUrl, queryClient]);
 
+  // Spookstr relay URL
+  const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
+
   // Get read and write relays from refs
   const getReadRelays = (): string[] => {
+    // If Spookstr-only mode is enabled, only use the Spookstr relay
+    if (config.spookstrOnlyMode) {
+      return [SPOOKSTR_RELAY];
+    }
+
     if (relays.current && relays.current.length > 0) {
       return relays.current
         .filter((r) => r.mode === 'read' || r.mode === 'both')
@@ -39,6 +47,11 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   };
 
   const getWriteRelays = (): string[] => {
+    // If Spookstr-only mode is enabled, only use the Spookstr relay
+    if (config.spookstrOnlyMode) {
+      return [SPOOKSTR_RELAY];
+    }
+
     if (relays.current && relays.current.length > 0) {
       return relays.current
         .filter((r) => r.mode === 'write' || r.mode === 'both')
@@ -71,6 +84,13 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         );
 
         if (isMultiRelayQuery) {
+          // If Spookstr-only mode is enabled, only use Spookstr relay even for multi-relay queries
+          if (config.spookstrOnlyMode) {
+            const relayMap = new Map();
+            relayMap.set(SPOOKSTR_RELAY, filters);
+            return relayMap;
+          }
+
           // For these important queries, use read relays plus preset relays for better data availability
           const relays = new Set<string>(readRelays);
 

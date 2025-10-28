@@ -28,6 +28,8 @@ export interface AppConfig {
   selectedRelays?: string[];
   /** User's configured relays with read/write modes */
   relays?: RelayConfig[];
+  /** When enabled, only read from the Spookstr relay */
+  spookstrOnlyMode?: boolean;
 }
 
 export interface AppContextType {

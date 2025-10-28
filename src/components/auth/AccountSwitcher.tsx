@@ -1,20 +1,23 @@
 // NOTE: This file is stable and usually should not be modified.
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
-import { ChevronDown, LogOut, UserIcon, UserPlus, Wallet, User, Activity } from 'lucide-react';
+import { ChevronDown, LogOut, UserIcon, UserPlus, Wallet, User, Activity, Radio } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu.tsx';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar.tsx';
+import { Switch } from '@/components/ui/switch.tsx';
 import { WalletModal } from '@/components/WalletModal';
 import { useLoggedInAccounts, type Account } from '@/hooks/useLoggedInAccounts';
 import { getDisplayName as getDisplayNameUtil } from '@/lib/getDisplayName';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
+import { useAppContext } from '@/hooks/useAppContext';
 
 interface AccountSwitcherProps {
   onAddAccountClick: () => void;
@@ -22,6 +25,7 @@ interface AccountSwitcherProps {
 
 export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
   const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
+  const { config, updateConfig } = useAppContext();
   const navigate = useNavigate();
 
   if (!currentUser) return null;
@@ -29,6 +33,13 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
   const getDisplayName = (account: Account): string => {
     return getDisplayNameUtil(account.metadata, account.pubkey);
   }
+
+  const handleSpookstrModeToggle = (checked: boolean) => {
+    updateConfig((current) => ({
+      ...current,
+      spookstrOnlyMode: checked,
+    }));
+  };
 
   return (
     <DropdownMenu modal={false}>
@@ -62,6 +73,21 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
             {user.id === currentUser.id && <div className='w-2 h-2 rounded-full bg-primary'></div>}
           </DropdownMenuItem>
         ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="px-2 py-1.5 text-xs text-muted-foreground font-normal">
+          Settings
+        </DropdownMenuLabel>
+        <div className='flex items-center justify-between px-2 py-2 rounded-md hover:bg-accent'>
+          <div className='flex items-center gap-2'>
+            <Radio className='w-4 h-4' />
+            <span className='text-sm'>Spookstr Only Mode</span>
+          </div>
+          <Switch
+            checked={config.spookstrOnlyMode ?? false}
+            onCheckedChange={handleSpookstrModeToggle}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {

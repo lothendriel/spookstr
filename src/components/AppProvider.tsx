@@ -29,6 +29,7 @@ const AppConfigSchema: z.ZodType<AppConfig, z.ZodTypeDef, unknown> = z.object({
   relayUrl: z.string().url(),
   selectedRelays: z.array(z.string().url()).optional(),
   relays: z.array(RelayConfigSchema).optional(),
+  spookstrOnlyMode: z.boolean().optional(),
 });
 
 export function AppProvider(props: AppProviderProps) {
