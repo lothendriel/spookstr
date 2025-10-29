@@ -23,7 +23,29 @@ const validateNsec = (nsec: string) => {
 };
 
 const validateBunkerUri = (uri: string) => {
-  return uri.startsWith('bunker://');
+  if (!uri.startsWith('bunker://')) {
+    return false;
+  }
+
+  try {
+    // Parse the bunker URI to validate its structure
+    const url = new URL(uri);
+    const pubkey = url.hostname || url.pathname.replace('//', '');
+    const relay = url.searchParams.get('relay');
+
+    // Bunker URI must have a pubkey (64 hex chars) and at least one relay
+    if (!pubkey || pubkey.length !== 64 || !/^[0-9a-f]{64}$/.test(pubkey)) {
+      return false;
+    }
+
+    if (!relay || !relay.startsWith('wss://')) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onSignup }) => {
@@ -118,7 +140,10 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
     }
 
     if (!validateBunkerUri(bunkerUri)) {
-      setErrors(prev => ({ ...prev, bunker: 'Invalid bunker URI format. Must start with bunker://' }));
+      setErrors(prev => ({
+        ...prev,
+        bunker: 'Invalid bunker URI format. Must be: bunker://<pubkey>?relay=wss://relay-url&secret=<optional-secret>'
+      }));
       return;
     }
 
@@ -131,10 +156,14 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
       onClose();
       // Clear the URI from memory
       setBunkerUri('');
-    } catch {
+    } catch (error) {
+      console.error('Bunker login error:', error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : 'Failed to connect to bunker. Please check the URI and try again.';
       setErrors(prev => ({
         ...prev,
-        bunker: 'Failed to connect to bunker. Please check the URI.'
+        bunker: errorMessage
       }));
     } finally {
       setIsLoading(false);

@@ -15,8 +15,51 @@ export function useLoginActions() {
     },
     // Login with a NIP-46 "bunker://" URI
     async bunker(uri: string): Promise<void> {
-      const login = await NLogin.fromBunker(uri, nostr);
-      addLogin(login);
+      console.log('🔐 Starting bunker login...');
+      console.log('📋 Bunker URI format check:', uri.substring(0, 20) + '...');
+
+      try {
+        // Parse the URI to extract relay information for debugging
+        const url = new URL(uri);
+        const relay = url.searchParams.get('relay');
+        console.log('🔗 Bunker relay:', relay);
+
+        // Add a timeout for the bunker connection (30 seconds)
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            console.error('⏱️ Bunker connection timeout after 30s');
+            reject(new Error('Connection timeout. Please check your bunker relay and try again.'));
+          }, 30000);
+        });
+
+        console.log('🚀 Attempting to connect to bunker...');
+        const loginPromise = NLogin.fromBunker(uri, nostr);
+
+        const login = await Promise.race([loginPromise, timeoutPromise]) as Awaited<typeof loginPromise>;
+        console.log('✅ Bunker connection successful!');
+        addLogin(login);
+      } catch (error) {
+        console.error('❌ Bunker login failed:', error);
+
+        // Provide more user-friendly error messages
+        if (error instanceof Error) {
+          const errorMsg = error.message.toLowerCase();
+
+          if (errorMsg.includes('timeout')) {
+            throw new Error('Connection timeout. The bunker relay may be unreachable or not responding.');
+          } else if (errorMsg.includes('relay') || errorMsg.includes('websocket')) {
+            throw new Error('Failed to connect to the bunker relay. Please verify the relay URL is correct and accessible.');
+          } else if (errorMsg.includes('secret') || errorMsg.includes('auth')) {
+            throw new Error('Authentication failed. Please check your bunker secret is correct.');
+          } else if (errorMsg.includes('pubkey') || errorMsg.includes('invalid')) {
+            throw new Error('Invalid bunker URI. Please check the pubkey and parameters.');
+          } else {
+            // Return the original error message if it doesn't match known patterns
+            throw new Error(`Bunker connection failed: ${error.message}`);
+          }
+        }
+        throw new Error('An unknown error occurred during bunker connection. Please try again.');
+      }
     },
     // Login with a NIP-07 browser extension
     async extension(): Promise<void> {
