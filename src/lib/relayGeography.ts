@@ -1,6 +1,6 @@
 /**
  * Geographic Relay Selection System
- * 
+ *
  * Selects optimal relays based on user location:
  * - User geolocation detection
  * - Relay location mapping
@@ -8,6 +8,7 @@
  * - Regional relay preferences
  */
 
+import { useState, useEffect } from 'react';
 import { devLogger } from './devLogger';
 
 const geoLogger = devLogger.scope('relay-geo');
@@ -58,7 +59,7 @@ const KNOWN_RELAY_LOCATIONS: Record<string, RelayLocationInfo> = {
     provider: 'nos.lol',
     regions: ['North America', 'Canada']
   },
-  
+
   // Europe
   'wss://relay.nostr.band': {
     url: 'wss://relay.nostr.band',
@@ -151,9 +152,9 @@ class GeographicRelaySelector {
       const browserLocation = await this.getBrowserLocation();
       if (browserLocation) {
         this.userLocation = browserLocation;
-        geoLogger.info('Got user location from browser', { 
+        geoLogger.info('Got user location from browser', {
           country: browserLocation.country,
-          region: browserLocation.region 
+          region: browserLocation.region
         });
         return browserLocation;
       }
@@ -162,9 +163,9 @@ class GeographicRelaySelector {
       const ipLocation = await this.getIPLocation();
       if (ipLocation) {
         this.userLocation = ipLocation;
-        geoLogger.info('Got user location from IP', { 
+        geoLogger.info('Got user location from IP', {
           country: ipLocation.country,
-          region: ipLocation.region 
+          region: ipLocation.region
         });
         return ipLocation;
       }
@@ -173,9 +174,9 @@ class GeographicRelaySelector {
       const timezoneLocation = this.getTimezoneLocation();
       if (timezoneLocation) {
         this.userLocation = timezoneLocation;
-        geoLogger.info('Got user location from timezone', { 
+        geoLogger.info('Got user location from timezone', {
           timezone: timezoneLocation.timezone,
-          region: timezoneLocation.region 
+          region: timezoneLocation.region
         });
         return timezoneLocation;
       }
@@ -205,7 +206,7 @@ class GeographicRelaySelector {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
-          
+
           // Try to get additional location info via reverse geocoding
           try {
             const locationInfo = await this.reverseGeocode(latitude, longitude);
@@ -236,13 +237,13 @@ class GeographicRelaySelector {
       const response = await fetch('https://ipapi.co/json/', {
         signal: AbortSignal.timeout(5000)
       });
-      
+
       if (!response.ok) {
         throw new Error('IP geolocation service unavailable');
       }
 
       const data = await response.json();
-      
+
       if (data.latitude && data.longitude) {
         return {
           latitude: data.latitude,
@@ -265,7 +266,7 @@ class GeographicRelaySelector {
    */
   private getTimezoneLocation(): GeographicLocation | null {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    
+
     // Basic timezone to region mapping
     const timezoneRegions: Record<string, Partial<GeographicLocation>> = {
       'America/New_York': { latitude: 40.7128, longitude: -74.0060, country: 'US', region: 'North America' },
@@ -322,18 +323,18 @@ class GeographicRelaySelector {
    * Calculate distance between two points using Haversine formula
    */
   private calculateDistance(
-    lat1: number, lng1: number, 
+    lat1: number, lng1: number,
     lat2: number, lng2: number
   ): number {
     const R = 6371; // Earth's radius in km
     const dLat = this.degToRad(lat2 - lat1);
     const dLng = this.degToRad(lng2 - lng1);
-    
-    const a = 
+
+    const a =
       Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(this.degToRad(lat1)) * Math.cos(this.degToRad(lat2)) * 
+      Math.cos(this.degToRad(lat1)) * Math.cos(this.degToRad(lat2)) *
       Math.sin(dLng/2) * Math.sin(dLng/2);
-    
+
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c; // Distance in km
   }
@@ -350,7 +351,7 @@ class GeographicRelaySelector {
     const baseLatency = 20; // Base processing latency
     const distanceLatency = distance * 0.1;
     const networkOverhead = 30; // Additional network overhead
-    
+
     return Math.round(baseLatency + distanceLatency + networkOverhead);
   }
 
@@ -385,7 +386,7 @@ class GeographicRelaySelector {
           userLocation.latitude, userLocation.longitude,
           info!.location.latitude, info!.location.longitude
         );
-        
+
         const estimatedLatency = this.estimateLatency(distance);
 
         return {
@@ -402,18 +403,18 @@ class GeographicRelaySelector {
 
       // Distance score (closer is better)
       const maxDistance = Math.max(...relayScores.map(r => r.distanceFromUser!));
-      const distanceScore = maxDistance > 0 ? 
+      const distanceScore = maxDistance > 0 ?
         (maxDistance - relay.distanceFromUser!) / maxDistance : 1;
       score += distanceScore * (1 - currentPrefs.latencyWeight) * 100;
 
       // Latency score (lower is better)
       const maxLatency = Math.max(...relayScores.map(r => r.estimatedLatency!));
-      const latencyScore = maxLatency > 0 ? 
+      const latencyScore = maxLatency > 0 ?
         (maxLatency - relay.estimatedLatency!) / maxLatency : 1;
       score += latencyScore * currentPrefs.latencyWeight * 100;
 
       // Preferred region bonus
-      if (currentPrefs.preferredRegions.some(region => 
+      if (currentPrefs.preferredRegions.some(region =>
         relay.regions.includes(region) || relay.location.region === region)) {
         score += 20;
       }
@@ -446,12 +447,12 @@ class GeographicRelaySelector {
       // For subsequent relays, consider diversity
       const hasNewRegion = relay.regions.some(region => !usedRegions.has(region));
       const diversityBonus = hasNewRegion ? currentPrefs.diversityFactor * 20 : 0;
-      
+
       // Add diversity bonus to score for comparison
       const adjustedScore = relay.score + diversityBonus;
-      
+
       // Add if it's still competitive with diversity bonus
-      if (selectedRelays.length < count && 
+      if (selectedRelays.length < count &&
           (adjustedScore >= selectedRelays[selectedRelays.length - 1].score * 0.8 || hasNewRegion)) {
         selectedRelays.push(relay);
         relay.regions.forEach(region => usedRegions.add(region));
@@ -486,10 +487,10 @@ class GeographicRelaySelector {
     ];
 
     const selected: RelayLocationInfo[] = [];
-    
+
     for (const url of priorityOrder) {
       if (selected.length >= count) break;
-      
+
       if (availableRelays.includes(url)) {
         const info = this.getRelayLocationInfo(url);
         if (info) {
@@ -501,7 +502,7 @@ class GeographicRelaySelector {
     // Fill remaining slots with any available relays
     for (const url of availableRelays) {
       if (selected.length >= count) break;
-      
+
       if (!selected.some(r => r.url === url)) {
         const info = this.getRelayLocationInfo(url);
         if (info) {
@@ -571,8 +572,8 @@ class GeographicRelaySelector {
    */
   getRelaysInRegion(region: string): RelayLocationInfo[] {
     return Array.from(this.relayLocations.values())
-      .filter(info => 
-        info.regions.includes(region) || 
+      .filter(info =>
+        info.regions.includes(region) ||
         info.location.region === region ||
         info.location.country === region
       );
@@ -596,9 +597,9 @@ export function useGeographicRelay(availableRelays: string[], count: number = 3)
       try {
         const location = await geoRelaySelector.getUserLocation();
         setUserLocation(location);
-        
+
         const selected = await geoRelaySelector.selectOptimalRelays(
-          availableRelays, 
+          availableRelays,
           count
         );
         setOptimalRelays(selected);
