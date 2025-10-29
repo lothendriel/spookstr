@@ -15,48 +15,74 @@ interface MultiRelayQueryOptions {
  * Hook for querying Nostr events from multiple relays simultaneously
  * Uses all preset relays from the relay selector for maximum coverage
  */
-export function useMultiRelayQuery({ 
-  filters, 
-  enabled = true, 
+export function useMultiRelayQuery({
+  filters,
+  enabled = true,
   staleTime = 30000,
-  retry = 1 
+  retry = 1
 }: MultiRelayQueryOptions) {
   const { nostr } = useNostr();
-  const { presetRelays = [] } = useAppContext();
+  const { presetRelays = [], config } = useAppContext();
 
   return useQuery({
-    queryKey: ['multi-relay-query', filters, presetRelays.map(r => r.url)],
+    queryKey: ['multi-relay-query', filters, presetRelays.map(r => r.url), config.relays?.map(r => r.url) || config.relayUrl],
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
-      
-      // Get all available relay URLs
-      const relayUrls = presetRelays.map(r => r.url);
-      
-      console.log('MultiRelayQuery: Fetching from relays:', relayUrls);
-      console.log('MultiRelayQuery: Filters:', filters);
 
-      // If we have preset relays, query from all of them
-      if (relayUrls.length > 0) {
+      // Get all available relay URLs from preset relays + app config
+      let relayUrls: string[] = [];
+
+      // Add preset relays if available
+      if (presetRelays && presetRelays.length > 0) {
+        relayUrls = presetRelays.map(r => r.url);
+      } else {
+        // Fallback to configured relays from app context
+        if (config.relays && config.relays.length > 0) {
+          relayUrls = config.relays.map(r => r.url);
+        } else if (config.relayUrl) {
+          relayUrls = [config.relayUrl];
+        }
+      }
+
+      console.log(`MultiRelayQuery: Fetching from ${relayUrls.length} relays:`, relayUrls);
+      console.log('MultiRelayQuery: Filters:', JSON.stringify(filters, null, 2));
+
+      // If we have multiple relays, query from all of them
+      if (relayUrls.length > 1) {
         try {
           const relayGroup = nostr.group(relayUrls);
           const events = await relayGroup.query(filters, { signal });
-          console.log('MultiRelayQuery: Found events from relay group:', events.length);
+          console.log(`MultiRelayQuery: Found ${events.length} events from relay group`);
           return events;
         } catch (groupError) {
           console.log('MultiRelayQuery: Relay group failed, falling back to default:', groupError);
           // Fallback to default nostr instance
           const events = await nostr.query(filters, { signal });
-          console.log('MultiRelayQuery: Found events from fallback:', events.length);
+          console.log(`MultiRelayQuery: Found ${events.length} events from fallback`);
+          return events;
+        }
+      } else if (relayUrls.length === 1) {
+        // Single relay, use relay() method
+        try {
+          const relay = nostr.relay(relayUrls[0]);
+          const events = await relay.query(filters, { signal });
+          console.log(`MultiRelayQuery: Found ${events.length} events from single relay`);
+          return events;
+        } catch (relayError) {
+          console.log('MultiRelayQuery: Single relay failed, falling back to default:', relayError);
+          // Fallback to default nostr instance
+          const events = await nostr.query(filters, { signal });
+          console.log(`MultiRelayQuery: Found ${events.length} events from fallback`);
           return events;
         }
       } else {
-        // No preset relays, use default behavior
+        // No relays configured, use default behavior
         const events = await nostr.query(filters, { signal });
-        console.log('MultiRelayQuery: Found events from default:', events.length);
+        console.log(`MultiRelayQuery: Found ${events.length} events from default`);
         return events;
       }
     },
-    enabled: enabled && presetRelays.length > 0,
+    enabled: enabled,
     staleTime,
     retry,
     onError: (error) => {
@@ -77,7 +103,7 @@ export function useMultiRelayEvent(eventId: string, enabled = true) {
     queryKey: ['multi-relay-event', eventId, presetRelays.map(r => r.url)],
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(8000)]);
-      
+
       const relayUrls = presetRelays.map(r => r.url);
       console.log('MultiRelayEvent: Fetching event from relays:', relayUrls, 'Event ID:', eventId);
 
@@ -90,7 +116,7 @@ export function useMultiRelayEvent(eventId: string, enabled = true) {
           return events[0] || null;
         } catch (groupError) {
           console.log('MultiRelayEvent: Relay group failed, trying individual relays:', groupError);
-          
+
           // Try individual relays one by one
           for (const relayUrl of relayUrls) {
             try {
@@ -105,7 +131,7 @@ export function useMultiRelayEvent(eventId: string, enabled = true) {
               continue;
             }
           }
-          
+
           console.log('MultiRelayEvent: No event found from any relay');
           return null;
         }

@@ -31,7 +31,10 @@ export function useBatchInteractions(eventIds: string[]) {
 
   // Process events into interaction counts
   const batchData = useMemo(() => {
-    if (!events || eventIds.length === 0) return {};
+    if (!events || eventIds.length === 0) {
+      console.log(`[Batch Interactions] No events or eventIds - events: ${!!events}, eventIds: ${eventIds.length}`);
+      return {};
+    }
 
     // Group interactions by event ID
     const countsMap: Record<string, InteractionCounts> = {};
@@ -51,13 +54,23 @@ export function useBatchInteractions(eventIds: string[]) {
       new Map(events.map(event => [event.id, event])).values()
     );
 
-    console.log(`[Batch Interactions] Processing ${uniqueEvents.length} unique interactions (from ${events.length} total)`);
+    console.log(`[Batch Interactions] Processing ${uniqueEvents.length} unique interactions (from ${events.length} total) for ${eventIds.length} posts`);
 
     // Count interactions for each event
+    let processedCount = 0;
     for (const event of uniqueEvents) {
       const referencedEventId = event.tags.find(([tag]) => tag === 'e')?.[1];
-      if (!referencedEventId || !countsMap[referencedEventId]) continue;
+      if (!referencedEventId) {
+        console.log(`[Batch Interactions] Event ${event.id.slice(0, 8)} has no 'e' tag`);
+        continue;
+      }
 
+      if (!countsMap[referencedEventId]) {
+        console.log(`[Batch Interactions] Event ${event.id.slice(0, 8)} references unknown post ${referencedEventId.slice(0, 8)}`);
+        continue;
+      }
+
+      processedCount++;
       switch (event.kind) {
         case 7: // Like
           countsMap[referencedEventId].likes++;
@@ -73,6 +86,8 @@ export function useBatchInteractions(eventIds: string[]) {
         case 1111: // Comment
           countsMap[referencedEventId].comments++;
           break;
+        default:
+          console.log(`[Batch Interactions] Unknown interaction kind: ${event.kind}`);
       }
     }
 
@@ -81,9 +96,15 @@ export function useBatchInteractions(eventIds: string[]) {
       acc + counts.likes + counts.reposts + counts.zaps + counts.comments, 0
     );
 
-    if (totalInteractions > 0) {
-      console.log(`[Batch Interactions] Found ${totalInteractions} total interactions across ${eventIds.length} posts`);
-    }
+    console.log(`[Batch Interactions] Processed ${processedCount} interactions, total counts: ${totalInteractions} across ${eventIds.length} posts`);
+
+    // Log individual post counts
+    Object.entries(countsMap).forEach(([eventId, counts]) => {
+      const total = counts.likes + counts.reposts + counts.zaps + counts.comments;
+      if (total > 0) {
+        console.log(`[Batch Interactions] Post ${eventId.slice(0, 8)}: ${counts.likes}❤️ ${counts.reposts}🔄 ${counts.zaps}⚡ ${counts.comments}💬`);
+      }
+    });
 
     return countsMap;
   }, [events, eventIds]);
