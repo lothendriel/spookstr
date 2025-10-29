@@ -22,7 +22,7 @@ interface FeedOptions {
 export function useOptimizedFeed(options: FeedOptions = {}) {
   const { nostr } = useNostr();
   const relayRouter = useSmartRelayRouter();
-
+  
   const {
     limit = 20,
     authors,
@@ -35,7 +35,7 @@ export function useOptimizedFeed(options: FeedOptions = {}) {
     queryKey: ['optimized-feed', { limit, authors, kinds, filters, useAuthorRouting }],
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
-
+      
       // Base filter
       const baseFilter: NostrFilter = {
         kinds,
@@ -46,18 +46,18 @@ export function useOptimizedFeed(options: FeedOptions = {}) {
       if (authors && useAuthorRouting) {
         // Use author-specific routing for better content discovery
         const eventsByAuthor = new Map<string, NostrEvent[]>();
-
+        
         // Query each author's write relays
         const authorQueries = authors.map(async (author) => {
           const authorRelays = relayRouter.getUserContentRelays(author);
           if (authorRelays.length === 0) return [];
-
+          
           try {
             const authorGroup = nostr.group(authorRelays);
             const events = await authorGroup.query([
               { ...baseFilter, authors: [author], limit: Math.ceil(limit / authors.length) }
             ], { signal });
-
+            
             eventsByAuthor.set(author, events);
             return events;
           } catch (error) {
@@ -68,36 +68,32 @@ export function useOptimizedFeed(options: FeedOptions = {}) {
 
         const results = await Promise.all(authorQueries);
         const allEvents = results.flat();
-
+        
         // Sort by created_at and deduplicate
         const uniqueEvents = new Map<string, NostrEvent>();
         allEvents.forEach(event => {
           uniqueEvents.set(event.id, event);
         });
-
+        
         return Array.from(uniqueEvents.values())
           .sort((a, b) => b.created_at - a.created_at)
           .slice(0, limit);
       } else {
         // Use fast feed relays for general queries
         const feedRelays = relayRouter.getFeedRelays();
-
+        
         if (authors) {
           baseFilter.authors = authors;
         }
-
+        
         if (feedRelays.length === 0) {
-          // Fallback to default nostr query if no feed relays available
-          console.warn('[OptimizedFeed] No feed relays available, using default nostr query');
+          // Fallback to default nostr query
           return await nostr.query([baseFilter], { signal });
         }
-
+        
         // Query optimized feed relays
-        console.log(`[OptimizedFeed] Querying ${feedRelays.length} feed relays:`, feedRelays);
         const feedGroup = nostr.group(feedRelays);
-        const events = await feedGroup.query([baseFilter], { signal });
-        console.log(`[OptimizedFeed] Found ${events.length} events from feed relays`);
-        return events;
+        return await feedGroup.query([baseFilter], { signal });
       }
     },
     staleTime: 30 * 1000, // 30 seconds
@@ -148,10 +144,10 @@ export function useNotifications(pubkey: string) {
     queryKey: ['notifications', pubkey],
     queryFn: async (c) => {
       if (!pubkey) return [];
-
+      
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
       const notificationRelays = relayRouter.getNotificationRelays();
-
+      
       if (notificationRelays.length === 0) {
         return await nostr.query([
           {
@@ -161,7 +157,7 @@ export function useNotifications(pubkey: string) {
           }
         ], { signal });
       }
-
+      
       const notificationGroup = nostr.group(notificationRelays);
       return await notificationGroup.query([
         {
