@@ -17,12 +17,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Trash2, Plus, Activity, AlertCircle, CheckCircle2, Loader2, RefreshCw, Save, Download, Star, BarChart3 } from 'lucide-react';
+import { Trash2, Plus, Activity, AlertCircle, CheckCircle2, Loader2, RefreshCw, Save, Download, Star } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
-import { RelayDashboard } from '@/components/RelayDashboard';
 
 // Official Spookstr relay
 const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
@@ -368,37 +366,15 @@ export default function RelaySettings() {
     }
   };
 
-  // Get all relay URLs for the dashboard
-  const allRelayUrls = [
-    SPOOKSTR_RELAY,
-    ...localRelays.map(r => r.url),
-    ...localSearchRelays,
-  ].filter((url, index, array) => array.indexOf(url) === index); // Remove duplicates
-
   const content = (
-    <div className="container max-w-6xl mx-auto space-y-6 py-6">
+    <div className="container max-w-4xl mx-auto space-y-6 py-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Relay Settings</h1>
         <p className="text-muted-foreground mt-2">
-          Manage your Nostr relay connections and monitor relay performance.
+          Manage your Nostr relay connections. Choose which relays to read from and write to.
         </p>
       </div>
-
-      {/* Tabs for Settings vs Dashboard */}
-      <Tabs defaultValue="settings" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="settings" className="flex items-center gap-2">
-            <Activity className="h-4 w-4" />
-            Relay Configuration
-          </TabsTrigger>
-          <TabsTrigger value="dashboard" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Intelligence Dashboard
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="settings" className="space-y-6 mt-6">
 
       {/* NIP-65 Info */}
       {user && (
@@ -873,23 +849,6 @@ export default function RelaySettings() {
           </p>
         </CardContent>
       </Card>
-
-        </TabsContent>
-
-        <TabsContent value="dashboard" className="mt-6">
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-2xl font-bold">Advanced Relay Intelligence Dashboard</h2>
-              <p className="text-muted-foreground mt-1">
-                Real-time monitoring of relay health, geographic optimization, load balancing, and intelligent routing.
-              </p>
-            </div>
-
-            <RelayDashboard relayUrls={allRelayUrls} />
-          </div>
-        </TabsContent>
-
-      </Tabs>
     </div>
   );
 
