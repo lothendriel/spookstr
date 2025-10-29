@@ -110,6 +110,39 @@ export function filterBlockedUsers(events: NostrEvent[]): NostrEvent[] {
   return events.filter(event => !BLOCKED_PUBKEYS.includes(event.pubkey));
 }
 
+/**
+ * Filters reposts to only include those with paranormal-related hashtags
+ * @param events Array of Nostr events to filter
+ * @returns Array of events with reposts filtered by paranormal tags
+ */
+export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
+  return events.filter(event => {
+    // Non-reposts pass through without filtering
+    if (event.kind !== 6) {
+      return true;
+    }
+
+    // For reposts, check if the reposted content has paranormal tags
+    try {
+      const repostedEvent = JSON.parse(event.content) as NostrEvent;
+
+      // Check if any of the reposted event's tags match our paranormal tags
+      const hasTags = repostedEvent.tags.some(([tagName, tagValue]) => {
+        if (tagName === 't' && tagValue) {
+          return PARANORMAL_TAGS.includes(tagValue.toLowerCase());
+        }
+        return false;
+      });
+
+      return hasTags;
+    } catch (e) {
+      // If we can't parse the repost, exclude it
+      console.warn('Failed to parse repost content:', e);
+      return false;
+    }
+  });
+}
+
 export function useParanormalFeed() {
   const { nostr } = useNostr();
 
@@ -136,6 +169,9 @@ export function useParanormalFeed() {
 
       // Filter out blocked users
       filteredEvents = filterBlockedUsers(filteredEvents);
+
+      // Filter reposts to only include those with paranormal tags
+      filteredEvents = filterRepostsByTags(filteredEvents);
 
       // Sort by created_at (newest first)
       filteredEvents.sort((a, b) => b.created_at - a.created_at);
