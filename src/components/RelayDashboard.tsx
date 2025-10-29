@@ -1,6 +1,6 @@
 /**
  * Relay Dashboard Component
- * 
+ *
  * Provides a comprehensive view of the intelligent relay system:
  * - Health monitoring visualization
  * - Geographic distribution map
@@ -14,11 +14,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipProvider, 
-  TooltipTrigger 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
 } from '@/components/ui/tooltip';
 import {
   Activity,
@@ -52,9 +52,27 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
   const { metrics: healthMetrics, monitor: healthMonitor } = useRelayHealth(relayUrls);
   const { optimalRelays, userLocation, selector: geoSelector } = useGeographicRelay(relayUrls);
   const { stats: loadBalancerStats, connections, loadBalancer } = useRelayLoadBalancer();
-  const { strategy, metrics: intelligentMetrics, forceOptimization } = useIntelligentRelay(relayUrls);
+  const { strategy, metrics: intelligentMetrics, forceOptimization, manager } = useIntelligentRelay(relayUrls);
 
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [healthMonitoringStarted, setHealthMonitoringStarted] = useState(false);
+
+  // Start health monitoring when dashboard is accessed
+  useEffect(() => {
+    if (!healthMonitoringStarted && manager && relayUrls.length > 0) {
+      const startMonitoring = async () => {
+        try {
+          await manager.startHealthMonitoring();
+          setHealthMonitoringStarted(true);
+        } catch (error) {
+          console.debug('Health monitoring start failed:', error);
+        }
+      };
+
+      // Delay slightly to avoid initial connection spam
+      setTimeout(startMonitoring, 2000);
+    }
+  }, [manager, relayUrls.length, healthMonitoringStarted]);
 
   const handleForceOptimization = async () => {
     setIsOptimizing(true);
@@ -121,10 +139,10 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
 
   return (
     <div className={cn("space-y-6", className)}>
-      
+
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        
+
         {/* Current Strategy */}
         <Card>
           <CardHeader className="pb-2">
@@ -271,7 +289,7 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    
+
                     <div>
                       <div className="text-muted-foreground">Latency</div>
                       <div className="font-medium flex items-center gap-1">
@@ -279,7 +297,7 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                         {getTrendIcon(metric.trends.latencyTrend)}
                       </div>
                     </div>
-                    
+
                     <div>
                       <div className="text-muted-foreground">Uptime</div>
                       <div className="font-medium flex items-center gap-1">
@@ -287,14 +305,14 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                         {getTrendIcon(metric.trends.uptimeTrend)}
                       </div>
                     </div>
-                    
+
                     <div>
                       <div className="text-muted-foreground">Success Rate</div>
                       <div className="font-medium">
                         {Math.round(metric.successRate)}%
                       </div>
                     </div>
-                    
+
                     <div>
                       <div className="text-muted-foreground">Priority</div>
                       <div className="font-medium">
@@ -313,13 +331,13 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                           <TooltipProvider key={i}>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div 
+                                <div
                                   className={cn(
                                     "w-2 rounded-t",
                                     snapshot.success ? "bg-green-500" : "bg-red-500"
                                   )}
-                                  style={{ 
-                                    height: `${Math.max(4, (snapshot.latency / 3000) * 32)}px` 
+                                  style={{
+                                    height: `${Math.max(4, (snapshot.latency / 3000) * 32)}px`
                                   }}
                                 />
                               </TooltipTrigger>
@@ -369,36 +387,36 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    
+
                     <div>
                       <div className="text-muted-foreground">Location</div>
                       <div className="font-medium">
                         {relay.location.city}, {relay.location.country}
                       </div>
                     </div>
-                    
+
                     <div>
                       <div className="text-muted-foreground">Region</div>
                       <div className="font-medium">
                         {relay.location.region}
                       </div>
                     </div>
-                    
+
                     <div>
                       <div className="text-muted-foreground">Distance</div>
                       <div className="font-medium">
-                        {relay.distanceFromUser ? 
-                          `${Math.round(relay.distanceFromUser)} km` : 
+                        {relay.distanceFromUser ?
+                          `${Math.round(relay.distanceFromUser)} km` :
                           'Unknown'
                         }
                       </div>
                     </div>
-                    
+
                     <div>
                       <div className="text-muted-foreground">Est. Latency</div>
                       <div className="font-medium">
-                        {relay.estimatedLatency ? 
-                          `${relay.estimatedLatency}ms` : 
+                        {relay.estimatedLatency ?
+                          `${relay.estimatedLatency}ms` :
                           'Unknown'
                         }
                       </div>
@@ -421,7 +439,7 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
         {/* Load Balancing Tab */}
         <TabsContent value="load-balancing" className="space-y-4">
           <div className="grid gap-4">
-            
+
             {/* Stats Overview */}
             <Card>
               <CardHeader>
@@ -429,26 +447,26 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  
+
                   <div>
                     <div className="text-2xl font-bold">{loadBalancerStats.totalRequests}</div>
                     <div className="text-sm text-muted-foreground">Total Requests</div>
                   </div>
-                  
+
                   <div>
                     <div className="text-2xl font-bold text-green-600">
                       {loadBalancerStats.successfulRequests}
                     </div>
                     <div className="text-sm text-muted-foreground">Successful</div>
                   </div>
-                  
+
                   <div>
                     <div className="text-2xl font-bold text-red-600">
                       {loadBalancerStats.failedRequests}
                     </div>
                     <div className="text-sm text-muted-foreground">Failed</div>
                   </div>
-                  
+
                   <div>
                     <div className="text-2xl font-bold">{loadBalancerStats.failoverCount}</div>
                     <div className="text-sm text-muted-foreground">Failovers</div>
@@ -483,7 +501,7 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                           <div className="text-sm text-muted-foreground">{conn.status}</div>
                         </div>
                       </div>
-                      
+
                       <div className="text-right text-sm">
                         <div className="font-medium">{conn.activeRequests} active</div>
                         <div className="text-muted-foreground">{conn.totalRequests} total</div>
@@ -525,7 +543,7 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
         <TabsContent value="strategy" className="space-y-4">
           {strategy ? (
             <div className="grid gap-4">
-              
+
               {/* Strategy Overview */}
               <Card>
                 <CardHeader>
@@ -540,21 +558,21 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                 </CardHeader>
                 <CardContent>
                   <p className="text-muted-foreground mb-4">{strategy.description}</p>
-                  
+
                   {intelligentMetrics && (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                       <div>
                         <div className="text-2xl font-bold">{intelligentMetrics.totalRequests}</div>
                         <div className="text-sm text-muted-foreground">Total Requests</div>
                       </div>
-                      
+
                       <div>
                         <div className="text-2xl font-bold">
                           {Math.round(intelligentMetrics.averageLatency)}ms
                         </div>
                         <div className="text-sm text-muted-foreground">Avg Latency</div>
                       </div>
-                      
+
                       <div>
                         <div className="text-2xl font-bold">
                           {Math.round(intelligentMetrics.successRate)}%
@@ -565,7 +583,7 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                   )}
 
                   <div className="text-sm text-muted-foreground">
-                    Last optimization: {intelligentMetrics ? 
+                    Last optimization: {intelligentMetrics ?
                       new Date(intelligentMetrics.lastOptimization).toLocaleString() :
                       'Never'
                     }
@@ -575,7 +593,7 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
 
               {/* Relay Assignments */}
               <div className="grid gap-4">
-                
+
                 {/* Primary Relays */}
                 <Card>
                   <CardHeader>

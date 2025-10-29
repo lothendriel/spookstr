@@ -86,10 +86,10 @@ export interface HealthCheckOptions {
 }
 
 const DEFAULT_HEALTH_OPTIONS: HealthCheckOptions = {
-  timeout: 5000, // 5 seconds
-  maxRetries: 3,
-  checkInterval: 30000, // 30 seconds
-  historySizeLimit: 100, // Keep last 100 snapshots
+  timeout: 3000, // 3 seconds - shorter timeout to fail faster
+  maxRetries: 1, // Reduce retries to avoid spam
+  checkInterval: 60000, // 60 seconds - less aggressive checking
+  historySizeLimit: 50, // Keep last 50 snapshots
 };
 
 class RelayHealthMonitor {
@@ -112,19 +112,32 @@ class RelayHealthMonitor {
       return;
     }
 
-    relayLogger.info(`Starting health monitoring for ${relayUrl}`);
+    // Only log in development to avoid production spam
+    if (import.meta.env.DEV) {
+      relayLogger.info(`Starting health monitoring for ${relayUrl}`);
+    }
 
     // Initialize metrics if not exists
     if (!this.metrics.has(relayUrl)) {
       this.metrics.set(relayUrl, this.createInitialMetrics(relayUrl));
     }
 
-    // Perform initial health check
-    await this.performHealthCheck(relayUrl);
+    // Perform initial health check (with delay to avoid connection spam)
+    setTimeout(() => {
+      this.performHealthCheck(relayUrl).catch(error => {
+        if (import.meta.env.DEV) {
+          relayLogger.debug(`Initial health check failed for ${relayUrl}`, error);
+        }
+      });
+    }, Math.random() * 5000); // Random delay 0-5 seconds
 
     // Set up recurring health checks
     const interval = setInterval(() => {
-      this.performHealthCheck(relayUrl);
+      this.performHealthCheck(relayUrl).catch(error => {
+        if (import.meta.env.DEV) {
+          relayLogger.debug(`Health check failed for ${relayUrl}`, error);
+        }
+      });
     }, this.options.checkInterval);
 
     this.monitoringIntervals.set(relayUrl, interval);
@@ -215,11 +228,14 @@ class RelayHealthMonitor {
       return metrics;
 
     } catch (error) {
-      relayLogger.error(`Health check failed for ${relayUrl}`, error);
+      // Only log errors in development to avoid production console spam
+      if (import.meta.env.DEV) {
+        relayLogger.debug(`Health check failed for ${relayUrl}`, error);
+      }
 
       this.recordError(metrics, {
         type: 'connection',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: error instanceof Error ? error.message : 'Connection failed',
         details: error
       });
 
@@ -236,36 +252,62 @@ class RelayHealthMonitor {
    */
   private async testConnection(relayUrl: string): Promise<{ success: boolean; error?: RelayError }> {
     return new Promise((resolve) => {
+      let isResolved = false;
       const ws = new WebSocket(relayUrl);
+
       const timeout = setTimeout(() => {
-        ws.close();
-        resolve({
-          success: false,
-          error: {
-            timestamp: Date.now(),
-            type: 'timeout',
-            message: 'Connection timeout'
-          }
-        });
+        if (!isResolved) {
+          isResolved = true;
+          try { ws.close(); } catch {}
+          resolve({
+            success: false,
+            error: {
+              timestamp: Date.now(),
+              type: 'timeout',
+              message: 'Connection timeout'
+            }
+          });
+        }
       }, this.options.timeout);
 
       ws.onopen = () => {
-        clearTimeout(timeout);
-        ws.close();
-        resolve({ success: true });
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          try { ws.close(); } catch {}
+          resolve({ success: true });
+        }
       };
 
       ws.onerror = (event) => {
-        clearTimeout(timeout);
-        resolve({
-          success: false,
-          error: {
-            timestamp: Date.now(),
-            type: 'connection',
-            message: 'Connection failed',
-            details: event
-          }
-        });
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          // Don't log routine connection failures to avoid console spam
+          resolve({
+            success: false,
+            error: {
+              timestamp: Date.now(),
+              type: 'connection',
+              message: 'Connection failed'
+            }
+          });
+        }
+      };
+
+      ws.onclose = () => {
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeout);
+          resolve({
+            success: false,
+            error: {
+              timestamp: Date.now(),
+              type: 'connection',
+              message: 'Connection closed prematurely'
+            }
+          });
+        }
       };
     });
   }

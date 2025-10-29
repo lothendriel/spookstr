@@ -37,6 +37,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         const allRelayUrls = relays.current.map(r => r.url);
 
         try {
+          // Initialize with reduced health monitoring to avoid connection spam
           await intelligentRelayManager.initialize(allRelayUrls);
 
           // Connect offline sync to the Nostr client
@@ -45,7 +46,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
           }
 
           intelligentRelayInitialized.current = true;
-          console.log('✅ Intelligent relay system initialized');
+          console.log('✅ Intelligent relay system initialized (health monitoring starts when dashboard is accessed)');
         } catch (error) {
           console.error('❌ Failed to initialize intelligent relay system:', error);
         }

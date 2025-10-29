@@ -1,6 +1,6 @@
 /**
  * Intelligent Relay Manager
- * 
+ *
  * Combines health monitoring, geographic selection, and load balancing
  * into a unified relay management system with automatic optimization.
  */
@@ -28,16 +28,16 @@ export interface RelayOptimizationConfig {
   enableLoadBalancing: boolean;
   enableAutoFailover: boolean;
   enableAdaptiveStrategySelection: boolean;
-  
+
   healthCheckInterval: number;
   strategyEvaluationInterval: number;
   performanceWindowSize: number; // Number of recent requests to consider
-  
+
   maxPrimaryRelays: number;
   maxSecondaryRelays: number;
   maxPublishRelays: number;
   minRelaysPerPool: number;
-  
+
   latencyThreshold: number; // ms - switch to better relays if improvement > threshold
   uptimeThreshold: number; // % - minimum uptime for primary relays
   diversityWeight: number; // 0-1 - how much to weight geographic diversity
@@ -50,7 +50,7 @@ export interface RelayPerformanceMetrics {
   successRate: number;
   lastOptimization: number;
   optimizationCount: number;
-  
+
   relayMetrics: {
     [relayUrl: string]: {
       latency: number;
@@ -68,16 +68,16 @@ const DEFAULT_CONFIG: RelayOptimizationConfig = {
   enableLoadBalancing: true,
   enableAutoFailover: true,
   enableAdaptiveStrategySelection: true,
-  
+
   healthCheckInterval: 30000, // 30 seconds
   strategyEvaluationInterval: 300000, // 5 minutes
   performanceWindowSize: 100,
-  
+
   maxPrimaryRelays: 3,
   maxSecondaryRelays: 3,
   maxPublishRelays: 5,
   minRelaysPerPool: 2,
-  
+
   latencyThreshold: 100, // 100ms
   uptimeThreshold: 95, // 95%
   diversityWeight: 0.3,
@@ -90,7 +90,7 @@ class IntelligentRelayManager {
   private userLocation: GeographicLocation | null = null;
   private performanceMetrics: RelayPerformanceMetrics | null = null;
   private listeners: Array<(strategy: RelayStrategy) => void> = [];
-  
+
   private optimizationInterval: number | null = null;
   private isOptimizing = false;
 
@@ -110,14 +110,11 @@ class IntelligentRelayManager {
 
     this.availableRelays = [...relayUrls];
 
-    // Start health monitoring for all relays
-    if (this.config.enableHealthMonitoring) {
-      for (const url of relayUrls) {
-        await relayHealthMonitor.startMonitoring(url);
-      }
-    }
+    // Don't start aggressive health monitoring immediately - only when dashboard is accessed
+    // This prevents the WebSocket connection spam on app startup
+    intelligentLogger.debug('Health monitoring will start when dashboard is accessed');
 
-    // Get user location for geographic optimization
+    // Get user location for geographic optimization (lightweight, no connections)
     if (this.config.enableGeographicOptimization) {
       try {
         this.userLocation = await geoRelaySelector.getUserLocation();
@@ -130,13 +127,30 @@ class IntelligentRelayManager {
       }
     }
 
-    // Perform initial strategy optimization
+    // Perform initial strategy optimization without health data (uses defaults)
     await this.optimizeStrategy();
 
     intelligentLogger.info('Intelligent relay manager initialized', {
       strategy: this.currentStrategy?.name,
       primaryRelays: this.currentStrategy?.primary.length
     });
+  }
+
+  /**
+   * Start health monitoring (called when dashboard is accessed)
+   */
+  async startHealthMonitoring(): Promise<void> {
+    if (!this.config.enableHealthMonitoring) return;
+
+    intelligentLogger.info('Starting health monitoring for dashboard');
+
+    for (const url of this.availableRelays) {
+      try {
+        await relayHealthMonitor.startMonitoring(url);
+      } catch (error) {
+        intelligentLogger.debug(`Failed to start monitoring ${url}`, error);
+      }
+    }
   }
 
   /**
@@ -159,7 +173,7 @@ class IntelligentRelayManager {
     }
 
     let candidateRelays: string[];
-    
+
     switch (requestType) {
       case 'read':
         candidateRelays = [...this.currentStrategy.primary, ...this.currentStrategy.secondary];
@@ -180,12 +194,12 @@ class IntelligentRelayManager {
     // Use load balancer if enabled
     if (this.config.enableLoadBalancing) {
       const poolName = `${requestType}-pool`;
-      
+
       // Ensure pool exists
       if (!relayLoadBalancer.getRelayPools()[poolName]) {
         relayLoadBalancer.addRelayPool(poolName, candidateRelays);
       }
-      
+
       return await relayLoadBalancer.selectRelay(poolName, context);
     }
 
@@ -240,10 +254,10 @@ class IntelligentRelayManager {
       } catch (error) {
         lastError = error as Error;
         intelligentLogger.warn(`Request failed on ${relayUrl} (attempt ${attempt + 1})`, error);
-        
+
         // Update error metrics
         this.updatePerformanceMetrics(requestType, 0, false);
-        
+
         // Don't retry for non-retryable requests
         if (context && !context.retryable) {
           break;
@@ -333,7 +347,7 @@ class IntelligentRelayManager {
       if (this.performanceMetrics?.relayMetrics[url]) {
         const metrics = this.performanceMetrics.relayMetrics[url];
         const latencyScore = Math.max(0, (3000 - metrics.latency) / 3000);
-        const uptimeScore = metrics.requestCount > 0 ? 
+        const uptimeScore = metrics.requestCount > 0 ?
           (metrics.requestCount - metrics.errorCount) / metrics.requestCount : 0.5;
         score += (latencyScore * 0.6 + uptimeScore * 0.4) * 20;
       }
@@ -421,7 +435,7 @@ class IntelligentRelayManager {
    */
   private generateStrategyName(primaryRelays: string[], geoInfo: RelayLocationInfo[]): string {
     const regions = new Set<string>();
-    
+
     for (const url of primaryRelays) {
       const info = geoInfo.find(g => g.url === url);
       if (info?.location.region) {
@@ -457,7 +471,7 @@ class IntelligentRelayManager {
     if (changeRatio > 0.5 && this.performanceMetrics) {
       const currentLatency = this.performanceMetrics.averageLatency;
       const currentSuccess = this.performanceMetrics.successRate;
-      
+
       return currentLatency > 2000 || currentSuccess < 90; // Poor performance thresholds
     }
 
@@ -501,7 +515,7 @@ class IntelligentRelayManager {
     intelligentLogger.info('Strategy adopted', {
       old: oldStrategy?.name,
       new: strategy.name,
-      primaryChanged: !oldStrategy || 
+      primaryChanged: !oldStrategy ||
         JSON.stringify(oldStrategy.primary) !== JSON.stringify(strategy.primary)
     });
   }
@@ -552,7 +566,7 @@ class IntelligentRelayManager {
         const health = relayHealthMonitor.getMetrics(url);
         return health && health.status === 'healthy';
       });
-      
+
       if (healthyCandidate) {
         return healthyCandidate;
       }
@@ -574,12 +588,12 @@ class IntelligentRelayManager {
     if (!this.performanceMetrics) return;
 
     this.performanceMetrics.totalRequests++;
-    
+
     if (success) {
       const total = this.performanceMetrics.totalRequests;
-      this.performanceMetrics.averageLatency = 
+      this.performanceMetrics.averageLatency =
         (this.performanceMetrics.averageLatency * (total - 1) + duration) / total;
-      
+
       const successCount = Math.round(this.performanceMetrics.successRate * (total - 1) / 100) + 1;
       this.performanceMetrics.successRate = (successCount / total) * 100;
     } else {
@@ -678,11 +692,11 @@ class IntelligentRelayManager {
   shutdown(): void {
     this.stopOptimization();
     this.listeners = [];
-    
+
     if (this.config.enableHealthMonitoring) {
       relayHealthMonitor.reset();
     }
-    
+
     if (this.config.enableLoadBalancing) {
       relayLoadBalancer.shutdown();
     }
