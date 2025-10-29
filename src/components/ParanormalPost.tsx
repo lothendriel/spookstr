@@ -176,7 +176,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     });
   };
 
-  const handleRepost = () => {
+  const handleRepost = (spookstrOnly: boolean = false) => {
     if (!user || isReposting) return;
 
     setIsReposting(true);
@@ -196,11 +196,18 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
         content: JSON.stringify(targetEvent),
         tags: [['e', targetEvent.id], ['p', targetEvent.pubkey]],
         created_at,
-      }
+      },
+      options: spookstrOnly ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
     }, {
       onSuccess: () => {
         setIsReposting(false);
         setReposted(true);
+        if (spookstrOnly) {
+          toast({
+            title: "Reposted to Spookstr",
+            description: "Your repost was published to the Spookstr relay only.",
+          });
+        }
       },
       onError: () => {
         setIsReposting(false);
@@ -409,16 +416,26 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                         <span className="text-xs">{repostCount}</span>
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuContent align="end" className="w-56">
                       <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleRepost();
+                          handleRepost(false);
                         }}
                         className="flex items-center space-x-2"
                       >
                         <Repeat className="h-4 w-4" />
                         <span>Repost</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRepost(true);
+                        }}
+                        className="flex items-center space-x-2"
+                      >
+                        <RadioTower className="h-4 w-4 text-purple-500" />
+                        <span>Repost to Spookstr</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={(e) => {

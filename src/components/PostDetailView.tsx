@@ -102,7 +102,7 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
     );
   };
 
-  const handleRepost = () => {
+  const handleRepost = (spookstrOnly: boolean = false) => {
     if (!user) return;
 
     // Optimistic update
@@ -115,9 +115,18 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
           kind: 6,
           content: JSON.stringify(event),
           tags: [['e', event.id], ['p', event.pubkey]]
-        }
+        },
+        options: spookstrOnly ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
       },
       {
+        onSuccess: () => {
+          if (spookstrOnly) {
+            toast({
+              title: "Reposted to Spookstr",
+              description: "Your repost was published to the Spookstr relay only.",
+            });
+          }
+        },
         onError: () => {
           // Revert on error
           optimisticUpdate(6, -1);
@@ -288,13 +297,20 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
                       <span className="text-xs">{repostCount}</span>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuItem
-                      onClick={handleRepost}
+                      onClick={() => handleRepost(false)}
                       className="flex items-center space-x-2"
                     >
                       <Repeat className="h-4 w-4" />
                       <span>Repost</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleRepost(true)}
+                      className="flex items-center space-x-2"
+                    >
+                      <RadioTower className="h-4 w-4 text-purple-500" />
+                      <span>Repost to Spookstr</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={handleQuoteRepost}
