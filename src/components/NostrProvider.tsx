@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { NostrEvent, NPool, NRelay1 } from '@nostrify/nostrify';
 import { NostrContext } from '@nostrify/react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -32,68 +32,23 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   // Spookstr relay URL
   const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
 
-  // Smart relay selection based on query type and performance
-  const getFeedRelays = useCallback((): string[] => {
+  // Get read and write relays from refs
+  const getReadRelays = (): string[] => {
     // If Spookstr-only mode is enabled, only use the Spookstr relay
     if (spookstrOnlyMode.current) {
       return [SPOOKSTR_RELAY];
     }
 
     if (relays.current && relays.current.length > 0) {
-      // Get primary relays with good performance for feed queries
-      const primaryRelays = relays.current
-        .filter((r) => (r.mode === 'read' || r.mode === 'both') &&
-                      (r.priority === 'primary' || !r.priority))
-        .sort((a, b) => {
-          // Sort by performance: connected status, then latency, then reliability
-          const aScore = (a.status === 'connected' ? 100 : 0) +
-                        (a.reliabilityScore || 50) -
-                        ((a.latency || 1000) / 10);
-          const bScore = (b.status === 'connected' ? 100 : 0) +
-                        (b.reliabilityScore || 50) -
-                        ((b.latency || 1000) / 10);
-          return bScore - aScore;
-        })
-        .slice(0, 3) // Limit to top 3 for performance
-        .map((r) => r.url);
-
-      if (primaryRelays.length > 0) return primaryRelays;
-
-      // Fallback to any read relays
       return relays.current
         .filter((r) => r.mode === 'read' || r.mode === 'both')
-        .slice(0, 2)
         .map((r) => r.url);
     }
     // Fallback to legacy relayUrl if no relays configured
     return [config.relayUrl];
-  }, [config.relayUrl]);
+  };
 
-  const getDiscoveryRelays = useCallback((): string[] => {
-    // If Spookstr-only mode is enabled, only use the Spookstr relay
-    if (spookstrOnlyMode.current) {
-      return [SPOOKSTR_RELAY];
-    }
-
-    if (relays.current && relays.current.length > 0) {
-      // Use all read relays for discovery queries
-      const allReadRelays = relays.current
-        .filter((r) => r.mode === 'read' || r.mode === 'both')
-        .map((r) => r.url);
-
-      // Add preset relays for better discovery, up to 5 total
-      const relaySet = new Set(allReadRelays);
-      for (const { url } of (presetRelays ?? [])) {
-        relaySet.add(url);
-        if (relaySet.size >= 5) break;
-      }
-
-      return Array.from(relaySet);
-    }
-    return [config.relayUrl];
-  }, [config.relayUrl, presetRelays]);
-
-  const getWriteRelays = useCallback((): string[] => {
+  const getWriteRelays = (): string[] => {
     // If Spookstr-only mode is enabled, only use the Spookstr relay
     if (spookstrOnlyMode.current) {
       return [SPOOKSTR_RELAY];
@@ -106,7 +61,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     }
     // Fallback to legacy relayUrl if no relays configured
     return [config.relayUrl];
-  }, [config.relayUrl]);
+  };
 
   // Initialize NPool only once
   if (!pool.current) {
@@ -115,14 +70,14 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return new NRelay1(url);
       },
       reqRouter(filters) {
-        // Analyze the query type to determine optimal relay routing
-        const isProfileQuery = filters.some(filter =>
+        const readRelays = getReadRelays();
+
+        // For profile metadata, community definitions, and interaction events with specific event references, query multiple relays
+        const isMultiRelayQuery = filters.some(filter =>
           filter.kinds?.includes(0) || // Profile metadata
           filter.kinds?.includes(10000) || // Contact list
-          filter.kinds?.includes(10002) // Relay list
-        );
-
-        const isInteractionQuery = filters.some(filter =>
+          filter.kinds?.includes(10002) || // Relay list
+          filter.kinds?.includes(34550) || // Community definitions
           (filter.kinds?.includes(6) && filter['#e']) || // Reposts with event reference
           (filter.kinds?.includes(7) && filter['#e']) || // Likes with event reference
           (filter.kinds?.includes(9735) && filter['#e']) || // Zap receipts with event reference
@@ -130,35 +85,33 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
           (filter.kinds?.includes(1111) && filter['#e']) // Comments with event reference
         );
 
-        const isCommunityQuery = filters.some(filter =>
-          filter.kinds?.includes(34550) // Community definitions
-        );
+        if (isMultiRelayQuery) {
+          // If Spookstr-only mode is enabled, only use Spookstr relay even for multi-relay queries
+          if (spookstrOnlyMode.current) {
+            const relayMap = new Map();
+            relayMap.set(SPOOKSTR_RELAY, filters);
+            return relayMap;
+          }
 
-        const isFeedQuery = filters.some(filter =>
-          filter.kinds?.includes(1) && !filter['#e'] && !filter.authors // Main feed without specific authors or event refs
-        );
+          // For these important queries, use read relays plus preset relays for better data availability
+          const relays = new Set<string>(readRelays);
 
-        // Route queries intelligently
-        let targetRelays: string[];
+          // Add preset relays for better discovery, capped at 5 total
+          for (const { url } of (presetRelays ?? [])) {
+            relays.add(url);
+            if (relays.size >= 5) break;
+          }
 
-        if (isFeedQuery) {
-          // Use fast, reliable relays for main feed
-          targetRelays = getFeedRelays();
-        } else if (isProfileQuery || isInteractionQuery || isCommunityQuery) {
-          // Use discovery relays for metadata and interaction queries
-          targetRelays = getDiscoveryRelays();
-        } else {
-          // Default to feed relays for other queries
-          targetRelays = getFeedRelays();
+          const relayMap = new Map();
+          for (const relayUrl of relays) {
+            relayMap.set(relayUrl, filters);
+          }
+          return relayMap;
         }
 
-        // If Spookstr-only mode is enabled, override with Spookstr relay
-        if (spookstrOnlyMode.current) {
-          targetRelays = [SPOOKSTR_RELAY];
-        }
-
+        // For other queries (including main feed), use configured read relays
         const relayMap = new Map();
-        for (const relayUrl of targetRelays) {
+        for (const relayUrl of readRelays) {
           relayMap.set(relayUrl, filters);
         }
         return relayMap;

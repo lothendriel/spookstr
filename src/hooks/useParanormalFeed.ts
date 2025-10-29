@@ -1,5 +1,4 @@
 import { useMultiRelayQuery } from './useMultiRelayQuery';
-import { useFastFeed } from './useOptimizedFeed';
 import { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 import { nip19 } from 'nostr-tools';
@@ -125,17 +124,7 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
 
     // For reposts, check if the reposted content has paranormal tags
     try {
-      // Handle empty content gracefully
-      if (!event.content || event.content.trim() === '') {
-        return false;
-      }
-
       const repostedEvent = JSON.parse(event.content) as NostrEvent;
-
-      // Validate the parsed event structure
-      if (!repostedEvent || !repostedEvent.tags || !Array.isArray(repostedEvent.tags)) {
-        return false;
-      }
 
       // Check if any of the reposted event's tags match our paranormal tags
       const hasTags = repostedEvent.tags.some(([tagName, tagValue]) => {
@@ -147,94 +136,55 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
 
       return hasTags;
     } catch (e) {
-      // Skip unparseable reposts silently
+      // If we can't parse the repost, exclude it
+      console.warn('Failed to parse repost content:', e);
       return false;
     }
   });
 }
 
 export function useParanormalFeed() {
-  // Removed excessive logging that was causing performance issues
-  // console.log('[Paranormal Feed] Starting feed query with', PARANORMAL_TAGS.length, 'tags');
-
-  // Memoize the filters to prevent unnecessary re-queries
-  const fastFeedOptions = useMemo(() => ({
-    kinds: [1],
-    filters: { '#t': PARANORMAL_TAGS },
-    limit: 50,
-  }), []); // Empty dependency array since PARANORMAL_TAGS is static
-
-  // Use optimized fast feed for paranormal content - but fallback to multi-relay if needed
-  const { data: fastEvents, isLoading: isLoadingFast, error: fastError } = useFastFeed(fastFeedOptions);
-
-  // Use multi-relay query as primary method if fast feed fails or returns no results
-  const shouldUseMultiRelay = !isLoadingFast && (!fastEvents || fastEvents.length === 0);
-
-  // Memoize the multi-relay filters to prevent constant re-queries
-  const multiRelayFilters = useMemo(() => [
-    {
-      kinds: [1],
-      '#t': PARANORMAL_TAGS,
-      limit: 60, // Increased for better coverage
-    },
-    {
-      kinds: [6], // Include reposts for broader content discovery
-      limit: 30,
-    }
-  ], []); // Empty dependency array since PARANORMAL_TAGS is static
-
-  const { data: discoveryEvents, isLoading: isLoadingDiscovery } = useMultiRelayQuery({
-    filters: multiRelayFilters,
-    staleTime: 60000, // 1 minute
-    retry: 2,
-    enabled: shouldUseMultiRelay || !!fastError, // Use multi-relay as fallback
-  });
-
-  // Combine events from both sources, prefer fast events if available
-  const events = useMemo(() => {
-    let combined: typeof fastEvents = [];
-
-    if (fastEvents && fastEvents.length > 0) {
-      combined = [...fastEvents];
-
-      // Add discovery events for reposts
-      if (discoveryEvents) {
-        const reposts = discoveryEvents.filter(e => e.kind === 6);
-        combined = [...combined, ...reposts];
+  // Enhanced: Use multi-relay query for better content discovery
+  const { data: events, isLoading } = useMultiRelayQuery({
+    filters: [
+      {
+        kinds: [1],
+        '#t': PARANORMAL_TAGS,
+        limit: 80, // Increased limit for better multi-relay coverage
+      },
+      {
+        kinds: [6], // Include reposts
+        limit: 40, // Balanced limit for reposts
       }
-    } else if (discoveryEvents && discoveryEvents.length > 0) {
-      combined = [...discoveryEvents];
-    } else {
-      return [];
-    }
-
-    // Deduplicate by ID
-    const uniqueEvents = Array.from(
-      new Map(combined.map(event => [event.id, event])).values()
-    );
-
-    return uniqueEvents;
-  }, [fastEvents, discoveryEvents]);
-
-  const isLoading = isLoadingFast || (shouldUseMultiRelay && isLoadingDiscovery);
+    ],
+    staleTime: 60000, // 1 minute
+    retry: 2, // More retries for critical feed data
+  });
 
   // Process the events with filters and sorting
   const processedEvents = useMemo(() => {
     if (!events) return [];
+
+    console.log(`[Paranormal Feed] Processing ${events.length} events from multi-relay query`);
 
     // Deduplicate events by ID (multiple relays may return same event)
     const uniqueEvents = Array.from(
       new Map(events.map(event => [event.id, event])).values()
     );
 
+    console.log(`[Paranormal Feed] ${uniqueEvents.length} unique events after deduplication`);
+
     // Filter out NSFW content
     let filteredEvents = filterNSFWContent(uniqueEvents);
+    console.log(`[Paranormal Feed] ${filteredEvents.length} events after NSFW filter`);
 
     // Filter out blocked users
     filteredEvents = filterBlockedUsers(filteredEvents);
+    console.log(`[Paranormal Feed] ${filteredEvents.length} events after blocking filter`);
 
     // Filter reposts to only include those with paranormal tags
     filteredEvents = filterRepostsByTags(filteredEvents);
+    console.log(`[Paranormal Feed] ${filteredEvents.length} events after repost tag filter`);
 
     // Sort by created_at (newest first)
     filteredEvents.sort((a, b) => b.created_at - a.created_at);
@@ -265,16 +215,22 @@ export function useParanormalReplies(noteId: string) {
   const processedEvents = useMemo(() => {
     if (!events) return [];
 
+    console.log(`[Paranormal Replies] Processing ${events.length} replies from multi-relay query`);
+
     // Deduplicate events by ID
     const uniqueEvents = Array.from(
       new Map(events.map(event => [event.id, event])).values()
     );
+
+    console.log(`[Paranormal Replies] ${uniqueEvents.length} unique replies after deduplication`);
 
     // Filter out NSFW content from replies as well
     let filteredEvents = filterNSFWContent(uniqueEvents);
 
     // Filter out blocked users from replies
     filteredEvents = filterBlockedUsers(filteredEvents);
+
+    console.log(`[Paranormal Replies] ${filteredEvents.length} replies after filtering`);
 
     return filteredEvents;
   }, [events]);

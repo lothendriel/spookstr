@@ -3,12 +3,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import {
-  TrendingUp,
-  Users,
-  Zap,
-  AlertTriangle,
-  CheckCircle2,
+import { 
+  TrendingUp, 
+  Users, 
+  Zap, 
+  AlertTriangle, 
+  CheckCircle2, 
   ArrowRight,
   Target,
   Globe,
@@ -27,30 +27,13 @@ interface RelayPerformanceInsightsProps {
   className?: string;
 }
 
-export function RelayPerformanceInsights({
-  insights,
-  onAddRelay,
+export function RelayPerformanceInsights({ 
+  insights, 
+  onAddRelay, 
   onRemoveRelay,
   onChangeMode,
-  className
+  className 
 }: RelayPerformanceInsightsProps) {
-  // Safety check for insights data
-  if (!insights || !insights.networkMap) {
-    return (
-      <div className={className}>
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center space-y-4">
-              <Activity className="h-12 w-12 mx-auto text-muted-foreground opacity-50" />
-              <p className="text-sm text-muted-foreground">
-                No performance data available
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
   const getActionIcon = (type: string) => {
     switch (type) {
       case 'add_relay': return <Plus className="h-4 w-4" />;
@@ -70,8 +53,8 @@ export function RelayPerformanceInsights({
   };
 
   const handleActionClick = (action: any) => {
-    const relay = insights.networkMap?.contactRelays?.find(r => r.url === action.relay);
-
+    const relay = insights.networkMap.contactRelays.find(r => r.url === action.relay);
+    
     switch (action.type) {
       case 'add_relay':
         if (relay) onAddRelay(relay);
@@ -203,7 +186,7 @@ export function RelayPerformanceInsights({
                 </div>
               </div>
               <Badge variant={insights.contentCoverage >= 80 ? 'default' : 'secondary'}>
-                {insights.contentCoverage >= 80 ? 'Excellent' :
+                {insights.contentCoverage >= 80 ? 'Excellent' : 
                  insights.contentCoverage >= 60 ? 'Good' : 'Needs Improvement'}
               </Badge>
             </div>
@@ -224,7 +207,7 @@ export function RelayPerformanceInsights({
                 </div>
               </div>
               <Badge variant={insights.publishingReach >= 80 ? 'default' : 'secondary'}>
-                {insights.publishingReach >= 80 ? 'Excellent' :
+                {insights.publishingReach >= 80 ? 'Excellent' : 
                  insights.publishingReach >= 60 ? 'Good' : 'Needs Improvement'}
               </Badge>
             </div>
@@ -236,12 +219,12 @@ export function RelayPerformanceInsights({
                 <div>
                   <h4 className="font-semibold">Network Diversity</h4>
                   <p className="text-sm text-muted-foreground">
-                    Connected to {insights.networkMap?.yourRelays?.length || 0} relays with {insights.networkMap?.sharedRelays?.length || 0} shared connections
+                    Connected to {insights.networkMap.yourRelays.length} relays with {insights.networkMap.sharedRelays.length} shared connections
                   </p>
                 </div>
               </div>
               <Badge variant="outline">
-                {(insights.networkMap?.yourRelays?.length || 0) >= 3 ? 'Diverse' : 'Limited'}
+                {insights.networkMap.yourRelays.length >= 3 ? 'Diverse' : 'Limited'}
               </Badge>
             </div>
           </div>
@@ -320,22 +303,14 @@ export function RelayPerformanceInsights({
             <div className="space-y-2">
               <h4 className="font-semibold text-sm text-green-600">Your Relays</h4>
               <div className="space-y-1">
-                {(insights.networkMap?.yourRelays || []).slice(0, 5).map((relay, index) => {
-                  let hostname;
-                  try {
-                    hostname = new URL(relay.url).hostname;
-                  } catch {
-                    hostname = relay.url.replace(/^wss?:\/\//, '');
-                  }
-                  return (
-                    <div key={relay.url} className="text-sm font-mono text-muted-foreground">
-                      {hostname}
-                    </div>
-                  );
-                })}
-                {(insights.networkMap?.yourRelays?.length || 0) > 5 && (
+                {insights.networkMap.yourRelays.slice(0, 5).map((relay, index) => (
+                  <div key={relay.url} className="text-sm font-mono text-muted-foreground">
+                    {new URL(relay.url).hostname}
+                  </div>
+                ))}
+                {insights.networkMap.yourRelays.length > 5 && (
                   <div className="text-xs text-muted-foreground">
-                    +{(insights.networkMap?.yourRelays?.length || 0) - 5} more
+                    +{insights.networkMap.yourRelays.length - 5} more
                   </div>
                 )}
               </div>
@@ -344,25 +319,17 @@ export function RelayPerformanceInsights({
             <div className="space-y-2">
               <h4 className="font-semibold text-sm text-blue-600">Shared Relays</h4>
               <div className="space-y-1">
-                {(insights.networkMap?.sharedRelays || []).slice(0, 5).map((url, index) => {
-                  let hostname;
-                  try {
-                    hostname = new URL(url).hostname;
-                  } catch {
-                    hostname = url.replace(/^wss?:\/\//, '');
-                  }
-                  return (
-                    <div key={url} className="text-sm font-mono text-muted-foreground">
-                      {hostname}
-                    </div>
-                  );
-                })}
-                {(insights.networkMap?.sharedRelays?.length || 0) > 5 && (
+                {insights.networkMap.sharedRelays.slice(0, 5).map((url, index) => (
+                  <div key={url} className="text-sm font-mono text-muted-foreground">
+                    {new URL(url).hostname}
+                  </div>
+                ))}
+                {insights.networkMap.sharedRelays.length > 5 && (
                   <div className="text-xs text-muted-foreground">
-                    +{(insights.networkMap?.sharedRelays?.length || 0) - 5} more
+                    +{insights.networkMap.sharedRelays.length - 5} more
                   </div>
                 )}
-                {(insights.networkMap?.sharedRelays?.length || 0) === 0 && (
+                {insights.networkMap.sharedRelays.length === 0 && (
                   <div className="text-sm text-muted-foreground italic">
                     No shared relays found
                   </div>
@@ -373,25 +340,17 @@ export function RelayPerformanceInsights({
             <div className="space-y-2">
               <h4 className="font-semibold text-sm text-orange-600">Coverage Gaps</h4>
               <div className="space-y-1">
-                {(insights.networkMap?.coverageGaps || []).slice(0, 5).map((url, index) => {
-                  let hostname;
-                  try {
-                    hostname = new URL(url).hostname;
-                  } catch {
-                    hostname = url.replace(/^wss?:\/\//, '');
-                  }
-                  return (
-                    <div key={url} className="text-sm font-mono text-muted-foreground">
-                      {hostname}
-                    </div>
-                  );
-                })}
-                {(insights.networkMap?.coverageGaps?.length || 0) > 5 && (
+                {insights.networkMap.coverageGaps.slice(0, 5).map((url, index) => (
+                  <div key={url} className="text-sm font-mono text-muted-foreground">
+                    {new URL(url).hostname}
+                  </div>
+                ))}
+                {insights.networkMap.coverageGaps.length > 5 && (
                   <div className="text-xs text-muted-foreground">
-                    +{(insights.networkMap?.coverageGaps?.length || 0) - 5} more
+                    +{insights.networkMap.coverageGaps.length - 5} more
                   </div>
                 )}
-                {(insights.networkMap?.coverageGaps?.length || 0) === 0 && (
+                {insights.networkMap.coverageGaps.length === 0 && (
                   <div className="text-sm text-muted-foreground italic">
                     No significant gaps detected
                   </div>

@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Loader2,
-  CheckCircle2,
-  AlertTriangle,
+import { 
+  Loader2, 
+  CheckCircle2, 
+  AlertTriangle, 
   Activity,
   Plus,
   Users,
@@ -29,13 +29,13 @@ interface RelayDiscoverySectionProps {
   className?: string;
 }
 
-export function RelayDiscoverySection({
-  onAddRelay,
-  onRemoveRelay,
+export function RelayDiscoverySection({ 
+  onAddRelay, 
+  onRemoveRelay, 
   onChangeMode,
-  className
+  className 
 }: RelayDiscoverySectionProps) {
-  const { discoveredRelays, insights, isLoading, error } = useRelayDiscovery();
+  const { discoveredRelays, insights, isLoading } = useRelayDiscovery();
   const [selectedTab, setSelectedTab] = useState('overview');
 
   const handleAddRelay = (relay: DiscoveredRelay) => {
@@ -117,28 +117,19 @@ export function RelayDiscoverySection({
             Relay Discovery
           </CardTitle>
           <CardDescription>
-            {error ? 'Discovery error occurred' : 'No relay discovery data available'}
+            No relay discovery data available
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              {error ? (
-                <div>
-                  <p className="font-semibold">Discovery failed with error:</p>
-                  <p className="text-sm mt-1 font-mono bg-red-50 p-2 rounded">{error.message}</p>
-                </div>
-              ) : (
-                <div>
-                  Unable to discover relays from your network. This could be because:
-                  <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-                    <li>You're not following anyone yet</li>
-                    <li>Your contacts haven't published relay lists (NIP-65)</li>
-                    <li>The relay discovery service is temporarily unavailable</li>
-                  </ul>
-                </div>
-              )}
+              Unable to discover relays from your network. This could be because:
+              <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+                <li>You're not following anyone yet</li>
+                <li>Your contacts haven't published relay lists (NIP-65)</li>
+                <li>The relay discovery service is temporarily unavailable</li>
+              </ul>
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -222,13 +213,7 @@ export function RelayDiscoverySection({
                     <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm">
-                          {action.type === 'add_relay' && 'Add '}{(() => {
-                            try {
-                              return new URL(action.relay).hostname;
-                            } catch {
-                              return action.relay.replace(/^wss?:\/\//, '');
-                            }
-                          })()}
+                          {action.type === 'add_relay' && 'Add '}{new URL(action.relay).hostname}
                         </p>
                         <p className="text-xs text-muted-foreground">{action.reason}</p>
                         <Badge variant="outline" className="text-xs mt-1">
@@ -316,13 +301,7 @@ export function RelayDiscoverySection({
 
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="font-medium text-sm">
-                          {relay.name || (() => {
-                            try {
-                              return new URL(relay.url).hostname;
-                            } catch {
-                              return relay.url.replace(/^wss?:\/\//, '');
-                            }
-                          })()}
+                          {relay.name || new URL(relay.url).hostname}
                         </div>
                         <div className="font-mono text-xs text-muted-foreground truncate">
                           {relay.url}
@@ -369,46 +348,20 @@ export function RelayDiscoverySection({
         </TabsContent>
 
         <TabsContent value="network">
-          {insights ? (
-            <RelayNetworkMap
-              insights={insights}
-              onAddRelay={handleAddRelay}
-              onRemoveRelay={onRemoveRelay}
-            />
-          ) : (
-            <Card>
-              <CardContent className="py-12">
-                <div className="text-center space-y-4">
-                  <Loader2 className="h-12 w-12 animate-spin mx-auto text-blue-500" />
-                  <p className="text-sm text-muted-foreground">
-                    Loading network map...
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <RelayNetworkMap
+            insights={insights}
+            onAddRelay={handleAddRelay}
+            onRemoveRelay={onRemoveRelay}
+          />
         </TabsContent>
 
         <TabsContent value="insights">
-          {insights ? (
-            <RelayPerformanceInsights
-              insights={insights}
-              onAddRelay={handleAddRelay}
-              onRemoveRelay={onRemoveRelay}
-              onChangeMode={onChangeMode}
-            />
-          ) : (
-            <Card>
-              <CardContent className="py-12">
-                <div className="text-center space-y-4">
-                  <Loader2 className="h-12 w-12 animate-spin mx-auto text-blue-500" />
-                  <p className="text-sm text-muted-foreground">
-                    Loading performance insights...
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <RelayPerformanceInsights
+            insights={insights}
+            onAddRelay={handleAddRelay}
+            onRemoveRelay={onRemoveRelay}
+            onChangeMode={onChangeMode}
+          />
         </TabsContent>
       </Tabs>
     </div>
