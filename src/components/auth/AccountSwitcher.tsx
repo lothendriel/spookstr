@@ -1,7 +1,7 @@
 // NOTE: This file is stable and usually should not be modified.
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
-import { ChevronDown, LogOut, UserIcon, UserPlus, Wallet, User, Activity, Radio } from 'lucide-react';
+import { ChevronDown, LogOut, UserIcon, UserPlus, Wallet, User, Activity, Radio, Tag } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +38,13 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
     updateConfig((current) => ({
       ...current,
       spookstrOnlyMode: checked,
+    }));
+  };
+
+  const handleClientTagToggle = (checked: boolean) => {
+    updateConfig((current) => ({
+      ...current,
+      includeClientTag: checked,
     }));
   };
 
@@ -89,6 +96,17 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
           <Switch
             checked={config.spookstrOnlyMode ?? false}
             onCheckedChange={handleSpookstrModeToggle}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+        <div className='flex items-center justify-between px-2 py-2 rounded-md hover:bg-accent'>
+          <div className='flex items-center gap-2'>
+            <Tag className='w-4 h-4' />
+            <span className='text-sm'>Include Client Tag</span>
+          </div>
+          <Switch
+            checked={config.includeClientTag ?? false}
+            onCheckedChange={handleClientTagToggle}
             onClick={(e) => e.stopPropagation()}
           />
         </div>

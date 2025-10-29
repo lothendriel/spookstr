@@ -34,6 +34,8 @@ export interface AppConfig {
   searchRelays?: string[];
   /** Blossom servers for file uploads (with fallback support) */
   blossomServers?: string[];
+  /** When enabled, includes NIP-89 client tag "conjured with Spookstr" in published events */
+  includeClientTag?: boolean;
 }
 
 export interface AppContextType {

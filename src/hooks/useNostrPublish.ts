@@ -3,6 +3,7 @@ import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { NRelay1 } from "@nostrify/nostrify";
 
 import { useCurrentUser } from "./useCurrentUser";
+import { useAppContext } from "./useAppContext";
 
 import type { NostrEvent } from "@nostrify/nostrify";
 
@@ -17,15 +18,16 @@ const SIGNATURE_CACHE_TTL = 30000; // 30 seconds
 export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>; options?: PublishOptions }> {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const { config } = useAppContext();
 
   return useMutation({
     mutationFn: async ({ event, options }: { event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>; options?: PublishOptions }) => {
       if (user) {
         const tags = event.tags ?? [];
 
-        // Add the client tag if it doesn't exist
-        if (location.protocol === "https:" && !tags.some(([name]) => name === "client")) {
-          tags.push(["client", location.hostname]);
+        // Add the NIP-89 client tag if enabled and it doesn't exist
+        if (config.includeClientTag && !tags.some(([name]) => name === "client")) {
+          tags.push(["client", "Conjured with Spookstr"]);
         }
 
         // Create a unique signature for this event to detect duplicates
