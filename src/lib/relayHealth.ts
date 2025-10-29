@@ -771,36 +771,73 @@ export const relayHealthMonitor = new RelayHealthMonitor();
  */
 export function useRelayHealth(relayUrls?: string[]) {
   const [metrics, setMetrics] = useState<RelayHealthMetrics[]>([]);
+  const [isMonitoring, setIsMonitoring] = useState(false);
 
+  // Initialize metrics without starting monitoring
   useEffect(() => {
     if (!relayUrls || relayUrls.length === 0) return;
 
-    // Start monitoring all provided relays
-    const startMonitoring = async () => {
-      for (const url of relayUrls) {
-        await relayHealthMonitor.startMonitoring(url);
-      }
-      setMetrics(relayHealthMonitor.getAllMetrics());
-    };
+    // Initialize empty metrics for all relays
+    const initialMetrics = relayUrls.map(url => ({
+      url,
+      status: 'offline' as const,
+      lastChecked: 0,
+      connectionTime: 0,
+      latency: 0,
+      uptime: 0,
+      successRate: 0,
+      errorRate: 0,
+      timeoutRate: 0,
+      eventDeliveryTime: 0,
+      duplicateRate: 0,
+      completenessScore: 0,
+      history: [],
+      trends: {
+        latencyTrend: 'stable' as const,
+        uptimeTrend: 'stable' as const,
+        overallTrend: 'stable' as const
+      },
+      errors: [],
+      errorStreakCount: 0,
+      currentLoad: 0,
+      capacity: 100,
+      priority: 50
+    }));
 
-    startMonitoring();
+    setMetrics(initialMetrics);
+  }, [relayUrls]);
+
+  // Manual start monitoring function
+  const startMonitoring = async () => {
+    if (!relayUrls || relayUrls.length === 0 || isMonitoring) return;
+
+    setIsMonitoring(true);
+
+    // Start monitoring with delay
+    for (const url of relayUrls) {
+      setTimeout(async () => {
+        try {
+          await relayHealthMonitor.startMonitoring(url);
+        } catch (error) {
+          console.debug(`Failed to start monitoring ${url}:`, error);
+        }
+      }, Math.random() * 10000); // Random delay up to 10 seconds
+    }
 
     // Subscribe to changes
     const unsubscribe = relayHealthMonitor.onMetricsChange(() => {
       setMetrics([...relayHealthMonitor.getAllMetrics()]);
     });
 
-    return () => {
-      unsubscribe();
-      // Optionally stop monitoring when component unmounts
-      relayUrls.forEach(url => relayHealthMonitor.stopMonitoring(url));
-    };
-  }, [relayUrls]);
+    return unsubscribe;
+  };
 
   return {
     metrics,
     healthyRelays: metrics.filter(m => m.status === 'healthy' || m.status === 'degraded'),
     unhealthyRelays: metrics.filter(m => m.status === 'unhealthy' || m.status === 'offline'),
-    monitor: relayHealthMonitor
+    monitor: relayHealthMonitor,
+    startMonitoring,
+    isMonitoring
   };
 }

@@ -38,7 +38,7 @@ import {
   Network
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useRelayHealth } from '@/lib/relayHealth';
+import { useRelayHealth as useAdvancedRelayHealth } from '@/lib/relayHealth';
 import { useGeographicRelay } from '@/lib/relayGeography';
 import { useRelayLoadBalancer } from '@/lib/relayLoadBalancer';
 import { useIntelligentRelay } from '@/lib/intelligentRelayManager';
@@ -49,30 +49,24 @@ interface RelayDashboardProps {
 }
 
 export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
-  const { metrics: healthMetrics, monitor: healthMonitor } = useRelayHealth(relayUrls);
+  const { metrics: healthMetrics, startMonitoring, isMonitoring } = useAdvancedRelayHealth(relayUrls);
   const { optimalRelays, userLocation, selector: geoSelector } = useGeographicRelay(relayUrls);
   const { stats: loadBalancerStats, connections, loadBalancer } = useRelayLoadBalancer();
   const { strategy, metrics: intelligentMetrics, forceOptimization, manager } = useIntelligentRelay(relayUrls);
 
   const [isOptimizing, setIsOptimizing] = useState(false);
-  const [healthMonitoringStarted, setHealthMonitoringStarted] = useState(false);
 
-  // Start health monitoring when dashboard is accessed
-  useEffect(() => {
-    if (!healthMonitoringStarted && manager && relayUrls.length > 0) {
-      const startMonitoring = async () => {
-        try {
-          await manager.startHealthMonitoring();
-          setHealthMonitoringStarted(true);
-        } catch (error) {
-          console.debug('Health monitoring start failed:', error);
-        }
-      };
-
-      // Delay slightly to avoid initial connection spam
-      setTimeout(startMonitoring, 2000);
+  // Manually start health monitoring when user clicks a button
+  const handleStartMonitoring = async () => {
+    if (!isMonitoring && startMonitoring) {
+      try {
+        console.log('🔍 Starting relay health monitoring...');
+        await startMonitoring();
+      } catch (error) {
+        console.error('Failed to start health monitoring:', error);
+      }
     }
-  }, [manager, relayUrls.length, healthMonitoringStarted]);
+  };
 
   const handleForceOptimization = async () => {
     setIsOptimizing(true);
@@ -185,33 +179,46 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                 {healthMetrics.filter(m => m.status === 'healthy').length}
               </div>
               <div className="text-sm text-muted-foreground">
-                / {healthMetrics.length} healthy
+                / {healthMetrics.length} {isMonitoring ? 'healthy' : 'relays'}
               </div>
             </div>
-            <div className="flex gap-1 mt-2">
-              {healthMetrics.map((metric, i) => (
-                <TooltipProvider key={metric.url}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className={cn(
-                        "h-2 w-full rounded",
-                        metric.status === 'healthy' ? 'bg-green-500' :
-                        metric.status === 'degraded' ? 'bg-yellow-500' :
-                        metric.status === 'unhealthy' ? 'bg-orange-500' :
-                        'bg-red-500'
-                      )} />
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <div className="text-xs">
-                        <div className="font-medium">{new URL(metric.url).hostname}</div>
-                        <div>Status: {metric.status}</div>
-                        <div>Latency: {Math.round(metric.latency)}ms</div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ))}
-            </div>
+
+            {!isMonitoring ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleStartMonitoring}
+                className="mt-2 w-full"
+              >
+                <Activity className="h-3 w-3 mr-1" />
+                Start Health Monitoring
+              </Button>
+            ) : (
+              <div className="flex gap-1 mt-2">
+                {healthMetrics.map((metric, i) => (
+                  <TooltipProvider key={metric.url}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className={cn(
+                          "h-2 w-full rounded",
+                          metric.status === 'healthy' ? 'bg-green-500' :
+                          metric.status === 'degraded' ? 'bg-yellow-500' :
+                          metric.status === 'unhealthy' ? 'bg-orange-500' :
+                          'bg-red-500'
+                        )} />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="text-xs">
+                          <div className="font-medium">{new URL(metric.url).hostname}</div>
+                          <div>Status: {metric.status}</div>
+                          <div>Latency: {Math.round(metric.latency)}ms</div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
