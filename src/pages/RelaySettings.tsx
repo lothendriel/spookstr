@@ -4,7 +4,7 @@ import { useAppContext } from '@/hooks/useAppContext';
 import { useUserRelays, createRelayListEvent } from '@/hooks/useUserRelays';
 import { useRelayHealth } from '@/hooks/useRelayHealth';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { RelayConfig, RelayMode, RelayPriority } from '@/contexts/AppContext';
+import { RelayConfig, RelayMode } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,6 @@ import { useToast } from '@/hooks/useToast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { RelayDiscoverySection } from '@/components/RelayDiscoverySection';
-import { RelayPerformanceDashboard } from '@/components/RelayPerformanceDashboard';
 
 // Official Spookstr relay
 const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
@@ -173,13 +172,6 @@ export default function RelaySettings() {
   const handleUpdateRelayMode = (url: string, mode: RelayMode) => {
     setLocalRelays(
       localRelays.map((r) => (r.url === url ? { ...r, mode } : r))
-    );
-    setHasChanges(true);
-  };
-
-  const handleUpdateRelayPriority = (url: string, priority: RelayPriority) => {
-    setLocalRelays(
-      localRelays.map((r) => (r.url === url ? { ...r, priority } : r))
     );
     setHasChanges(true);
   };
@@ -386,32 +378,6 @@ export default function RelaySettings() {
     }
   };
 
-  const getPriorityColor = (priority?: RelayPriority) => {
-    switch (priority) {
-      case 'primary':
-        return 'bg-green-50 text-green-700 border-green-200';
-      case 'discovery':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'backup':
-        return 'bg-gray-50 text-gray-700 border-gray-200';
-      default:
-        return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-    }
-  };
-
-  const getPriorityDescription = (priority?: RelayPriority) => {
-    switch (priority) {
-      case 'primary':
-        return 'Fast feed loading';
-      case 'discovery':
-        return 'Content discovery only';
-      case 'backup':
-        return 'Fallback connection';
-      default:
-        return 'Auto-assigned priority';
-    }
-  };
-
   const content = (
     <div className="container max-w-4xl mx-auto space-y-6 py-6">
       {/* Header */}
@@ -421,9 +387,6 @@ export default function RelaySettings() {
           Manage your Nostr relay connections. Choose which relays to read from and write to.
         </p>
       </div>
-
-      {/* Performance Dashboard */}
-      <RelayPerformanceDashboard />
 
       {/* Relay Discovery Section - only show for logged in users */}
       {user && (
@@ -609,55 +572,44 @@ export default function RelaySettings() {
                             {health.latency}ms
                           </Badge>
                         )}
-                        <Badge
-                          variant="outline"
-                          className={`text-xs ${getPriorityColor(relay.priority)}`}
-                          title={getPriorityDescription(relay.priority)}
-                        >
-                          {relay.priority || 'auto'}
-                        </Badge>
                       </div>
                     </div>
 
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
-                    <div className="flex gap-2 w-full">
-                      <Select
-                        value={relay.mode}
-                        onValueChange={(value) => handleUpdateRelayMode(relay.url, value as RelayMode)}
-                      >
-                        <SelectTrigger className="w-full sm:w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="both">Read & Write</SelectItem>
-                          <SelectItem value="read">Read Only</SelectItem>
-                          <SelectItem value="write">Write Only</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <Select
+                      value={relay.mode}
+                      onValueChange={(value) => handleUpdateRelayMode(relay.url, value as RelayMode)}
+                    >
+                      <SelectTrigger className="w-full sm:w-36">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="both">
+                          <Badge variant="outline" className={getModeColor('both')}>
+                            Read & Write
+                          </Badge>
+                        </SelectItem>
+                        <SelectItem value="read">
+                          <Badge variant="outline" className={getModeColor('read')}>
+                            Read Only
+                          </Badge>
+                        </SelectItem>
+                        <SelectItem value="write">
+                          <Badge variant="outline" className={getModeColor('write')}>
+                            Write Only
+                          </Badge>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
 
-                      <Select
-                        value={relay.priority || 'primary'}
-                        onValueChange={(value) => handleUpdateRelayPriority(relay.url, value as RelayPriority)}
-                      >
-                        <SelectTrigger className="w-full sm:w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="primary">Primary</SelectItem>
-                          <SelectItem value="discovery">Discovery</SelectItem>
-                          <SelectItem value="backup">Backup</SelectItem>
-                        </SelectContent>
-                      </Select>
-
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveRelay(relay.url)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveRelay(relay.url)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               );
@@ -889,21 +841,6 @@ export default function RelaySettings() {
               <li><strong>Profile pages:</strong> Query the user's write relays to find their content.</li>
               <li><strong>Notifications:</strong> Query your read relays to find mentions of you.</li>
             </ul>
-          </div>
-
-          <div className="pt-2 border-t border-lime-500/20">
-            <p className="font-semibold text-green-600 mb-2">⚡ Smart Relay Priorities</p>
-            <p className="text-xs mb-2">
-              Spookstr automatically optimizes performance by routing different queries to appropriate relays:
-            </p>
-            <ul className="text-xs space-y-1 ml-4 list-disc">
-              <li><strong className="text-green-700">Primary:</strong> Fast, reliable relays used for main feed loading (max 3 used).</li>
-              <li><strong className="text-blue-700">Discovery:</strong> Used for profiles, interactions, and content discovery.</li>
-              <li><strong className="text-gray-700">Backup:</strong> Fallback relays used only when primary relays fail.</li>
-            </ul>
-            <p className="text-xs mt-2 text-muted-foreground">
-              💡 Feed performance is optimized by using only your fastest primary relays, while discovery uses all available relays for comprehensive coverage.
-            </p>
           </div>
 
           <div className="pt-2 border-t border-lime-500/20">

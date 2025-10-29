@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Loader2,
-  CheckCircle2,
-  AlertTriangle,
+import { 
+  Loader2, 
+  CheckCircle2, 
+  AlertTriangle, 
   Activity,
   Plus,
   Users,
@@ -29,11 +29,11 @@ interface RelayDiscoverySectionProps {
   className?: string;
 }
 
-export function RelayDiscoverySection({
-  onAddRelay,
-  onRemoveRelay,
+export function RelayDiscoverySection({ 
+  onAddRelay, 
+  onRemoveRelay, 
   onChangeMode,
-  className
+  className 
 }: RelayDiscoverySectionProps) {
   const { discoveredRelays, insights, isLoading } = useRelayDiscovery();
   const [selectedTab, setSelectedTab] = useState('overview');
@@ -348,46 +348,20 @@ export function RelayDiscoverySection({
         </TabsContent>
 
         <TabsContent value="network">
-          {insights ? (
-            <RelayNetworkMap
-              insights={insights}
-              onAddRelay={handleAddRelay}
-              onRemoveRelay={onRemoveRelay}
-            />
-          ) : (
-            <Card>
-              <CardContent className="py-12">
-                <div className="text-center space-y-4">
-                  <Loader2 className="h-12 w-12 animate-spin mx-auto text-blue-500" />
-                  <p className="text-sm text-muted-foreground">
-                    Loading network map...
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <RelayNetworkMap
+            insights={insights}
+            onAddRelay={handleAddRelay}
+            onRemoveRelay={onRemoveRelay}
+          />
         </TabsContent>
 
         <TabsContent value="insights">
-          {insights ? (
-            <RelayPerformanceInsights
-              insights={insights}
-              onAddRelay={handleAddRelay}
-              onRemoveRelay={onRemoveRelay}
-              onChangeMode={onChangeMode}
-            />
-          ) : (
-            <Card>
-              <CardContent className="py-12">
-                <div className="text-center space-y-4">
-                  <Loader2 className="h-12 w-12 animate-spin mx-auto text-blue-500" />
-                  <p className="text-sm text-muted-foreground">
-                    Loading performance insights...
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          <RelayPerformanceInsights
+            insights={insights}
+            onAddRelay={handleAddRelay}
+            onRemoveRelay={onRemoveRelay}
+            onChangeMode={onChangeMode}
+          />
         </TabsContent>
       </Tabs>
     </div>

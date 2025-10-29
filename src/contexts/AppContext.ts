@@ -4,15 +4,11 @@ export type Theme = "dark" | "light" | "system";
 
 export type RelayMode = "read" | "write" | "both";
 
-export type RelayPriority = "primary" | "discovery" | "backup";
-
 export interface RelayConfig {
   /** Relay WebSocket URL */
   url: string;
   /** Relay mode: read, write, or both */
   mode: RelayMode;
-  /** Relay priority for routing decisions */
-  priority?: RelayPriority;
   /** Optional custom name for the relay */
   name?: string;
   /** Connection status */
@@ -21,10 +17,6 @@ export interface RelayConfig {
   error?: string;
   /** Last successful connection timestamp */
   lastConnected?: number;
-  /** Average latency in milliseconds */
-  latency?: number;
-  /** Reliability score (0-100) based on connection history */
-  reliabilityScore?: number;
 }
 
 export interface AppConfig {

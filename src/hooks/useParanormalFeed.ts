@@ -1,5 +1,4 @@
 import { useMultiRelayQuery } from './useMultiRelayQuery';
-import { useFastFeed } from './useOptimizedFeed';
 import { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 import { nip19 } from 'nostr-tools';
@@ -145,36 +144,22 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
 }
 
 export function useParanormalFeed() {
-  // Use optimized fast feed for better performance
-  const { data: fastEvents, isLoading: isLoadingFast } = useFastFeed({
-    kinds: [1],
-    filters: { '#t': PARANORMAL_TAGS },
-    limit: 50,
-  });
-
-  // Use multi-relay query for comprehensive discovery (reposts)
-  const { data: discoveryEvents, isLoading: isLoadingDiscovery } = useMultiRelayQuery({
+  // Enhanced: Use multi-relay query for better content discovery
+  const { data: events, isLoading } = useMultiRelayQuery({
     filters: [
       {
-        kinds: [6], // Include reposts for broader content discovery
-        limit: 30,
+        kinds: [1],
+        '#t': PARANORMAL_TAGS,
+        limit: 80, // Increased limit for better multi-relay coverage
+      },
+      {
+        kinds: [6], // Include reposts
+        limit: 40, // Balanced limit for reposts
       }
     ],
     staleTime: 60000, // 1 minute
-    retry: 2,
+    retry: 2, // More retries for critical feed data
   });
-
-  // Combine events from both sources
-  const events = useMemo(() => {
-    const combined = [...(fastEvents || []), ...(discoveryEvents || [])];
-    // Deduplicate by ID
-    const uniqueEvents = Array.from(
-      new Map(combined.map(event => [event.id, event])).values()
-    );
-    return uniqueEvents;
-  }, [fastEvents, discoveryEvents]);
-
-  const isLoading = isLoadingFast || isLoadingDiscovery;
 
   // Process the events with filters and sorting
   const processedEvents = useMemo(() => {
