@@ -23,6 +23,10 @@ const podcastEmbeds = [
   {
     title: "Bigfoot and Beyond",
     embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/267-bigfoot-and-beyond-with-cl-63055511/?embed=true" frameborder="0"></iframe>`
+  },
+  {
+    title: "Colors of the Dark",
+    embedCode: `<iframe allow="autoplay" width="100%" height="400" src="https://www.iheart.com/podcast/256-colors-of-the-dark-43077966/?embed=true" frameborder="0"></iframe>`
   }
 ];
 
