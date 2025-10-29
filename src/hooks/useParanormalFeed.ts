@@ -118,18 +118,27 @@ export function useParanormalFeed() {
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
-      // Query for notes with paranormal tags
-      const events = await nostr.query([{
-        kinds: [1],
-        '#t': PARANORMAL_TAGS,
-        limit: 50,
-      }], { signal });
+      // Query for notes with paranormal tags AND reposts of paranormal content
+      const events = await nostr.query([
+        {
+          kinds: [1],
+          '#t': PARANORMAL_TAGS,
+          limit: 50,
+        },
+        {
+          kinds: [6], // Include reposts
+          limit: 50,
+        }
+      ], { signal });
 
       // Filter out NSFW content
       let filteredEvents = filterNSFWContent(events);
 
       // Filter out blocked users
       filteredEvents = filterBlockedUsers(filteredEvents);
+
+      // Sort by created_at (newest first)
+      filteredEvents.sort((a, b) => b.created_at - a.created_at);
 
       return filteredEvents;
     },
