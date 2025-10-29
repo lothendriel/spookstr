@@ -67,28 +67,29 @@ export function useRelayDiscovery(): RelayDiscoveryResult {
   const { config } = useAppContext();
   const currentRelays = config.relays || [];
 
-  console.log(`[RelayDiscovery] Hook called with:`, {
-    followsCount: follows.length,
-    followsLoading,
-    currentRelaysCount: currentRelays.length
-  });
+  // Removed excessive logging that was causing performance issues
+  // console.log(`[RelayDiscovery] Hook called with:`, {
+  //   followsCount: follows.length,
+  //   followsLoading,
+  //   currentRelaysCount: currentRelays.length
+  // });
 
   // Memoize current relays to prevent unnecessary re-renders
-  const memoizedCurrentRelays = useMemo(() => currentRelays, [JSON.stringify(currentRelays)]);
+  const memoizedCurrentRelays = useMemo(() => currentRelays, [
+    currentRelays.length,
+    currentRelays.map(r => r.url).join(',')
+  ]);
 
   // Memoize follows to prevent infinite loops
   const memoizedFollowsPubkeys = useMemo(() =>
     follows.map(f => f.pubkey).sort(),
-    [follows.length, follows.map(f => f.pubkey).join(',')]
+    [follows.length]
   );
 
   const { data: discoveredRelays, isLoading: isDiscovering, error: discoveryError } = useQuery({
     queryKey: ['relay-discovery', memoizedFollowsPubkeys, memoizedCurrentRelays.length],
     queryFn: async (c) => {
-      console.log(`[RelayDiscovery] Starting discovery with ${follows.length} follows`);
-
       if (follows.length === 0) {
-        console.log('[RelayDiscovery] No follows found, returning empty array');
         return [];
       }
 
@@ -98,7 +99,6 @@ export function useRelayDiscovery(): RelayDiscoveryResult {
       try {
         // Query relay lists for all followed users
         const followPubkeys = memoizedFollowsPubkeys;
-        console.log(`[RelayDiscovery] Querying relay lists for ${followPubkeys.length} contacts`);
 
         // Simplified approach - query fewer contacts but more reliably
         const events = await nostr.query(
@@ -112,7 +112,7 @@ export function useRelayDiscovery(): RelayDiscoveryResult {
           { signal }
         );
 
-        console.log(`[RelayDiscovery] Received ${events.length} relay list events`);
+        // Removed excessive logging
 
         // Process each relay list event
         for (const event of events) {
@@ -127,7 +127,6 @@ export function useRelayDiscovery(): RelayDiscoveryResult {
 
             // Basic URL validation before processing
             if (!url.includes('.') || url.length < 10) {
-              console.warn('[RelayDiscovery] Skipping invalid URL:', url);
               continue;
             }
 
@@ -163,9 +162,6 @@ export function useRelayDiscovery(): RelayDiscoveryResult {
           }
         }
 
-        const discoveredCount = Array.from(relayMap.values()).length;
-        console.log(`[RelayDiscovery] Discovery complete: found ${discoveredCount} unique relays from ${events.length} events`);
-
         return Array.from(relayMap.values());
       } catch (error) {
         console.error('[RelayDiscovery] Discovery failed:', error);
@@ -183,7 +179,7 @@ export function useRelayDiscovery(): RelayDiscoveryResult {
     if (!discoveredRelays) return [];
     const allDiscoveredUrls = discoveredRelays.map(r => r.url);
     return allDiscoveredUrls.map(url => ({ url, mode: 'both' as const }));
-  }, [discoveredRelays?.length, discoveredRelays?.map(r => r.url).join(',')]);
+  }, [discoveredRelays?.length]);
 
   const healthStatus = useRelayHealth(healthConfigs);
 
@@ -196,7 +192,7 @@ export function useRelayDiscovery(): RelayDiscoveryResult {
       follows,
       healthStatus
     );
-  }, [discoveredRelays, memoizedCurrentRelays, follows.length, Object.keys(healthStatus).length]);
+  }, [discoveredRelays, memoizedCurrentRelays, follows.length]);
 
   // Enrich discovered relays with health data and scores - memoize expensive calculation
   const enrichedRelays = useMemo(() => {
@@ -215,14 +211,15 @@ export function useRelayDiscovery(): RelayDiscoveryResult {
         suggestedMode: calculateSuggestedMode(relay),
       };
     }).sort((a, b) => b.score - a.score);
-  }, [discoveredRelays, healthStatus, memoizedCurrentRelays, follows.length]);
+  }, [discoveredRelays, memoizedCurrentRelays, follows.length]);
 
-  console.log(`[RelayDiscovery] Returning:`, {
-    discoveredRelaysCount: enrichedRelays.length,
-    hasInsights: !!insights,
-    isLoading: isDiscovering,
-    discoveryError: discoveryError?.message
-  });
+  // Removed excessive logging that was causing performance issues
+  // console.log(`[RelayDiscovery] Returning:`, {
+  //   discoveredRelaysCount: enrichedRelays.length,
+  //   hasInsights: !!insights,
+  //   isLoading: isDiscovering,
+  //   discoveryError: discoveryError?.message
+  // });
 
   return {
     discoveredRelays: enrichedRelays,
@@ -280,8 +277,7 @@ function calculateRelayScore(
       score += 10; // Diversity bonus
     }
   } catch (error) {
-    console.warn('[RelayDiscovery] Invalid URL in diversity check:', relay.url, error);
-    // Don't add diversity bonus for invalid URLs
+    // Don't add diversity bonus for invalid URLs (silently skip)
   }
 
   return Math.max(0, score);
