@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { usePostComment } from '@/hooks/usePostComment';
@@ -203,10 +203,10 @@ export function CommentForm({
             </div>
           )}
 
-          <Textarea
+          <MentionTextarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder={reply ? "Type your reply after the mention..." : placeholder}
+            placeholder={reply ? "Type your reply after the mention... (Type @ to mention others)" : `${placeholder} (Type @ to mention someone)`}
             className={compact ? "min-h-[80px]" : "min-h-[100px]"}
             disabled={formDisabled}
           />

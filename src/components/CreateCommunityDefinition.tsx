@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
+import { extractMentions } from '@/lib/mentions';
 import { Users, Settings } from 'lucide-react';
 
 interface CreateCommunityDefinitionProps {
@@ -39,6 +40,10 @@ export function CreateCommunityDefinition({ onSuccess, initialData }: CreateComm
       ['name', formData.name.trim()],
       ['description', formData.description.trim()]
     ];
+
+    // Add mention tags from description
+    const mentionTags = extractMentions(formData.description.trim());
+    tags.push(...mentionTags);
 
     // Add image if provided
     if (formData.image.trim()) {
@@ -139,12 +144,12 @@ export function CreateCommunityDefinition({ onSuccess, initialData }: CreateComm
 
         <div>
           <label className="text-sm font-medium text-purple-300 mb-2 block">
-            Description
+            Description (Type @ to mention someone)
           </label>
-          <Textarea
+          <MentionTextarea
             value={formData.description}
             onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-            placeholder="Describe your community..."
+            placeholder="Describe your community... (Type @ to mention someone)"
             className="bg-black/20 border-purple-500/30 text-purple-100 placeholder:text-purple-500/50 resize-none"
             rows={4}
           />

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,6 +11,7 @@ import { genUserName } from '@/lib/genUserName';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
+import { extractMentions } from '@/lib/mentions';
 import { Settings, Plus, Trash2, Save, Shield } from 'lucide-react';
 import { CommunityDefinition } from '@/hooks/useCommunity';
 import { ModerationPanel } from '@/components/ModerationPanel';
@@ -56,6 +57,10 @@ export function CommunityManagement({ community, onUpdate }: CommunityManagement
       ['name', formData.name.trim()],
       ['description', formData.description.trim()]
     ];
+
+    // Add mention tags from description
+    const mentionTags = extractMentions(formData.description.trim());
+    tags.push(...mentionTags);
 
     // Add image if provided
     if (formData.image.trim()) {
@@ -160,9 +165,9 @@ export function CommunityManagement({ community, onUpdate }: CommunityManagement
 
         <div>
           <label className="text-sm font-medium text-purple-300 mb-2 block">
-            Description
+            Description (Type @ to mention someone)
           </label>
-          <Textarea
+          <MentionTextarea
             value={formData.description}
             onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
             className="bg-black/20 border-purple-500/30 text-purple-100 resize-none"

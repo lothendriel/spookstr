@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { type NostrEvent } from '@nostrify/nostrify';
+import { extractMentions } from '@/lib/mentions';
 
 interface PostCommentParams {
   root: NostrEvent | URL; // The root event to comment on
@@ -64,8 +65,14 @@ export function usePostComment() {
         }
       }
 
+      // Add mention tags (p tags for mentioned users)
+      const mentionTags = extractMentions(content);
+      tags.push(...mentionTags);
+
       // Add uploaded file tags (NIP-94)
       console.log('=== POST COMMENT WITH FILES ===');
+      console.log('Content:', content);
+      console.log('Mention tags:', mentionTags);
       console.log('Uploaded files count:', uploadedFiles.length);
 
       uploadedFiles.forEach((uploadedFile, index) => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,14 @@ import { getDisplayName } from '@/lib/getDisplayName';
 import { Play, Users, Calendar, ExternalLink, Radio } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { NostrEvent } from '@nostrify/nostrify';
+import Hls from 'hls.js';
+
+// Helper function to extract URL from text that might contain description + URL
+function extractUrlFromText(text: string): string | undefined {
+  // Look for https:// URLs in the text
+  const urlMatch = text.match(/https?:\/\/[^\s]+/);
+  return urlMatch ? urlMatch[0] : text; // Return the URL if found, otherwise return original text
+}
 
 interface LiveStreamEventProps {
   event: NostrEvent;
@@ -17,6 +25,8 @@ interface LiveStreamEventProps {
 
 export function LiveStreamEvent({ event, className, showPlayer = false }: LiveStreamEventProps) {
   const [isPlayerOpen, setIsPlayerOpen] = useState(showPlayer);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const author = useAuthor(event.pubkey);
   const metadata = author.data?.metadata;
   const displayName = getDisplayName(metadata, event.pubkey);
@@ -32,7 +42,9 @@ export function LiveStreamEvent({ event, className, showPlayer = false }: LiveSt
   const streaming = event.tags.find(([name]) => name === 'streaming')?.[1];
   const recording = event.tags.find(([name]) => name === 'recording')?.[1];
   const service = event.tags.find(([name]) => name === 'service')?.[1];
-  const altLink = event.tags.find(([name]) => name === 'alt')?.[1];
+  const altTag = event.tags.find(([name]) => name === 'alt')?.[1];
+  // Extract URL from alt tag (it might contain text like "Watch live on https://...")
+  const altLink = altTag ? extractUrlFromText(altTag) : undefined;
   const currentParticipants = event.tags.find(([name]) => name === 'current_participants')?.[1];
   const totalParticipants = event.tags.find(([name]) => name === 'total_participants')?.[1];
 
@@ -89,20 +101,86 @@ export function LiveStreamEvent({ event, className, showPlayer = false }: LiveSt
   };
 
   const handleWatchClick = () => {
+    console.log('handleWatchClick called:', { status, streaming, altLink, streamUrl, isPlayerOpen });
+
     if (status === 'live' && streaming) {
       // For live streams with streaming URL, show embedded player
+      console.log('Toggling live stream player from', isPlayerOpen, 'to', !isPlayerOpen);
       setIsPlayerOpen(!isPlayerOpen);
     } else if (status === 'ended' && altLink) {
       // For ended streams, open recording on zap.stream
+      console.log('Opening altLink for ended stream:', altLink);
       window.open(altLink, '_blank', 'noopener,noreferrer');
     } else if (altLink) {
       // Fallback to alt link
+      console.log('Opening altLink fallback:', altLink);
       window.open(altLink, '_blank', 'noopener,noreferrer');
     } else if (streamUrl) {
       // Fallback to stream URL
+      console.log('Opening streamUrl fallback:', streamUrl);
       window.open(streamUrl, '_blank', 'noopener,noreferrer');
     }
   };
+
+  // Debug the button rendering logic
+  console.log('LiveStreamEvent render:', {
+    status,
+    altLink: !!altLink,
+    shouldShowExternalButton: !!(altLink && status !== 'ended'),
+    statusCheck: status !== 'ended'
+  });
+
+  // Initialize HLS player when the player is opened and we have a streaming URL
+  useEffect(() => {
+    if (isPlayerOpen && streaming && videoRef.current) {
+      const video = videoRef.current;
+
+      if (streaming.includes('.m3u8')) {
+        // HLS Stream - use hls.js
+        if (Hls.isSupported()) {
+          console.log('Initializing HLS player for:', streaming);
+          const hls = new Hls({
+            enableWorker: false,
+          });
+
+          hls.loadSource(streaming);
+          hls.attachMedia(video);
+
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            console.log('HLS manifest parsed, starting playback');
+            video.play().catch(console.error);
+          });
+
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            console.error('HLS error:', event, data);
+          });
+
+          hlsRef.current = hls;
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          // Native HLS support (Safari)
+          console.log('Using native HLS support for:', streaming);
+          video.src = streaming;
+          video.play().catch(console.error);
+        } else {
+          console.error('HLS is not supported in this browser');
+        }
+      } else {
+        // Regular video
+        console.log('Loading regular video:', streaming);
+        video.src = streaming;
+        video.play().catch(console.error);
+      }
+    }
+
+    // Cleanup function
+    return () => {
+      if (hlsRef.current) {
+        console.log('Destroying HLS player');
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [isPlayerOpen, streaming]);
 
   return (
     <Card className={`border-purple-500/30 bg-gradient-to-br from-purple-900/20 to-pink-900/20 backdrop-blur-sm ${className}`}>
@@ -131,32 +209,16 @@ export function LiveStreamEvent({ event, className, showPlayer = false }: LiveSt
         <div className="relative mb-4 rounded-lg overflow-hidden bg-black/40">
           {isPlayerOpen && streaming && status === 'live' ? (
             <div className="aspect-video">
-              {streaming.includes('.m3u8') ? (
-                // HLS Stream
-                <video
-                  className="w-full h-full"
-                  controls
-                  autoPlay
-                  playsInline
-                  src={streaming}
-                  poster={thumb}
-                >
-                  <source src={streaming} type="application/x-mpegURL" />
-                  Your browser does not support HLS video.
-                </video>
-              ) : (
-                // Regular video
-                <video
-                  className="w-full h-full"
-                  controls
-                  autoPlay
-                  playsInline
-                  src={streaming}
-                  poster={thumb}
-                >
-                  Your browser does not support this video format.
-                </video>
-              )}
+              <video
+                ref={videoRef}
+                className="w-full h-full"
+                controls
+                playsInline
+                poster={thumb}
+                muted
+              >
+                Your browser does not support video playback.
+              </video>
             </div>
           ) : (
             <div
@@ -165,7 +227,7 @@ export function LiveStreamEvent({ event, className, showPlayer = false }: LiveSt
                 status === 'ended' && altLink ? 'cursor-pointer' :
                 'cursor-default'
               }`}
-              onClick={status === 'ended' || (status === 'live' && streaming) ? handleWatchClick : undefined}
+              onClick={(status === 'live' && streaming) || (status === 'ended' && altLink) ? handleWatchClick : undefined}
             >
               {thumb ? (
                 <img

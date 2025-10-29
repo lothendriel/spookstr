@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useUploadFile } from '@/hooks/useUploadFile';
 import { useToast } from '@/hooks/useToast';
+import { extractMentions } from '@/lib/mentions';
 import { Ghost, Send, Upload, Image, Video, Music, X, RadioTower } from 'lucide-react';
 
 const PARANORMAL_TAGS = [
@@ -121,10 +122,15 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
 
     const tags = selectedTags.map(tag => ['t', tag]);
 
+    // Add mention tags (p tags for mentioned users)
+    const mentionTags = extractMentions(content.trim());
+    tags.push(...mentionTags);
+
     // Add uploaded file tags (NIP-94)
     console.log('=== POST SUBMISSION ===');
     console.log('Content:', content.trim());
     console.log('Selected tags:', selectedTags);
+    console.log('Mention tags:', mentionTags);
     console.log('Uploaded files:', uploadedFiles);
     console.log('Uploaded files count:', uploadedFiles.length);
     console.log('Post to Spookstr2 only:', postToSpookstr2Only);
@@ -219,8 +225,8 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <Textarea
-          placeholder="Tell us about your encounter with the unknown..."
+        <MentionTextarea
+          placeholder="Tell us about your encounter with the unknown... (Type @ to mention someone)"
           value={content}
           onChange={(e) => setContent(e.target.value)}
           className="bg-black/20 border-lime-500/30 text-lime-100 placeholder:text-lime-500/50 resize-none"
