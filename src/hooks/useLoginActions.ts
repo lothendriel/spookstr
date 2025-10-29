@@ -125,13 +125,30 @@ export function useLoginActions() {
           const reqId = urlObj.searchParams.get('reqId');
           console.log('📝 Request ID:', reqId);
 
-          // Retry the connection with a longer timeout
-          const retryPromise = NLogin.fromBunker(uri, nostr);
+          // Wait a bit for the user to approve, then retry with extended timeout
+          console.log('⏰ Waiting 2 seconds for authorization approval...');
+          await new Promise(resolve => setTimeout(resolve, 2000));
+
+          console.log('🔄 Retrying bunker connection after auth approval...');
+
+          // Retry the connection with a much longer timeout (90 seconds)
+          const retryPromise = (async () => {
+            try {
+              return await NLogin.fromBunker(uri, nostr);
+            } catch (retryErr) {
+              // If we get another auth URL on retry, it means the first auth didn't work
+              if (retryErr instanceof Error && retryErr.message.startsWith('https://')) {
+                throw new Error('Authorization was not completed. Please try again and approve the connection in the popup.');
+              }
+              throw retryErr;
+            }
+          })();
+
           const retryTimeout = new Promise((_, reject) => {
             setTimeout(() => {
-              console.error('⏱️ Authorization timeout after 60s');
-              reject(new Error('Authorization timeout. Please approve the connection faster or try again.'));
-            }, 60000); // 60 second timeout for auth
+              console.error('⏱️ Authorization timeout after 90s');
+              reject(new Error('Authorization timeout. The bunker did not respond after approval. Please try again.'));
+            }, 90000); // 90 second timeout for auth response
           });
 
           try {
@@ -141,6 +158,7 @@ export function useLoginActions() {
             addLogin(login);
             return;
           } catch (retryError) {
+            console.error('❌ Bunker retry failed:', retryError);
             authWindow.close();
             throw retryError;
           }
