@@ -1,5 +1,6 @@
 import { useNostr } from "@nostrify/react";
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
+import { NRelay1 } from "@nostrify/nostrify";
 
 import { useCurrentUser } from "./useCurrentUser";
 
@@ -53,10 +54,21 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
 
         if (options?.relayUrl) {
           // Publish to specific relay only
-          const relay = nostr.relay(options.relayUrl);
-          await relay.event(signedEvent, { signal: AbortSignal.timeout(8000) });
+          console.log('Publishing to specific relay:', options.relayUrl);
+          console.log('Event to publish:', signedEvent);
+          try {
+            // Create a direct relay connection instead of using the pool
+            const relay = new NRelay1(options.relayUrl);
+            console.log('Direct relay connection created for:', options.relayUrl);
+            await relay.event(signedEvent, { signal: AbortSignal.timeout(8000) });
+            console.log('Successfully published to relay:', options.relayUrl);
+          } catch (error) {
+            console.error('Error publishing to specific relay:', error);
+            throw error;
+          }
         } else {
           // Publish to all relays (default behavior)
+          console.log('Publishing to all relays');
           await nostr.event(signedEvent, { signal: AbortSignal.timeout(8000) });
         }
 

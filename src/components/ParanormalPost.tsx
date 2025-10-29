@@ -181,6 +181,8 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
 
     setIsReposting(true);
 
+    console.log('handleRepost called with spookstrOnly:', spookstrOnly);
+
     // Optimistic update - increment count immediately
     optimisticUpdate(6, 1);
 
@@ -190,6 +192,9 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     // Repost the original event, not a repost of a repost
     const targetEvent = repostedEvent || event;
 
+    const options = spookstrOnly ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined;
+    console.log('Publishing repost with options:', options);
+
     createEvent({
       event: {
         kind: 6,
@@ -197,7 +202,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
         tags: [['e', targetEvent.id], ['p', targetEvent.pubkey]],
         created_at,
       },
-      options: spookstrOnly ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
+      options
     }, {
       onSuccess: () => {
         setIsReposting(false);
