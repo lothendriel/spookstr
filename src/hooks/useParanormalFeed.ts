@@ -125,7 +125,19 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
 
     // For reposts, check if the reposted content has paranormal tags
     try {
+      // Handle empty content gracefully
+      if (!event.content || event.content.trim() === '') {
+        console.log('[Paranormal Feed] Skipping repost with empty content');
+        return false;
+      }
+
       const repostedEvent = JSON.parse(event.content) as NostrEvent;
+
+      // Validate the parsed event structure
+      if (!repostedEvent || !repostedEvent.tags || !Array.isArray(repostedEvent.tags)) {
+        console.log('[Paranormal Feed] Skipping repost with invalid event structure');
+        return false;
+      }
 
       // Check if any of the reposted event's tags match our paranormal tags
       const hasTags = repostedEvent.tags.some(([tagName, tagValue]) => {
@@ -135,26 +147,40 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
         return false;
       });
 
+      if (hasTags) {
+        console.log('[Paranormal Feed] ✅ Repost contains paranormal tags');
+      }
+
       return hasTags;
     } catch (e) {
-      // If we can't parse the repost, exclude it
-      console.warn('Failed to parse repost content:', e);
+      // Improved error handling with context
+      console.log(`[Paranormal Feed] ⚠️ Skipping unparseable repost (content length: ${event.content?.length || 0}):`,
+        event.content?.substring(0, 100) + (event.content?.length > 100 ? '...' : ''));
       return false;
     }
   });
 }
 
 export function useParanormalFeed() {
-  // Use optimized fast feed for better performance
-  const { data: fastEvents, isLoading: isLoadingFast } = useFastFeed({
+  console.log('[Paranormal Feed] Starting feed query with', PARANORMAL_TAGS.length, 'tags');
+
+  // Use optimized fast feed for paranormal content - but fallback to multi-relay if needed
+  const { data: fastEvents, isLoading: isLoadingFast, error: fastError } = useFastFeed({
     kinds: [1],
     filters: { '#t': PARANORMAL_TAGS },
     limit: 50,
   });
 
-  // Use multi-relay query for comprehensive discovery (reposts)
+  // Use multi-relay query as primary method if fast feed fails or returns no results
+  const shouldUseMultiRelay = !isLoadingFast && (!fastEvents || fastEvents.length === 0);
+
   const { data: discoveryEvents, isLoading: isLoadingDiscovery } = useMultiRelayQuery({
     filters: [
+      {
+        kinds: [1],
+        '#t': PARANORMAL_TAGS,
+        limit: 60, // Increased for better coverage
+      },
       {
         kinds: [6], // Include reposts for broader content discovery
         limit: 30,
@@ -162,19 +188,41 @@ export function useParanormalFeed() {
     ],
     staleTime: 60000, // 1 minute
     retry: 2,
+    enabled: shouldUseMultiRelay || !!fastError, // Use multi-relay as fallback
   });
 
-  // Combine events from both sources
+  // Combine events from both sources, prefer fast events if available
   const events = useMemo(() => {
-    const combined = [...(fastEvents || []), ...(discoveryEvents || [])];
+    let combined: typeof fastEvents = [];
+
+    if (fastEvents && fastEvents.length > 0) {
+      console.log(`[Paranormal Feed] Using ${fastEvents.length} events from fast feed`);
+      combined = [...fastEvents];
+
+      // Add discovery events for reposts
+      if (discoveryEvents) {
+        const reposts = discoveryEvents.filter(e => e.kind === 6);
+        combined = [...combined, ...reposts];
+        console.log(`[Paranormal Feed] Added ${reposts.length} reposts from discovery`);
+      }
+    } else if (discoveryEvents && discoveryEvents.length > 0) {
+      console.log(`[Paranormal Feed] Fallback: Using ${discoveryEvents.length} events from multi-relay discovery`);
+      combined = [...discoveryEvents];
+    } else {
+      console.log('[Paranormal Feed] No events from either source');
+      return [];
+    }
+
     // Deduplicate by ID
     const uniqueEvents = Array.from(
       new Map(combined.map(event => [event.id, event])).values()
     );
+
+    console.log(`[Paranormal Feed] Final: ${uniqueEvents.length} unique events after deduplication`);
     return uniqueEvents;
   }, [fastEvents, discoveryEvents]);
 
-  const isLoading = isLoadingFast || isLoadingDiscovery;
+  const isLoading = isLoadingFast || (shouldUseMultiRelay && isLoadingDiscovery);
 
   // Process the events with filters and sorting
   const processedEvents = useMemo(() => {
