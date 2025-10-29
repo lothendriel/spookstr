@@ -104,17 +104,51 @@ export default function RelaySettings() {
   const normalizeRelayUrl = (url: string): string => {
     const trimmed = url.trim();
     if (!trimmed) return '';
-    if (trimmed.includes('://')) return trimmed;
+
+    // If it already has a protocol, use it as-is
+    if (trimmed.includes('://')) {
+      return trimmed;
+    }
+
+    // Default to wss:// for relay URLs
     return `wss://${trimmed}`;
   };
 
   const isValidRelayUrl = (url: string): boolean => {
     try {
-      const normalized = normalizeRelayUrl(url);
-      if (!normalized) return false;
-      new URL(normalized);
+      const trimmed = url.trim();
+      if (!trimmed) return false;
+
+      // Allow common relay URL patterns
+      const normalized = normalizeRelayUrl(trimmed);
+      const urlObj = new URL(normalized);
+
+      // Must be wss:// or ws:// protocol
+      if (!['wss:', 'ws:'].includes(urlObj.protocol)) {
+        return false;
+      }
+
+      // Must have a hostname
+      if (!urlObj.hostname) {
+        return false;
+      }
+
+      // Common relay hostname patterns
+      const hostname = urlObj.hostname.toLowerCase();
+
+      // Allow localhost and IP addresses for development
+      if (hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
+        return true;
+      }
+
+      // Must have at least one dot for domain names (e.g., relay.com)
+      if (!hostname.includes('.')) {
+        return false;
+      }
+
       return true;
-    } catch {
+    } catch (error) {
+      console.log('[RelaySettings] URL validation error:', error, 'for URL:', url);
       return false;
     }
   };
@@ -126,7 +160,7 @@ export default function RelaySettings() {
     if (!isValidRelayUrl(urlToAdd)) {
       toast({
         title: 'Invalid relay URL',
-        description: 'Please enter a valid WebSocket URL',
+        description: 'Please enter a valid WebSocket URL (e.g., wss://relay.example.com or relay.example.com)',
         variant: 'destructive',
       });
       return;
@@ -274,7 +308,7 @@ export default function RelaySettings() {
     if (!isValidRelayUrl(newSearchRelay)) {
       toast({
         title: 'Invalid relay URL',
-        description: 'Please enter a valid WebSocket URL',
+        description: 'Please enter a valid WebSocket URL (e.g., wss://relay.example.com or relay.example.com)',
         variant: 'destructive',
       });
       return;
