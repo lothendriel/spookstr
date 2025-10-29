@@ -40,9 +40,10 @@ export function useLoginActions() {
       addLogin(login);
     },
     // Login with a NIP-46 "bunker://" URI
-    async bunker(uri: string): Promise<void> {
+    async bunker(uri: string, onStatus?: (status: string) => void): Promise<void> {
       console.log('🔐 Starting bunker login...');
       console.log('📋 Bunker URI format check:', uri.substring(0, 20) + '...');
+      onStatus?.('Validating bunker URI...');
 
       try {
         // Parse the URI to extract relay information for debugging
@@ -58,12 +59,14 @@ export function useLoginActions() {
         // Test relay connectivity first
         if (relay) {
           console.log('🧪 Testing relay connectivity...');
+          onStatus?.('Testing relay connectivity...');
           const isReachable = await testRelayConnection(relay);
           if (!isReachable) {
             console.error('❌ Relay is not reachable:', relay);
             throw new Error(`Cannot connect to relay: ${relay}. The relay may be down or blocked.`);
           }
           console.log('✅ Relay is reachable');
+          onStatus?.('Relay connected successfully');
         }
 
         // Add a timeout for the bunker connection (30 seconds)
@@ -75,6 +78,7 @@ export function useLoginActions() {
         });
 
         console.log('🚀 Attempting to connect to bunker via NLogin.fromBunker...');
+        onStatus?.('Connecting to remote signer...');
 
         // Wrap the bunker connection to catch auth challenges immediately
         const wrappedLoginPromise = (async () => {
@@ -84,6 +88,7 @@ export function useLoginActions() {
             // Check if this is an auth challenge (URL thrown as error)
             if (err instanceof Error && err.message.startsWith('https://')) {
               console.log('🔐 Auth challenge detected immediately!');
+              onStatus?.('Authorization required - opening popup...');
               throw err; // Re-throw to be caught by outer try-catch
             }
             throw err;
@@ -119,6 +124,7 @@ export function useLoginActions() {
 
           // Wait for the auth to complete and retry the connection
           console.log('⏳ Waiting for authorization... Please approve the connection in the opened window.');
+          onStatus?.('Please approve the connection in the popup window');
 
           // Extract request ID from the URL for monitoring
           const urlObj = new URL(authUrl);
@@ -127,9 +133,11 @@ export function useLoginActions() {
 
           // Wait a bit for the user to approve, then retry with extended timeout
           console.log('⏰ Waiting 2 seconds for authorization approval...');
+          onStatus?.('Waiting for authorization approval...');
           await new Promise(resolve => setTimeout(resolve, 2000));
 
           console.log('🔄 Retrying bunker connection after auth approval...');
+          onStatus?.('Completing connection after authorization...');
 
           // Retry the connection with a much longer timeout (90 seconds)
           const retryPromise = (async () => {

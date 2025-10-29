@@ -53,6 +53,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
   const [isFileLoading, setIsFileLoading] = useState(false);
   const [nsec, setNsec] = useState('');
   const [bunkerUri, setBunkerUri] = useState('');
+  const [bunkerStatus, setBunkerStatus] = useState<string>('');
   const [errors, setErrors] = useState<{
     nsec?: string;
     bunker?: string;
@@ -70,6 +71,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
       setIsFileLoading(false);
       setNsec('');
       setBunkerUri('');
+      setBunkerStatus('');
       setErrors({});
       // Reset file input
       if (fileInputRef.current) {
@@ -148,10 +150,21 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
     }
 
     setIsLoading(true);
+    setBunkerStatus('Connecting to bunker...');
     setErrors(prev => ({ ...prev, bunker: undefined }));
 
     try {
-      await login.bunker(bunkerUri);
+      // Set up status listener
+      const statusInterval = setInterval(() => {
+        // This will be updated by console logs, but we can track it here too
+      }, 1000);
+
+      await login.bunker(bunkerUri, (status: string) => {
+        setBunkerStatus(status);
+      });
+
+      clearInterval(statusInterval);
+      setBunkerStatus('Login successful!');
       onLogin();
       onClose();
       // Clear the URI from memory
@@ -165,6 +178,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
         ...prev,
         bunker: errorMessage
       }));
+      setBunkerStatus('');
     } finally {
       setIsLoading(false);
     }
@@ -383,6 +397,9 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                 {errors.bunker && (
                   <p className="text-sm text-red-500">{errors.bunker}</p>
                 )}
+                {bunkerStatus && !errors.bunker && (
+                  <p className="text-sm text-blue-600 dark:text-blue-400 animate-pulse">{bunkerStatus}</p>
+                )}
               </div>
 
               <div className="flex justify-center">
@@ -391,7 +408,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                   onClick={handleBunkerLogin}
                   disabled={isLoading || !bunkerUri.trim()}
                 >
-                  {isLoading ? 'Connecting...' : 'Login with Bunker'}
+                  {isLoading ? bunkerStatus || 'Connecting...' : 'Login with Bunker'}
                 </Button>
               </div>
             </TabsContent>
