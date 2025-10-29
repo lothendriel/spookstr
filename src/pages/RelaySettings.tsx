@@ -21,7 +21,6 @@ import { Trash2, Plus, Activity, AlertCircle, CheckCircle2, Loader2, RefreshCw, 
 import { useToast } from '@/hooks/useToast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
-import { RelayDiscoverySection } from '@/components/RelayDiscoverySection';
 
 // Official Spookstr relay
 const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
@@ -118,11 +117,8 @@ export default function RelaySettings() {
     }
   };
 
-  const handleAddRelay = (url?: string, mode?: RelayMode) => {
-    const urlToAdd = url || newRelayUrl;
-    const modeToUse = mode || newRelayMode;
-
-    if (!isValidRelayUrl(urlToAdd)) {
+  const handleAddRelay = () => {
+    if (!isValidRelayUrl(newRelayUrl)) {
       toast({
         title: 'Invalid relay URL',
         description: 'Please enter a valid WebSocket URL',
@@ -131,7 +127,7 @@ export default function RelaySettings() {
       return;
     }
 
-    const normalizedUrl = normalizeRelayUrl(urlToAdd);
+    const normalizedUrl = normalizeRelayUrl(newRelayUrl);
 
     // Check for duplicates
     if (localRelays.some((r) => r.url === normalizedUrl)) {
@@ -147,21 +143,13 @@ export default function RelaySettings() {
       ...localRelays,
       {
         url: normalizedUrl,
-        mode: modeToUse,
+        mode: newRelayMode,
       },
     ]);
 
-    // Only clear form if using the manual form (no url parameter)
-    if (!url) {
-      setNewRelayUrl('');
-      setNewRelayMode('both');
-    }
+    setNewRelayUrl('');
+    setNewRelayMode('both');
     setHasChanges(true);
-
-    toast({
-      title: 'Relay added',
-      description: `Added ${new URL(normalizedUrl).hostname} in ${modeToUse} mode`,
-    });
   };
 
   const handleRemoveRelay = (url: string) => {
@@ -387,15 +375,6 @@ export default function RelaySettings() {
           Manage your Nostr relay connections. Choose which relays to read from and write to.
         </p>
       </div>
-
-      {/* Relay Discovery Section - only show for logged in users */}
-      {user && (
-        <RelayDiscoverySection
-          onAddRelay={handleAddRelay}
-          onRemoveRelay={handleRemoveRelay}
-          onChangeMode={handleUpdateRelayMode}
-        />
-      )}
 
       {/* NIP-65 Info */}
       {user && (
