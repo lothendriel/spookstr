@@ -222,7 +222,13 @@ export function RelayDiscoverySection({
                     <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm">
-                          {action.type === 'add_relay' && 'Add '}{new URL(action.relay).hostname}
+                          {action.type === 'add_relay' && 'Add '}{(() => {
+                            try {
+                              return new URL(action.relay).hostname;
+                            } catch {
+                              return action.relay.replace(/^wss?:\/\//, '');
+                            }
+                          })()}
                         </p>
                         <p className="text-xs text-muted-foreground">{action.reason}</p>
                         <Badge variant="outline" className="text-xs mt-1">
@@ -310,7 +316,13 @@ export function RelayDiscoverySection({
 
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="font-medium text-sm">
-                          {relay.name || new URL(relay.url).hostname}
+                          {relay.name || (() => {
+                            try {
+                              return new URL(relay.url).hostname;
+                            } catch {
+                              return relay.url.replace(/^wss?:\/\//, '');
+                            }
+                          })()}
                         </div>
                         <div className="font-mono text-xs text-muted-foreground truncate">
                           {relay.url}

@@ -127,7 +127,6 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
     try {
       // Handle empty content gracefully
       if (!event.content || event.content.trim() === '') {
-        console.log('[Paranormal Feed] Skipping repost with empty content');
         return false;
       }
 
@@ -135,7 +134,6 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
 
       // Validate the parsed event structure
       if (!repostedEvent || !repostedEvent.tags || !Array.isArray(repostedEvent.tags)) {
-        console.log('[Paranormal Feed] Skipping repost with invalid event structure');
         return false;
       }
 
@@ -147,45 +145,46 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
         return false;
       });
 
-      if (hasTags) {
-        console.log('[Paranormal Feed] ✅ Repost contains paranormal tags');
-      }
-
       return hasTags;
     } catch (e) {
-      // Improved error handling with context
-      console.log(`[Paranormal Feed] ⚠️ Skipping unparseable repost (content length: ${event.content?.length || 0}):`,
-        event.content?.substring(0, 100) + (event.content?.length > 100 ? '...' : ''));
+      // Skip unparseable reposts silently
       return false;
     }
   });
 }
 
 export function useParanormalFeed() {
-  console.log('[Paranormal Feed] Starting feed query with', PARANORMAL_TAGS.length, 'tags');
+  // Removed excessive logging that was causing performance issues
+  // console.log('[Paranormal Feed] Starting feed query with', PARANORMAL_TAGS.length, 'tags');
 
-  // Use optimized fast feed for paranormal content - but fallback to multi-relay if needed
-  const { data: fastEvents, isLoading: isLoadingFast, error: fastError } = useFastFeed({
+  // Memoize the filters to prevent unnecessary re-queries
+  const fastFeedOptions = useMemo(() => ({
     kinds: [1],
     filters: { '#t': PARANORMAL_TAGS },
     limit: 50,
-  });
+  }), []); // Empty dependency array since PARANORMAL_TAGS is static
+
+  // Use optimized fast feed for paranormal content - but fallback to multi-relay if needed
+  const { data: fastEvents, isLoading: isLoadingFast, error: fastError } = useFastFeed(fastFeedOptions);
 
   // Use multi-relay query as primary method if fast feed fails or returns no results
   const shouldUseMultiRelay = !isLoadingFast && (!fastEvents || fastEvents.length === 0);
 
+  // Memoize the multi-relay filters to prevent constant re-queries
+  const multiRelayFilters = useMemo(() => [
+    {
+      kinds: [1],
+      '#t': PARANORMAL_TAGS,
+      limit: 60, // Increased for better coverage
+    },
+    {
+      kinds: [6], // Include reposts for broader content discovery
+      limit: 30,
+    }
+  ], []); // Empty dependency array since PARANORMAL_TAGS is static
+
   const { data: discoveryEvents, isLoading: isLoadingDiscovery } = useMultiRelayQuery({
-    filters: [
-      {
-        kinds: [1],
-        '#t': PARANORMAL_TAGS,
-        limit: 60, // Increased for better coverage
-      },
-      {
-        kinds: [6], // Include reposts for broader content discovery
-        limit: 30,
-      }
-    ],
+    filters: multiRelayFilters,
     staleTime: 60000, // 1 minute
     retry: 2,
     enabled: shouldUseMultiRelay || !!fastError, // Use multi-relay as fallback
@@ -196,20 +195,16 @@ export function useParanormalFeed() {
     let combined: typeof fastEvents = [];
 
     if (fastEvents && fastEvents.length > 0) {
-      console.log(`[Paranormal Feed] Using ${fastEvents.length} events from fast feed`);
       combined = [...fastEvents];
 
       // Add discovery events for reposts
       if (discoveryEvents) {
         const reposts = discoveryEvents.filter(e => e.kind === 6);
         combined = [...combined, ...reposts];
-        console.log(`[Paranormal Feed] Added ${reposts.length} reposts from discovery`);
       }
     } else if (discoveryEvents && discoveryEvents.length > 0) {
-      console.log(`[Paranormal Feed] Fallback: Using ${discoveryEvents.length} events from multi-relay discovery`);
       combined = [...discoveryEvents];
     } else {
-      console.log('[Paranormal Feed] No events from either source');
       return [];
     }
 
@@ -218,7 +213,6 @@ export function useParanormalFeed() {
       new Map(combined.map(event => [event.id, event])).values()
     );
 
-    console.log(`[Paranormal Feed] Final: ${uniqueEvents.length} unique events after deduplication`);
     return uniqueEvents;
   }, [fastEvents, discoveryEvents]);
 
@@ -228,26 +222,19 @@ export function useParanormalFeed() {
   const processedEvents = useMemo(() => {
     if (!events) return [];
 
-    console.log(`[Paranormal Feed] Processing ${events.length} events from multi-relay query`);
-
     // Deduplicate events by ID (multiple relays may return same event)
     const uniqueEvents = Array.from(
       new Map(events.map(event => [event.id, event])).values()
     );
 
-    console.log(`[Paranormal Feed] ${uniqueEvents.length} unique events after deduplication`);
-
     // Filter out NSFW content
     let filteredEvents = filterNSFWContent(uniqueEvents);
-    console.log(`[Paranormal Feed] ${filteredEvents.length} events after NSFW filter`);
 
     // Filter out blocked users
     filteredEvents = filterBlockedUsers(filteredEvents);
-    console.log(`[Paranormal Feed] ${filteredEvents.length} events after blocking filter`);
 
     // Filter reposts to only include those with paranormal tags
     filteredEvents = filterRepostsByTags(filteredEvents);
-    console.log(`[Paranormal Feed] ${filteredEvents.length} events after repost tag filter`);
 
     // Sort by created_at (newest first)
     filteredEvents.sort((a, b) => b.created_at - a.created_at);
@@ -278,22 +265,16 @@ export function useParanormalReplies(noteId: string) {
   const processedEvents = useMemo(() => {
     if (!events) return [];
 
-    console.log(`[Paranormal Replies] Processing ${events.length} replies from multi-relay query`);
-
     // Deduplicate events by ID
     const uniqueEvents = Array.from(
       new Map(events.map(event => [event.id, event])).values()
     );
-
-    console.log(`[Paranormal Replies] ${uniqueEvents.length} unique replies after deduplication`);
 
     // Filter out NSFW content from replies as well
     let filteredEvents = filterNSFWContent(uniqueEvents);
 
     // Filter out blocked users from replies
     filteredEvents = filterBlockedUsers(filteredEvents);
-
-    console.log(`[Paranormal Replies] ${filteredEvents.length} replies after filtering`);
 
     return filteredEvents;
   }, [events]);

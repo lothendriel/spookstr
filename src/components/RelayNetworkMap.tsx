@@ -324,7 +324,13 @@ export function RelayNetworkMap({
                         textAnchor="middle"
                         className="text-xs fill-gray-700 dark:fill-gray-300 pointer-events-none"
                       >
-                        {node.name || new URL(node.url).hostname.split('.')[0]}
+                        {node.name || (() => {
+                          try {
+                            return new URL(node.url).hostname.split('.')[0];
+                          } catch {
+                            return node.url.replace(/^wss?:\/\//, '').split('.')[0];
+                          }
+                        })()}
                       </text>
                     )}
 
@@ -376,7 +382,13 @@ export function RelayNetworkMap({
                     <div className="flex items-center justify-between">
                       <div>
                         <h4 className="font-semibold">
-                          {selectedNode.name || new URL(selectedNode.url).hostname}
+                          {selectedNode.name || (() => {
+                            try {
+                              return new URL(selectedNode.url).hostname;
+                            } catch {
+                              return selectedNode.url.replace(/^wss?:\/\//, '');
+                            }
+                          })()}
                         </h4>
                         <p className="text-sm text-muted-foreground font-mono">
                           {selectedNode.url}

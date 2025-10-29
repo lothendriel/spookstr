@@ -320,11 +320,19 @@ export function RelayPerformanceInsights({
             <div className="space-y-2">
               <h4 className="font-semibold text-sm text-green-600">Your Relays</h4>
               <div className="space-y-1">
-                {(insights.networkMap?.yourRelays || []).slice(0, 5).map((relay, index) => (
-                  <div key={relay.url} className="text-sm font-mono text-muted-foreground">
-                    {new URL(relay.url).hostname}
-                  </div>
-                ))}
+                {(insights.networkMap?.yourRelays || []).slice(0, 5).map((relay, index) => {
+                  let hostname;
+                  try {
+                    hostname = new URL(relay.url).hostname;
+                  } catch {
+                    hostname = relay.url.replace(/^wss?:\/\//, '');
+                  }
+                  return (
+                    <div key={relay.url} className="text-sm font-mono text-muted-foreground">
+                      {hostname}
+                    </div>
+                  );
+                })}
                 {(insights.networkMap?.yourRelays?.length || 0) > 5 && (
                   <div className="text-xs text-muted-foreground">
                     +{(insights.networkMap?.yourRelays?.length || 0) - 5} more
@@ -336,11 +344,19 @@ export function RelayPerformanceInsights({
             <div className="space-y-2">
               <h4 className="font-semibold text-sm text-blue-600">Shared Relays</h4>
               <div className="space-y-1">
-                {(insights.networkMap?.sharedRelays || []).slice(0, 5).map((url, index) => (
-                  <div key={url} className="text-sm font-mono text-muted-foreground">
-                    {new URL(url).hostname}
-                  </div>
-                ))}
+                {(insights.networkMap?.sharedRelays || []).slice(0, 5).map((url, index) => {
+                  let hostname;
+                  try {
+                    hostname = new URL(url).hostname;
+                  } catch {
+                    hostname = url.replace(/^wss?:\/\//, '');
+                  }
+                  return (
+                    <div key={url} className="text-sm font-mono text-muted-foreground">
+                      {hostname}
+                    </div>
+                  );
+                })}
                 {(insights.networkMap?.sharedRelays?.length || 0) > 5 && (
                   <div className="text-xs text-muted-foreground">
                     +{(insights.networkMap?.sharedRelays?.length || 0) - 5} more
@@ -357,11 +373,19 @@ export function RelayPerformanceInsights({
             <div className="space-y-2">
               <h4 className="font-semibold text-sm text-orange-600">Coverage Gaps</h4>
               <div className="space-y-1">
-                {(insights.networkMap?.coverageGaps || []).slice(0, 5).map((url, index) => (
-                  <div key={url} className="text-sm font-mono text-muted-foreground">
-                    {new URL(url).hostname}
-                  </div>
-                ))}
+                {(insights.networkMap?.coverageGaps || []).slice(0, 5).map((url, index) => {
+                  let hostname;
+                  try {
+                    hostname = new URL(url).hostname;
+                  } catch {
+                    hostname = url.replace(/^wss?:\/\//, '');
+                  }
+                  return (
+                    <div key={url} className="text-sm font-mono text-muted-foreground">
+                      {hostname}
+                    </div>
+                  );
+                })}
                 {(insights.networkMap?.coverageGaps?.length || 0) > 5 && (
                   <div className="text-xs text-muted-foreground">
                     +{(insights.networkMap?.coverageGaps?.length || 0) - 5} more

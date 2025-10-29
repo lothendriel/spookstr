@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
+import { useMemo } from 'react';
 import { useFollow } from './useFollow';
 import { useUserRelays } from './useUserRelays';
 import { useRelayHealth } from './useRelayHealth';
@@ -72,16 +73,17 @@ export function useRelayDiscovery(): RelayDiscoveryResult {
     currentRelaysCount: currentRelays.length
   });
 
-  // Get relay health for all known relays
-  const allRelayUrls = Array.from(
-    new Set([
-      ...currentRelays.map(r => r.url),
-      // We'll add discovered relay URLs here after the first query
-    ])
+  // Memoize current relays to prevent unnecessary re-renders
+  const memoizedCurrentRelays = useMemo(() => currentRelays, [JSON.stringify(currentRelays)]);
+
+  // Memoize follows to prevent infinite loops
+  const memoizedFollowsPubkeys = useMemo(() =>
+    follows.map(f => f.pubkey).sort(),
+    [follows.length, follows.map(f => f.pubkey).join(',')]
   );
 
   const { data: discoveredRelays, isLoading: isDiscovering, error: discoveryError } = useQuery({
-    queryKey: ['relay-discovery', follows.map(f => f.pubkey).sort()],
+    queryKey: ['relay-discovery', memoizedFollowsPubkeys, memoizedCurrentRelays.length],
     queryFn: async (c) => {
       console.log(`[RelayDiscovery] Starting discovery with ${follows.length} follows`);
 
@@ -90,117 +92,130 @@ export function useRelayDiscovery(): RelayDiscoveryResult {
         return [];
       }
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(15000)]);
       const relayMap = new Map<string, DiscoveredRelay>();
 
-      // Query relay lists for all followed users
-      const followPubkeys = follows.map(f => f.pubkey);
-      console.log(`[RelayDiscovery] Querying relay lists for ${followPubkeys.length} contacts`);
+      try {
+        // Query relay lists for all followed users
+        const followPubkeys = memoizedFollowsPubkeys;
+        console.log(`[RelayDiscovery] Querying relay lists for ${followPubkeys.length} contacts`);
 
-      // Batch query in chunks to avoid overwhelming relays
-      const CHUNK_SIZE = 20;
-      const chunks = [];
-      for (let i = 0; i < followPubkeys.length; i += CHUNK_SIZE) {
-        chunks.push(followPubkeys.slice(i, i + CHUNK_SIZE));
-      }
+        // Simplified approach - query fewer contacts but more reliably
+        const events = await nostr.query(
+          [
+            {
+              kinds: [10002], // NIP-65 relay lists
+              authors: followPubkeys.slice(0, 50), // Limit to first 50 follows for performance
+              limit: 100, // Reasonable limit
+            },
+          ],
+          { signal }
+        );
 
-      for (const chunk of chunks) {
-        try {
-          const events = await nostr.query(
-            [
-              {
-                kinds: [10002], // NIP-65 relay lists
-                authors: chunk,
-                limit: chunk.length * 2, // Allow for multiple events per author
-              },
-            ],
-            { signal }
-          );
+        console.log(`[RelayDiscovery] Received ${events.length} relay list events`);
 
-          // Process each relay list event
-          for (const event of events) {
-            const followData = follows.find(f => f.pubkey === event.pubkey);
-            if (!followData) continue;
+        // Process each relay list event
+        for (const event of events) {
+          const followData = follows.find(f => f.pubkey === event.pubkey);
+          if (!followData) continue;
 
-            // Parse r tags
-            const rTags = event.tags.filter(([name]) => name === 'r');
+          // Parse r tags
+          const rTags = event.tags.filter(([name]) => name === 'r');
 
-            for (const [, url, marker] of rTags) {
-              if (!url) continue;
+          for (const [, url, marker] of rTags) {
+            if (!url || typeof url !== 'string') continue;
 
-              const mode = marker === 'read' ? 'read' : marker === 'write' ? 'write' : 'both';
+            // Basic URL validation before processing
+            if (!url.includes('.') || url.length < 10) {
+              console.warn('[RelayDiscovery] Skipping invalid URL:', url);
+              continue;
+            }
 
-              if (!relayMap.has(url)) {
-                relayMap.set(url, {
-                  url,
-                  contactCount: 0,
-                  contacts: [],
-                  score: 0,
-                  isAlreadyAdded: currentRelays.some(r => r.url === url),
-                  suggestedMode: 'both',
-                  benefits: {
-                    newContactsReached: 0,
-                    coverageImprovement: 0,
-                    networkOverlap: 0,
-                  },
-                });
-              }
+            const mode = marker === 'read' ? 'read' : marker === 'write' ? 'write' : 'both';
 
-              const discoveredRelay = relayMap.get(url)!;
+            if (!relayMap.has(url)) {
+              relayMap.set(url, {
+                url,
+                contactCount: 0,
+                contacts: [],
+                score: 0,
+                isAlreadyAdded: memoizedCurrentRelays.some(r => r.url === url),
+                suggestedMode: 'both',
+                benefits: {
+                  newContactsReached: 0,
+                  coverageImprovement: 0,
+                  networkOverlap: 0,
+                },
+              });
+            }
 
-              // Add contact if not already present
-              if (!discoveredRelay.contacts.some(c => c.pubkey === event.pubkey)) {
-                discoveredRelay.contacts.push({
-                  pubkey: event.pubkey,
-                  petname: followData.petname,
-                  mode,
-                });
-                discoveredRelay.contactCount++;
-              }
+            const discoveredRelay = relayMap.get(url)!;
+
+            // Add contact if not already present
+            if (!discoveredRelay.contacts.some(c => c.pubkey === event.pubkey)) {
+              discoveredRelay.contacts.push({
+                pubkey: event.pubkey,
+                petname: followData.petname,
+                mode,
+              });
+              discoveredRelay.contactCount++;
             }
           }
-        } catch (error) {
-          console.warn('Failed to query relay lists for chunk:', error);
         }
+
+        const discoveredCount = Array.from(relayMap.values()).length;
+        console.log(`[RelayDiscovery] Discovery complete: found ${discoveredCount} unique relays from ${events.length} events`);
+
+        return Array.from(relayMap.values());
+      } catch (error) {
+        console.error('[RelayDiscovery] Discovery failed:', error);
+        throw error;
       }
-
-      const discoveredCount = Array.from(relayMap.values()).length;
-      console.log(`[RelayDiscovery] Discovery complete: found ${discoveredCount} unique relays`);
-
-      return Array.from(relayMap.values());
     },
     enabled: follows.length > 0 && !followsLoading,
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 30 * 60 * 1000, // 30 minutes
+    retry: 1, // Only retry once to avoid spam
   });
 
-  // Get health data for discovered relays
-  const allDiscoveredUrls = discoveredRelays?.map(r => r.url) || [];
-  const healthConfigs = allDiscoveredUrls.map(url => ({ url, mode: 'both' as const }));
+  // Get health data for discovered relays - memoize to prevent unnecessary queries
+  const healthConfigs = useMemo(() => {
+    if (!discoveredRelays) return [];
+    const allDiscoveredUrls = discoveredRelays.map(r => r.url);
+    return allDiscoveredUrls.map(url => ({ url, mode: 'both' as const }));
+  }, [discoveredRelays?.length, discoveredRelays?.map(r => r.url).join(',')]);
+
   const healthStatus = useRelayHealth(healthConfigs);
 
-  // Calculate insights and recommendations
-  const insights: RelayNetworkInsights | null = discoveredRelays ? calculateNetworkInsights(
-    discoveredRelays,
-    currentRelays,
-    follows,
-    healthStatus
-  ) : null;
+  // Calculate insights and recommendations - memoize expensive calculation
+  const insights: RelayNetworkInsights | null = useMemo(() => {
+    if (!discoveredRelays) return null;
+    return calculateNetworkInsights(
+      discoveredRelays,
+      memoizedCurrentRelays,
+      follows,
+      healthStatus
+    );
+  }, [discoveredRelays, memoizedCurrentRelays, follows.length, Object.keys(healthStatus).length]);
 
-  // Enrich discovered relays with health data and scores
-  const enrichedRelays = discoveredRelays?.map((relay): DiscoveredRelay => {
-    const health = healthStatus[relay.url];
-    const score = calculateRelayScore(relay, health, currentRelays);
-    const benefits = calculateRelayBenefits(relay, currentRelays, follows);
+  // Enrich discovered relays with health data and scores - memoize expensive calculation
+  const enrichedRelays = useMemo(() => {
+    if (!discoveredRelays) return [];
 
-    return {
-      ...relay,
-      health,
-      score,
-      benefits,
-      suggestedMode: calculateSuggestedMode(relay),
-    };
-  }).sort((a, b) => b.score - a.score) || [];
+    return discoveredRelays.map((relay): DiscoveredRelay => {
+      const health = healthStatus[relay.url];
+      const score = calculateRelayScore(relay, health, memoizedCurrentRelays);
+      const benefits = calculateRelayBenefits(relay, memoizedCurrentRelays, follows);
+
+      return {
+        ...relay,
+        health,
+        score,
+        benefits,
+        suggestedMode: calculateSuggestedMode(relay),
+      };
+    }).sort((a, b) => b.score - a.score);
+  }, [discoveredRelays, healthStatus, memoizedCurrentRelays, follows.length]);
 
   console.log(`[RelayDiscovery] Returning:`, {
     discoveredRelaysCount: enrichedRelays.length,
@@ -249,10 +264,24 @@ function calculateRelayScore(
   }
 
   // Diversity bonus - prefer relays not similar to existing ones
-  const existingDomains = currentRelays.map(r => new URL(r.url).hostname);
-  const newDomain = new URL(relay.url).hostname;
-  if (!existingDomains.some(domain => domain === newDomain)) {
-    score += 10; // Diversity bonus
+  try {
+    const existingDomains = currentRelays
+      .map(r => {
+        try {
+          return new URL(r.url).hostname;
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean) as string[];
+
+    const newDomain = new URL(relay.url).hostname;
+    if (!existingDomains.some(domain => domain === newDomain)) {
+      score += 10; // Diversity bonus
+    }
+  } catch (error) {
+    console.warn('[RelayDiscovery] Invalid URL in diversity check:', relay.url, error);
+    // Don't add diversity bonus for invalid URLs
   }
 
   return Math.max(0, score);
