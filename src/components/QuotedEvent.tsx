@@ -112,7 +112,7 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
   }
 
   if (!quotedEvent) {
-    console.log('QuotedEvent: No event found for ID:', actualEventId);
+    console.log('QuotedEvent: No event found for ID:', eventId);
     return (
       <Card className={`border-lime-500/20 bg-lime-500/5 ${className}`}>
         <CardContent className="p-3">
