@@ -778,56 +778,72 @@ export function useRelayHealth(relayUrls?: string[]) {
     if (!relayUrls || relayUrls.length === 0) return;
 
     // Initialize empty metrics for all relays
-    const initialMetrics = relayUrls.map(url => ({
-      url,
-      status: 'offline' as const,
-      lastChecked: 0,
-      connectionTime: 0,
-      latency: 0,
-      uptime: 0,
-      successRate: 0,
-      errorRate: 0,
-      timeoutRate: 0,
-      eventDeliveryTime: 0,
-      duplicateRate: 0,
-      completenessScore: 0,
-      history: [],
-      trends: {
-        latencyTrend: 'stable' as const,
-        uptimeTrend: 'stable' as const,
-        overallTrend: 'stable' as const
-      },
-      errors: [],
-      errorStreakCount: 0,
-      currentLoad: 0,
-      capacity: 100,
-      priority: 50
-    }));
+    const initialMetrics = relayUrls.map(url => {
+      // Check if we already have metrics for this relay
+      const existingMetrics = relayHealthMonitor.getMetrics(url);
+      if (existingMetrics) {
+        return existingMetrics;
+      }
+
+      // Create new initial metrics
+      return {
+        url,
+        status: 'offline' as const,
+        lastChecked: 0,
+        connectionTime: 0,
+        latency: 0,
+        uptime: 0,
+        successRate: 0,
+        errorRate: 0,
+        timeoutRate: 0,
+        eventDeliveryTime: 0,
+        duplicateRate: 0,
+        completenessScore: 0,
+        history: [],
+        trends: {
+          latencyTrend: 'stable' as const,
+          uptimeTrend: 'stable' as const,
+          overallTrend: 'stable' as const
+        },
+        errors: [],
+        errorStreakCount: 0,
+        currentLoad: 0,
+        capacity: 100,
+        priority: 50
+      };
+    });
 
     setMetrics(initialMetrics);
+    console.log('📊 [Health Monitor] Initialized metrics for', initialMetrics.length, 'relays');
   }, [relayUrls]);
 
   // Manual start monitoring function
   const startMonitoring = async () => {
     if (!relayUrls || relayUrls.length === 0 || isMonitoring) return;
 
+    console.log('🔍 [Health Monitor] Starting monitoring for', relayUrls.length, 'relays');
     setIsMonitoring(true);
 
-    // Start monitoring with delay
-    for (const url of relayUrls) {
+    // Subscribe to changes first
+    const unsubscribe = relayHealthMonitor.onMetricsChange(() => {
+      const updatedMetrics = relayHealthMonitor.getAllMetrics();
+      console.log('📊 [Health Monitor] Metrics updated:', updatedMetrics.length, 'relays');
+      setMetrics([...updatedMetrics]);
+    });
+
+    // Start monitoring with staggered delays to avoid overwhelming
+    for (let i = 0; i < relayUrls.length; i++) {
+      const url = relayUrls[i];
       setTimeout(async () => {
         try {
+          console.log(`🔍 [Health Monitor] Starting monitoring for ${url}`);
           await relayHealthMonitor.startMonitoring(url);
+          console.log(`✅ [Health Monitor] Monitoring started for ${url}`);
         } catch (error) {
-          console.debug(`Failed to start monitoring ${url}:`, error);
+          console.warn(`❌ [Health Monitor] Failed to start monitoring ${url}:`, error);
         }
-      }, Math.random() * 10000); // Random delay up to 10 seconds
+      }, i * 2000); // 2 second delay between each relay
     }
-
-    // Subscribe to changes
-    const unsubscribe = relayHealthMonitor.onMetricsChange(() => {
-      setMetrics([...relayHealthMonitor.getAllMetrics()]);
-    });
 
     return unsubscribe;
   };
