@@ -8,6 +8,9 @@ import { NoteContent } from '@/components/NoteContent';
 import { useMultiRelayEvent } from '@/hooks/useMultiRelayQuery';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
+import { LiveStreamEvent } from '@/components/LiveStreamEvent';
+import { MarketplaceListing } from '@/components/MarketplaceListing';
+import { LongFormContent } from '@/components/LongFormContent';
 import { nip19 } from 'nostr-tools';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -131,12 +134,43 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
     );
   }
 
-  return <QuotedEventContent event={quotedEvent} className={className} originalEventId={eventId} />;
+  return <DynamicEventRenderer event={quotedEvent} className={className} originalEventId={eventId} />;
 }
 
 interface QuotedEventContentProps {
   event: NostrEvent;
   className?: string;
+  originalEventId?: string;
+}
+
+// Dynamic renderer that chooses the appropriate component based on event kind
+function DynamicEventRenderer({ event, className, originalEventId }: QuotedEventContentProps) {
+  // Handle different event kinds with specialized renderers
+  switch (event.kind) {
+    case 30311:
+      // NIP-53 Live Streaming Event
+      return <LiveStreamEvent event={event} className={className} />;
+
+    case 30312:
+      // NIP-53 Meeting Space - could add specialized renderer
+      return <QuotedEventContent event={event} className={className} originalEventId={originalEventId} />;
+
+    case 30313:
+      // NIP-53 Meeting Room Event - could add specialized renderer
+      return <QuotedEventContent event={event} className={className} originalEventId={originalEventId} />;
+
+    case 30023:
+      // NIP-23 Long-form Content (articles)
+      return <LongFormContent event={event} className={className} />;
+
+    case 30402:
+      // NIP-15 Marketplace Listing
+      return <MarketplaceListing event={event} className={className} />;
+
+    default:
+      // Default to standard event content renderer
+      return <QuotedEventContent event={event} className={className} originalEventId={originalEventId} />;
+  }
 }
 
 function QuotedEventContent({ event, className, originalEventId }: QuotedEventContentProps) {
