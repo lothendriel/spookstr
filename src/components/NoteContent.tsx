@@ -91,7 +91,7 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
   const parts: React.ReactNode[] = [];
 
   // Regex to find URLs, Nostr references, @mentions, and hashtags
-  const regex = /(https?:\/\/[^\s]+)|(nostr:(npub1|note1|nprofile1|nevent1)[023456789acdefghjklmnpqrstuvwxyz]+)|@([0-9a-fA-F]{8,})|(#\w+)/g;
+  const regex = /(https?:\/\/[^\s]+)|(nostr:(npub1|note1|nprofile1|nevent1|naddr1)[023456789acdefghjklmnpqrstuvwxyz]+)|@([0-9a-fA-F]{8,})|(#\w+)/g;
 
   let lastIndex = 0;
   let match: RegExpExecArray | null;
