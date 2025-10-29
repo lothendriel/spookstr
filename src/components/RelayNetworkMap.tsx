@@ -3,11 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { 
-  Zap, 
-  Users, 
-  Globe, 
-  TrendingUp, 
+import {
+  Zap,
+  Users,
+  Globe,
+  TrendingUp,
   AlertTriangle,
   CheckCircle2,
   Loader2,
@@ -36,16 +36,43 @@ interface RelayNode extends DiscoveredRelay {
   isYourRelay: boolean;
 }
 
-export function RelayNetworkMap({ 
-  insights, 
-  onAddRelay, 
+export function RelayNetworkMap({
+  insights,
+  onAddRelay,
   onRemoveRelay,
-  className 
+  className
 }: RelayNetworkMapProps) {
   const [selectedRelay, setSelectedRelay] = useState<string | null>(null);
   const [showConnections, setShowConnections] = useState(true);
   const [showLabels, setShowLabels] = useState(true);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // Safety check for insights data
+  if (!insights || !insights.networkMap) {
+    return (
+      <Card className={className}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Relay Network Map
+          </CardTitle>
+          <CardDescription>
+            Loading network data...
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center space-y-4">
+              <Loader2 className="h-12 w-12 animate-spin mx-auto text-blue-500" />
+              <p className="text-sm text-muted-foreground">
+                Analyzing your relay network...
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const SVG_WIDTH = 800;
   const SVG_HEIGHT = 500;
@@ -54,8 +81,7 @@ export function RelayNetworkMap({
 
   // Calculate node positions and create network layout
   const relayNodes = useMemo((): RelayNode[] => {
-    const { yourRelays, contactRelays } = insights.networkMap;
-    const allRelays = [...yourRelays, ...contactRelays];
+    const { yourRelays = [], contactRelays = [] } = insights.networkMap || {};
     const nodes: RelayNode[] = [];
 
     // Your relays - arranged in inner circle
@@ -63,7 +89,7 @@ export function RelayNetworkMap({
     yourRelays.forEach((relay, index) => {
       const angle = (index / yourRelays.length) * 2 * Math.PI;
       const contactRelay = contactRelays.find(r => r.url === relay.url);
-      
+
       nodes.push({
         ...relay,
         url: relay.url,
@@ -93,7 +119,7 @@ export function RelayNetworkMap({
     // Position high importance relays in middle ring
     const midRadius = 150;
     highImportance.slice(0, 12).forEach((relay, index) => {
-      const angle = (index / Math.max(highImportance.length, 6)) * 2 * Math.PI;
+      const angle = (index / Math.max(highImportance.length, 1)) * 2 * Math.PI;
       nodes.push({
         ...relay,
         position: {
@@ -108,7 +134,7 @@ export function RelayNetworkMap({
     // Position medium importance relays in outer ring
     const outerRadius = 220;
     mediumImportance.slice(0, 18).forEach((relay, index) => {
-      const angle = (index / Math.max(mediumImportance.length, 8)) * 2 * Math.PI;
+      const angle = (index / Math.max(mediumImportance.length, 1)) * 2 * Math.PI;
       nodes.push({
         ...relay,
         position: {
@@ -125,15 +151,16 @@ export function RelayNetworkMap({
 
   // Generate connections between nodes
   const connections = useMemo(() => {
-    if (!showConnections) return [];
-    
+    if (!showConnections || !insights?.networkMap) return [];
+
     const lines = [];
     const yourNodes = relayNodes.filter(n => n.isYourRelay);
-    
+    const sharedRelays = insights.networkMap.sharedRelays || [];
+
     for (const yourNode of yourNodes) {
       for (const otherNode of relayNodes) {
         if (otherNode.isYourRelay || otherNode.contactCount < 2) continue;
-        
+
         // Calculate shared contacts (simplified)
         const sharedContacts = Math.min(yourNode.contactCount, otherNode.contactCount);
         if (sharedContacts > 0) {
@@ -141,12 +168,12 @@ export function RelayNetworkMap({
             from: yourNode.position,
             to: otherNode.position,
             strength: Math.min(sharedContacts / 5, 1), // 0-1 opacity
-            isShared: insights.networkMap.sharedRelays.includes(otherNode.url),
+            isShared: sharedRelays.includes(otherNode.url),
           });
         }
       }
     }
-    
+
     return lines;
   }, [relayNodes, showConnections, insights]);
 
@@ -156,7 +183,7 @@ export function RelayNetworkMap({
              node.health?.status === 'error' ? '#ef4444' : // red-500
              '#6b7280'; // gray-500
     }
-    
+
     if (node.score > 40) return '#3b82f6'; // blue-500 - high value
     if (node.score > 20) return '#8b5cf6'; // violet-500 - medium value
     return '#6b7280'; // gray-500 - low value
@@ -336,7 +363,7 @@ export function RelayNetworkMap({
                   textAnchor="middle"
                   className="text-sm fill-gray-600 dark:fill-gray-400 pointer-events-none"
                 >
-                  {insights.yourRelays.length} relays
+                  {insights.networkMap?.yourRelays?.length || 0} relays
                 </text>
               </svg>
             </div>
