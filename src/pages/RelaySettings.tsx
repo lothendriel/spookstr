@@ -102,7 +102,9 @@ export default function RelaySettings() {
   const healthStatus = useRelayHealth(relaysToMonitor);
 
   const normalizeRelayUrl = (url: string): string => {
-    const trimmed = url.trim();
+    // Handle case where url might be an event object or non-string
+    const urlString = typeof url === 'string' ? url : String(url);
+    const trimmed = urlString.trim();
     if (!trimmed) return '';
 
     // If it already has a protocol, use it as-is
@@ -116,8 +118,13 @@ export default function RelaySettings() {
 
   const isValidRelayUrl = (url: string): boolean => {
     try {
-      const trimmed = url.trim();
-      if (!trimmed) return false;
+      // Handle case where url might be an event object or non-string
+      const urlString = typeof url === 'string' ? url : String(url);
+      const trimmed = urlString.trim();
+
+      if (!trimmed) {
+        return false;
+      }
 
       // Allow common relay URL patterns
       const normalized = normalizeRelayUrl(trimmed);
@@ -129,26 +136,13 @@ export default function RelaySettings() {
       }
 
       // Must have a hostname
-      if (!urlObj.hostname) {
-        return false;
-      }
-
-      // Common relay hostname patterns
-      const hostname = urlObj.hostname.toLowerCase();
-
-      // Allow localhost and IP addresses for development
-      if (hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
-        return true;
-      }
-
-      // Must have at least one dot for domain names (e.g., relay.com)
-      if (!hostname.includes('.')) {
+      if (!urlObj.hostname || urlObj.hostname.length === 0) {
         return false;
       }
 
       return true;
     } catch (error) {
-      console.log('[RelaySettings] URL validation error:', error, 'for URL:', url);
+      console.log('[RelaySettings] URL validation failed for:', typeof url, url);
       return false;
     }
   };

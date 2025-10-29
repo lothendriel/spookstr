@@ -136,7 +136,7 @@ async function createNotificationSubscription(
   seenEventIds: React.MutableRefObject<Set<string>>,
   abortController: AbortController
 ): Promise<void> {
-  console.log(`[Real-time Notifications] Starting subscription on ${notificationRelays.length} relays for user:`, userPubkey.slice(0, 8));
+  console.log(`[Real-time Notifications] Starting subscription on ${notificationRelays.length} relays for user:`, userPubkey?.slice?.(0, 8) || 'unknown');
 
   try {
     // First, get user's posts to know what to watch for interactions
@@ -200,8 +200,8 @@ async function createNotificationSubscription(
 
       console.log('[Real-time Notifications] New interaction received:', {
         kind: event.kind,
-        author: event.pubkey.slice(0, 8),
-        content: event.content?.substring(0, 30) || '(no content)'
+        author: event.pubkey?.slice?.(0, 8) || 'unknown',
+        content: event.content?.substring?.(0, 30) || '(no content)'
       });
 
       // Invalidate the notifications query to trigger a refetch

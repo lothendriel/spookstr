@@ -37,7 +37,7 @@ export function useSmartRelayRouter(): SmartRelayRouting {
   // Get health data for all configured relays
   const healthStatus = useRelayHealth(relayConfigs);
 
-  // Calculate performance scores for each relay
+  // Calculate performance scores for each relay (memoized with stable dependencies)
   const relayPerformance = useMemo(() => {
     return relayConfigs.map(relay => {
       const health = healthStatus[relay.url];
@@ -67,17 +67,24 @@ export function useSmartRelayRouter(): SmartRelayRouting {
 
       return { ...relay, score: Math.max(0, Math.min(100, score)) };
     }).sort((a, b) => b.score - a.score);
-  }, [relayConfigs, healthStatus]);
+  }, [
+    relayConfigs.length, // Only depend on length, not full array to prevent infinite loops
+    JSON.stringify(relayConfigs.map(r => ({ url: r.url, priority: r.priority, reliabilityScore: r.reliabilityScore }))),
+    JSON.stringify(healthStatus) // Stringify to prevent object reference changes
+  ]);
 
-  // Get fast, reliable relays for feed queries (max 3)
-  const getFeedRelays = (): string[] => {
+  // Get fast, reliable relays for feed queries (max 3) - memoized to prevent excessive calls
+  const getFeedRelays = useMemo((): string[] => {
     // Try to get primary relays first
     const primaryRelays = relayPerformance
       .filter(r => (r.mode === 'read' || r.mode === 'both') && (r.priority === 'primary' || r.score >= 60))
       .slice(0, 3)
       .map(r => r.url);
 
-    console.log(`[SmartRelayRouter] Primary relays (${primaryRelays.length}):`, primaryRelays);
+    // Only log occasionally to prevent spam
+    if (Math.random() < 0.01) { // 1% chance to log
+      console.log(`[SmartRelayRouter] Primary relays (${primaryRelays.length}):`, primaryRelays);
+    }
 
     // If we have primary relays, use them
     if (primaryRelays.length > 0) {
@@ -99,7 +106,7 @@ export function useSmartRelayRouter(): SmartRelayRouting {
     }
 
     return fallbackRelays;
-  };
+  }, [relayPerformance]);
 
   // Get relays for publishing (all write relays, prioritized by performance)
   const getPublishRelays = (): string[] => {
@@ -143,7 +150,7 @@ export function useSmartRelayRouter(): SmartRelayRouting {
   };
 
   return {
-    getFeedRelays,
+    getFeedRelays: () => getFeedRelays,
     getUserContentRelays,
     getUserMentionRelays,
     getPublishRelays,
