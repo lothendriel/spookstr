@@ -112,14 +112,20 @@ export function useLoginActions() {
           const height = 700;
           const left = (window.screen.width - width) / 2;
           const top = (window.screen.height - height) / 2;
+
+          // Try to open the popup - don't fail if window.open returns null
+          // The popup might still open even if we can't get a reference to it
           const authWindow = window.open(
             authUrl,
             'bunker-auth',
-            `width=${width},height=${height},left=${left},top=${top},popup=yes,noopener,noreferrer`
+            `width=${width},height=${height},left=${left},top=${top},popup=yes`
           );
 
-          if (!authWindow) {
-            throw new Error('Please allow popups for this site to complete bunker authentication.');
+          // Log whether we got a window reference, but don't fail the flow
+          if (authWindow) {
+            console.log('✅ Popup window opened successfully');
+          } else {
+            console.warn('⚠️ Could not get popup window reference (but it may have opened anyway)');
           }
 
           // Wait for the auth to complete and retry the connection
@@ -162,12 +168,22 @@ export function useLoginActions() {
           try {
             const login = await Promise.race([retryPromise, retryTimeout]) as Awaited<typeof retryPromise>;
             console.log('✅ Bunker authorized and connected!');
-            authWindow.close();
+
+            // Close the auth window if we have a reference to it
+            if (authWindow && !authWindow.closed) {
+              authWindow.close();
+            }
+
             addLogin(login);
             return;
           } catch (retryError) {
             console.error('❌ Bunker retry failed:', retryError);
-            authWindow.close();
+
+            // Close the auth window if we have a reference to it
+            if (authWindow && !authWindow.closed) {
+              authWindow.close();
+            }
+
             throw retryError;
           }
         }
