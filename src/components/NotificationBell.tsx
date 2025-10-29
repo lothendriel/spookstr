@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useNotificationState } from '@/hooks/useNotificationState';
-import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNavigate } from 'react-router-dom';
 import { useMemo } from 'react';
@@ -13,9 +12,6 @@ export function NotificationBell() {
   const { data } = useNotifications();
   const { getUnreadCount } = useNotificationState();
   const navigate = useNavigate();
-
-  // Enable real-time notifications updates
-  useRealtimeNotifications();
 
   // Flatten all pages of notifications
   const allNotifications = useMemo(() => {

@@ -3,7 +3,6 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useAppContext } from './useAppContext';
 import { useUserRelays } from './useUserRelays';
-import { useMultiRelayQuery } from './useMultiRelayQuery';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 
@@ -20,104 +19,91 @@ export interface Notification {
 export function useNotifications() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  const { config, presetRelays = [] } = useAppContext();
+  const { config } = useAppContext();
 
   // Fetch the user's NIP-65 relay list for inbox model
   const { data: userRelayList, isLoading: isLoadingRelays } = useUserRelays(user?.pubkey);
 
-  // Enhanced: Get user posts using multi-relay approach for better coverage
-  const { data: userPosts, isLoading: isLoadingPosts } = useMultiRelayQuery({
-    filters: user?.pubkey ? [{
-      kinds: [1],
-      authors: [user.pubkey],
-      limit: 500
-    }] : [],
-    enabled: !!user?.pubkey && (!isLoadingRelays || config.spookstrOnlyMode),
-    staleTime: 60000, // 1 minute - user posts don't change frequently
-    retry: 2,
-  });
-
   // Create a stable relay identifier for the query key
   const relayKey = config.spookstrOnlyMode
     ? 'spookstr-only'
-    : [
-        ...(config.relays?.filter(r => r.mode === 'read' || r.mode === 'both').map(r => r.url) || [config.relayUrl]),
-        ...presetRelays.map(r => r.url)
-      ].sort().join(',');
+    : config.relays?.filter(r => r.mode === 'read' || r.mode === 'both').map(r => r.url).sort().join(',') || config.relayUrl;
 
   return useInfiniteQuery({
-    queryKey: ['notifications', user?.pubkey, relayKey, userRelayList?.length, userPosts?.length],
+    queryKey: ['notifications', user?.pubkey, relayKey, userRelayList?.length],
     queryFn: async ({ pageParam = undefined, signal: querySignal }) => {
       console.log('[Notifications] 🔔 Query function called', {
         pubkey: user?.pubkey?.slice(0, 8) + '...',
-        userPosts: userPosts?.length || 0,
         pageParam
       });
 
-      if (!user?.pubkey || !userPosts || userPosts.length === 0) {
-        console.log('[Notifications] ❌ No user pubkey or posts, returning empty');
+      if (!user?.pubkey) {
+        console.log('[Notifications] ❌ No user pubkey, returning empty');
         return { notifications: [], hasMore: false, oldestTimestamp: undefined };
       }
 
-      const signal = AbortSignal.any([querySignal, AbortSignal.timeout(15000)]); // Increased timeout for multi-relay
+      const signal = AbortSignal.any([querySignal, AbortSignal.timeout(10000)]); // Increased to 10s for multiple relays
 
-      // Enhanced: Get comprehensive read relays using inbox model + all preset relays
+      // Get read relays using inbox model (NIP-65)
       let readRelays: string[];
-      const relaySet = new Set<string>();
-
       if (config.spookstrOnlyMode) {
         // Only use Spookstr relay in spookstrOnlyMode
         const spookstrRelay = config.relays?.find(r => r.url.includes('spookstr'));
         readRelays = spookstrRelay ? [spookstrRelay.url] : ['wss://spookstr2.nostr1.com'];
-      } else {
-        // User's NIP-65 read relays (inbox model)
-        if (userRelayList && userRelayList.length > 0) {
-          userRelayList
-            .filter(r => r.mode === 'read' || r.mode === 'both')
-            .forEach(r => relaySet.add(r.url));
-        }
+      } else if (userRelayList && userRelayList.length > 0) {
+        // Use user's NIP-65 read relays (inbox model)
+        const nip65ReadRelays = userRelayList
+          .filter(r => r.mode === 'read' || r.mode === 'both')
+          .map(r => r.url);
 
-        // Add ALL preset relays for maximum coverage
-        presetRelays.forEach(r => relaySet.add(r.url));
+        // Combine with configured relays as fallback
+        const configReadRelays = config.relays
+          ?.filter(r => r.mode === 'read' || r.mode === 'both')
+          .map(r => r.url) || [config.relayUrl];
 
-        // Add configured relays as fallback
-        if (config.relays) {
-          config.relays
-            .filter(r => r.mode === 'read' || r.mode === 'both')
-            .forEach(r => relaySet.add(r.url));
-        } else if (config.relayUrl) {
-          relaySet.add(config.relayUrl);
-        }
-
+        // Use NIP-65 relays first, then add config relays
+        const relaySet = new Set([...nip65ReadRelays, ...configReadRelays]);
         readRelays = Array.from(relaySet);
 
-        console.log('[Notifications] 📥 Enhanced multi-relay approach:', {
-          nip65Relays: userRelayList?.filter(r => r.mode === 'read' || r.mode === 'both').length || 0,
-          presetRelays: presetRelays.length,
-          totalRelays: readRelays.length
-        });
+        console.log('[Notifications] 📥 Using inbox model with user\'s NIP-65 read relays:', nip65ReadRelays.length);
+      } else {
+        // Fallback to configured read relays
+        readRelays = config.relays
+          ?.filter(r => r.mode === 'read' || r.mode === 'both')
+          .map(r => r.url) || [config.relayUrl];
       }
 
-      // Use enhanced relay group for queries
+      // Use all read relays for queries
       const relayGroup = readRelays.length > 0 ? nostr.group(readRelays) : nostr;
 
-      console.log(`[Notifications] Querying ${readRelays.length} relays for interactions (spookstrOnly: ${config.spookstrOnlyMode})`);
+      console.log(`[Notifications] Querying ${readRelays.length} relays (spookstrOnly: ${config.spookstrOnlyMode}):`, readRelays);
 
-      // Use the userPosts from the multi-relay query above
+      // First, get user posts from ALL relays (increase limit to catch more)
+      let userPosts;
+      try {
+        userPosts = await relayGroup.query(
+          [{ kinds: [1], authors: [user.pubkey], limit: 500 }],
+          { signal }
+        );
+        console.log(`[Notifications] Found ${userPosts.length} user posts`);
+      } catch (error) {
+        console.error('[Notifications] Error fetching user posts:', error);
+        // Return empty on error - query will retry automatically
+        return { notifications: [], hasMore: false, oldestTimestamp: undefined };
+      }
 
       const userPostIds = userPosts.map(post => post.id);
-      console.log(`[Notifications] Processing interactions for ${userPostIds.length} user posts`);
 
       if (userPostIds.length === 0) {
         console.log('[Notifications] No user posts found, returning empty');
         return { notifications: [], hasMore: false, oldestTimestamp: undefined };
       }
 
-      // Enhanced: Build query filter with pagination and more interaction types
+      // Build query filter with pagination
       const filter: any = {
         kinds: [1, 6, 7, 9735, 16], // 1=comment, 6=repost, 7=like, 9735=zap, 16=generic repost
         '#e': userPostIds,
-        limit: 300, // Increased limit for multi-relay deduplication
+        limit: 200, // Load more to ensure we have enough after deduplication
       };
 
       // Add pagination using until timestamp
@@ -125,11 +111,11 @@ export function useNotifications() {
         filter.until = pageParam;
       }
 
-      // Enhanced: Query for interactions with user's posts from ALL relays
+      // Query for interactions with user's posts from ALL read relays
       let interactions;
       try {
         interactions = await relayGroup.query([filter], { signal });
-        console.log(`[Notifications] Found ${interactions.length} raw interactions from ${readRelays.length} relays`);
+        console.log(`[Notifications] Found ${interactions.length} raw interactions from relays`);
       } catch (error) {
         console.error('[Notifications] Error fetching interactions:', error);
         // Return empty on error - query will retry automatically
@@ -234,7 +220,7 @@ export function useNotifications() {
         ? paginatedNotifications[paginatedNotifications.length - 1].timestamp - 1 // Subtract 1 to avoid duplicates
         : undefined;
 
-      console.log(`[Notifications] Returning ${paginatedNotifications.length} notifications from ${readRelays.length} relays, hasMore: ${hasMore}`);
+      console.log(`[Notifications] Returning ${paginatedNotifications.length} notifications, hasMore: ${hasMore}`);
 
       return {
         notifications: paginatedNotifications,
@@ -247,12 +233,11 @@ export function useNotifications() {
       // Return the oldest timestamp for pagination
       return lastPage.hasMore ? lastPage.oldestTimestamp : undefined;
     },
-    // Enhanced: Wait for user to be logged in AND user posts to be loaded AND (relay list to load OR spookstr-only mode)
-    enabled: !!user?.pubkey &&
-             !isLoadingPosts &&
-             userPosts &&
-             userPosts.length > 0 &&
-             (config.spookstrOnlyMode || !isLoadingRelays),
+    // Wait for user to be logged in AND (relay list to load OR spookstr-only mode OR using default relays)
+    enabled: !!user?.pubkey && (
+      config.spookstrOnlyMode || // Always enabled in spookstr-only mode
+      !isLoadingRelays // Or when relay list is done loading (even if null)
+    ),
     refetchInterval: 30000, // Refetch every 30 seconds
     retry: 2, // Retry failed queries up to 2 times
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff

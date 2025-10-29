@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
-import { useAppContext } from './useAppContext';
 import type { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 
 interface InteractionCounts {
@@ -18,18 +17,16 @@ const activeSubscriptions = new Map<string, {
 }>();
 
 /**
- * Enhanced real-time interaction updates hook using multi-relay approach.
- * Uses a SINGLE shared subscription per set of event IDs across ALL configured relays.
+ * Optimized real-time interaction updates hook.
+ * Uses a SINGLE shared subscription per set of event IDs to prevent connection overload.
  * Features:
- * - Multi-relay coverage for comprehensive real-time updates
  * - Throttled updates (max 1 update per second per post)
  * - Batched processing (updates queued and applied together)
  * - Automatic cleanup when no components are using the subscription
- * - Deduplication across relays
+ * - Single WebSocket subscription for all posts on screen
  */
 export function useRealtimeInteractionUpdates(eventIds: string[]) {
   const { nostr } = useNostr();
-  const { presetRelays = [] } = useAppContext();
   const queryClient = useQueryClient();
   const updateQueueRef = useRef<Map<string, Partial<InteractionCounts>>>(new Map());
   const lastUpdateRef = useRef<Map<string, number>>(new Map());
@@ -48,13 +45,12 @@ export function useRealtimeInteractionUpdates(eventIds: string[]) {
       // Increment reference count
       subInfo.count++;
     } else {
-      // Create new subscription with multi-relay support
+      // Create new subscription
       const abortController = new AbortController();
 
       createSharedSubscription(
         nostr,
         eventIds,
-        presetRelays,
         queryClient,
         updateQueueRef,
         lastUpdateRef,
@@ -79,7 +75,7 @@ export function useRealtimeInteractionUpdates(eventIds: string[]) {
         activeSubscriptions.delete(subscriptionKey);
       }
     };
-  }, [eventIds.join(','), nostr, presetRelays, queryClient]);
+  }, [eventIds.join(','), nostr, queryClient]);
 
   // Cleanup flush timer on unmount
   useEffect(() => {
@@ -94,15 +90,12 @@ export function useRealtimeInteractionUpdates(eventIds: string[]) {
 async function createSharedSubscription(
   nostr: any,
   eventIds: string[],
-  presetRelays: any[],
   queryClient: any,
   updateQueueRef: React.MutableRefObject<Map<string, Partial<InteractionCounts>>>,
   lastUpdateRef: React.MutableRefObject<Map<string, number>>,
   flushTimerRef: React.MutableRefObject<NodeJS.Timeout | null>,
   abortController: AbortController
 ): Promise<void> {
-  const seenEventIds = new Set<string>(); // Track seen events for deduplication
-
   try {
     // Setup batch flush interval
     flushTimerRef.current = setInterval(() => {
@@ -138,34 +131,29 @@ async function createSharedSubscription(
 
     // Create filter for subscription
     const filters: NostrFilter[] = [{
-      kinds: [6, 7, 9735, 1, 1111, 16], // reposts, likes, zaps, replies, comments, generic reposts
+      kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
       '#e': eventIds,
       since: Math.floor(Date.now() / 1000), // Only new events from now
     }];
 
-    // Get relay URLs for multi-relay subscription
-    const relayUrls = presetRelays.map(r => r.url);
+    // Use async iteration to process events as they arrive
+    for await (const msg of nostr.req(filters, { signal: abortController.signal })) {
+      // Skip if not an event message
+      if (!msg || typeof msg !== 'object') continue;
 
-    console.log(`[Real-time Interactions] Starting multi-relay subscription on ${relayUrls.length} relays`);
-
-    // Create subscription handler
-    const handleEvent = (event: NostrEvent) => {
-      // Deduplicate events across relays
-      if (seenEventIds.has(event.id)) {
-        return; // Skip if already processed
-      }
-      seenEventIds.add(event.id);
+      // Handle both direct event and message formats
+      const event = (msg as any).event || msg;
 
       // Validate event structure
-      if (!event || !event.tags || !Array.isArray(event.tags)) return;
+      if (!event || !event.tags || !Array.isArray(event.tags)) continue;
 
       const referencedEventId = event.tags.find(([tag]: string[]) => tag === 'e')?.[1];
-      if (!referencedEventId || !eventIds.includes(referencedEventId)) return;
+      if (!referencedEventId || !eventIds.includes(referencedEventId)) continue;
 
       // Throttle updates - max 1 update per second per post
       const now = Date.now();
       const lastUpdate = lastUpdateRef.current.get(referencedEventId) || 0;
-      if (now - lastUpdate < 1000) return; // Skip if updated within last second
+      if (now - lastUpdate < 1000) continue; // Skip if updated within last second
 
       lastUpdateRef.current.set(referencedEventId, now);
 
@@ -177,7 +165,6 @@ async function createSharedSubscription(
           currentQueue.likes = (currentQueue.likes || 0) + 1;
           break;
         case 6: // Repost
-        case 16: // Generic repost
           currentQueue.reposts = (currentQueue.reposts || 0) + 1;
           break;
         case 9735: // Zap
@@ -190,30 +177,6 @@ async function createSharedSubscription(
       }
 
       updateQueueRef.current.set(referencedEventId, currentQueue);
-    };
-
-    // Subscribe to all relays or fallback to default
-    if (relayUrls.length > 0) {
-      try {
-        const relayGroup = nostr.group(relayUrls);
-        for await (const msg of relayGroup.req(filters, { signal: abortController.signal })) {
-          const event = (msg as any).event || msg;
-          if (event) handleEvent(event);
-        }
-      } catch (groupError) {
-        console.log('[Real-time Interactions] Relay group failed, falling back to default:', groupError);
-        // Fallback to default nostr instance
-        for await (const msg of nostr.req(filters, { signal: abortController.signal })) {
-          const event = (msg as any).event || msg;
-          if (event) handleEvent(event);
-        }
-      }
-    } else {
-      // Fallback to default nostr instance
-      for await (const msg of nostr.req(filters, { signal: abortController.signal })) {
-        const event = (msg as any).event || msg;
-        if (event) handleEvent(event);
-      }
     }
   } catch (error: any) {
     // Ignore abort errors (expected when component unmounts)

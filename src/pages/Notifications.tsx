@@ -2,7 +2,6 @@ import { useSeoMeta } from '@unhead/react';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useNotificationState } from '@/hooks/useNotificationState';
-import { useRealtimeNotifications } from '@/hooks/useRealtimeNotifications';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -157,9 +156,6 @@ export default function Notifications() {
   } = useNotifications();
   const { isRead, markAsRead, markAllAsRead } = useNotificationState();
   const navigate = useNavigate();
-
-  // Enable real-time notifications updates
-  useRealtimeNotifications();
 
   // Flatten all pages of notifications
   const allNotifications = useMemo(() => {
