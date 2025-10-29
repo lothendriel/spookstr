@@ -143,36 +143,9 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return relay;
       },
       reqRouter(filters) {
-        // If intelligent relay system is not initialized, fall back to original routing
-        if (!intelligentRelayInitialized.current) {
-          return this.originalReqRouter(filters);
-        }
+        // Temporarily disable intelligent routing to fix infinite loop
+        // TODO: Re-enable after fixing the integration issues
 
-        // Use intelligent relay selection for routing
-        try {
-          return this.intelligentReqRouter(filters);
-        } catch (error) {
-          console.warn('Intelligent routing failed, falling back to original:', error);
-          return this.originalReqRouter(filters);
-        }
-      },
-      eventRouter(event: NostrEvent) {
-        // If intelligent relay system is not initialized, fall back to original routing
-        if (!intelligentRelayInitialized.current) {
-          return this.originalEventRouter(event);
-        }
-
-        // Use intelligent relay selection for publishing
-        try {
-          return this.intelligentEventRouter(event);
-        } catch (error) {
-          console.warn('Intelligent event routing failed, falling back to original:', error);
-          return this.originalEventRouter(event);
-        }
-      },
-
-      // Original routing methods for fallback
-      originalReqRouter: (filters: any[]) => {
         const readRelays = getReadRelays();
 
         // For profile metadata, community definitions, and interaction events with specific event references, query multiple relays
@@ -219,8 +192,10 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         }
         return relayMap;
       },
+      eventRouter(_event: NostrEvent) {
+        // Temporarily disable intelligent routing to fix infinite loop
+        // TODO: Re-enable after fixing the integration issues
 
-      originalEventRouter: (event: NostrEvent) => {
         const writeRelays = getWriteRelays();
 
         // Publish to configured write relays
@@ -238,70 +213,6 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return [...allRelays];
       },
 
-      // Intelligent routing methods
-      intelligentReqRouter: (filters: any[]) => {
-        const strategy = intelligentRelayManager.getCurrentStrategy();
-        if (!strategy) {
-          return this.originalReqRouter(filters);
-        }
-
-        console.log('🧠 [Intelligent Router] Using strategy:', strategy.name);
-
-        // Determine request type based on filters
-        const isProfileQuery = filters.some(filter => filter.kinds?.includes(0));
-        const isInteractionQuery = filters.some(filter =>
-          (filter.kinds?.includes(6) || filter.kinds?.includes(7) || filter.kinds?.includes(9735)) && filter['#e']
-        );
-        const isDiscoveryQuery = filters.some(filter => filter['#t'] || filter.search);
-
-        let selectedRelays: string[];
-
-        if (spookstrOnlyMode.current) {
-          selectedRelays = [SPOOKSTR_RELAY];
-        } else if (isProfileQuery || isInteractionQuery) {
-          // Important queries: use primary + secondary relays
-          selectedRelays = [...strategy.primary, ...strategy.secondary];
-          console.log('🔍 [Intelligent Router] Using primary+secondary relays for important query');
-        } else if (isDiscoveryQuery) {
-          // Discovery queries: use discovery relays
-          selectedRelays = strategy.discovery.length > 0 ? strategy.discovery : strategy.primary;
-          console.log('🔍 [Intelligent Router] Using discovery relays for search query');
-        } else {
-          // Regular queries: use primary relays
-          selectedRelays = strategy.primary;
-          console.log('🔍 [Intelligent Router] Using primary relays for regular query');
-        }
-
-        // Create relay map for NPool
-        const relayMap = new Map();
-        for (const relayUrl of selectedRelays) {
-          relayMap.set(relayUrl, filters);
-        }
-
-        console.log('📡 [Intelligent Router] Routing to relays:', selectedRelays.map(url => new URL(url).hostname));
-        return relayMap;
-      },
-
-      intelligentEventRouter: (event: NostrEvent) => {
-        const strategy = intelligentRelayManager.getCurrentStrategy();
-        if (!strategy) {
-          return this.originalEventRouter(event);
-        }
-
-        console.log('📤 [Intelligent Router] Publishing via strategy:', strategy.name);
-
-        let selectedRelays: string[];
-
-        if (spookstrOnlyMode.current) {
-          selectedRelays = [SPOOKSTR_RELAY];
-        } else {
-          // Use publish relays for all events
-          selectedRelays = strategy.publish;
-        }
-
-        console.log('📡 [Intelligent Router] Publishing to relays:', selectedRelays.map(url => new URL(url).hostname));
-        return selectedRelays;
-      },
     });
   }
 

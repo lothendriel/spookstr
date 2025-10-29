@@ -466,25 +466,25 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
           <div className="grid gap-4">
 
             {/* Integration Status */}
-            <Card className="border-green-200 bg-green-50">
+            <Card className="border-yellow-200 bg-yellow-50">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-green-800">
-                  <CheckCircle className="h-5 w-5" />
-                  Intelligent Load Balancing Active
+                <CardTitle className="flex items-center gap-2 text-yellow-800">
+                  <AlertTriangle className="h-5 w-5" />
+                  Load Balancing Status
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="text-sm text-green-800">
-                    <strong>Fully Integrated:</strong> All Nostr requests are now routed through the
-                    intelligent relay management system with real-time load balancing and optimization.
+                  <div className="text-sm text-yellow-900">
+                    <strong>Development Mode:</strong> Load balancing integration is temporarily disabled
+                    while fixing performance issues. The system will show monitoring data when re-enabled.
                   </div>
-                  <div className="text-xs text-green-700">
-                    ✅ <strong>Features Active:</strong> Health-based routing, geographic optimization,
-                    automatic failover, and performance tracking for all requests.
+                  <div className="text-xs text-yellow-800">
+                    💡 <strong>Current Status:</strong> Relay intelligence features (health monitoring,
+                    geographic optimization) are available in dashboard for analysis and optimization.
                   </div>
-                  <Badge variant="secondary" className="bg-green-100 text-green-800">
-                    Fully Integrated
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                    Monitoring Only
                   </Badge>
                 </div>
               </CardContent>

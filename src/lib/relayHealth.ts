@@ -8,7 +8,7 @@
  * - Error tracking and recovery
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { devLogger } from './devLogger';
 
 const relayLogger = devLogger.scope('relay-health');
@@ -772,10 +772,18 @@ export const relayHealthMonitor = new RelayHealthMonitor();
 export function useRelayHealth(relayUrls?: string[]) {
   const [metrics, setMetrics] = useState<RelayHealthMetrics[]>([]);
   const [isMonitoring, setIsMonitoring] = useState(false);
+  const initializedUrls = useRef<string>('');
 
   // Initialize metrics without starting monitoring
   useEffect(() => {
     if (!relayUrls || relayUrls.length === 0) return;
+
+    // Create stable relay URLs array to prevent unnecessary re-initialization
+    const sortedUrls = [...relayUrls].sort().join(',');
+
+    // Only initialize if URLs have actually changed
+    if (initializedUrls.current === sortedUrls) return;
+    initializedUrls.current = sortedUrls;
 
     // Initialize empty metrics for all relays
     const initialMetrics = relayUrls.map(url => {
