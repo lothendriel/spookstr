@@ -43,7 +43,28 @@ interface PostDetailViewProps {
 }
 
 export function PostDetailView({ event, onBack }: PostDetailViewProps) {
+  // Check if this is a repost (kind 6 or 16)
+  const isRepost = event.kind === 6 || event.kind === 16;
+
+  // For reposts, try to parse the reposted event from content
+  let repostedEvent: NostrEvent | null = null;
+  let displayEvent = event;
+
+  if (isRepost && event.content) {
+    try {
+      const parsed = JSON.parse(event.content);
+      if (parsed.id && parsed.pubkey && parsed.created_at && parsed.kind !== undefined) {
+        repostedEvent = parsed as NostrEvent;
+        displayEvent = repostedEvent; // Show the reposted content
+      }
+    } catch (e) {
+      // If parsing fails, fall back to showing the repost event itself
+      console.warn('Failed to parse repost content:', e);
+    }
+  }
+
   const author = useAuthor(event.pubkey);
+  const repostedAuthor = useAuthor(repostedEvent ? repostedEvent.pubkey : undefined);
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const navigate = useNavigate();
@@ -55,8 +76,11 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const [isCopied, setIsCopied] = useState(false);
   const { toast } = useToast();
 
+  // Use the original event ID for interactions, not the reposted event
+  const interactionEventId = isRepost && repostedEvent ? repostedEvent.id : event.id;
+
   // Use real-time interactions for counts
-  const { data: interactionCounts, isLoading: isLoadingCounts, optimisticUpdate } = useRealtimeInteractions(event.id);
+  const { data: interactionCounts, isLoading: isLoadingCounts, optimisticUpdate } = useRealtimeInteractions(interactionEventId);
 
   const likeCount = interactionCounts?.likes || 0;
   const repostCount = interactionCounts?.reposts || 0;
@@ -65,15 +89,23 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
 
   const { nostr } = useNostr();
 
-  const metadata = author.data?.metadata;
-  const displayName = getDisplayName(metadata, event.pubkey);
-  const timeAgo = formatDistanceToNow(new Date(event.created_at * 1000), { addSuffix: true });
+  // Get metadata for the reposter
+  const reposterMetadata = author.data?.metadata;
+  const reposterDisplayName = getDisplayName(reposterMetadata, event.pubkey);
 
-  const hasLightningAddress = metadata?.lud16 || metadata?.lud06;
+  // Get metadata for the original author (if this is a repost)
+  const originalAuthorMetadata = repostedEvent ? repostedAuthor.data?.metadata : reposterMetadata;
+  const displayName = repostedEvent
+    ? getDisplayName(originalAuthorMetadata, repostedEvent.pubkey)
+    : getDisplayName(reposterMetadata, event.pubkey);
 
-  const handleAvatarClick = (e: React.MouseEvent) => {
+  const timeAgo = formatDistanceToNow(new Date(displayEvent.created_at * 1000), { addSuffix: true });
+
+  const hasLightningAddress = originalAuthorMetadata?.lud16 || originalAuthorMetadata?.lud06;
+
+  const handleAvatarClick = (e: React.MouseEvent, targetPubkey: string = displayEvent.pubkey) => {
     e.stopPropagation();
-    const npub = nip19.npubEncode(event.pubkey);
+    const npub = nip19.npubEncode(targetPubkey);
     navigate(`/${npub}`);
   };
 
@@ -84,12 +116,15 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
     optimisticUpdate(7, 1);
     setLiked(true);
 
+    // Like the original event, not the repost
+    const targetEvent = repostedEvent || event;
+
     createEvent(
       {
         event: {
           kind: 7,
           content: '+',
-          tags: [['e', event.id], ['p', event.pubkey]]
+          tags: [['e', targetEvent.id], ['p', targetEvent.pubkey]]
         }
       },
       {
@@ -109,12 +144,15 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
     optimisticUpdate(6, 1);
     setReposted(true);
 
+    // Repost the original event, not a repost of a repost
+    const targetEvent = repostedEvent || event;
+
     createEvent(
       {
         event: {
           kind: 6,
-          content: JSON.stringify(event),
-          tags: [['e', event.id], ['p', event.pubkey]]
+          content: JSON.stringify(targetEvent),
+          tags: [['e', targetEvent.id], ['p', targetEvent.pubkey]]
         },
         options: spookstrOnly ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
       },
@@ -144,14 +182,17 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const handleQuoteSubmit = () => {
     if (!user || !quoteContent.trim()) return;
 
+    // Quote the original event, not a repost
+    const targetEvent = repostedEvent || event;
+
     // Create quote repost with q tag
     createEvent({
       event: {
         kind: 1,
-        content: `${quoteContent}\n\nnostr:${nip19.noteEncode(event.id)}`,
+        content: `${quoteContent}\n\nnostr:${nip19.noteEncode(targetEvent.id)}`,
         tags: [
-          ['q', event.id, '', event.pubkey],
-          ['p', event.pubkey]
+          ['q', targetEvent.id, '', targetEvent.pubkey],
+          ['p', targetEvent.pubkey]
         ]
       },
       options: postToSpookstr2Only ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
@@ -165,8 +206,8 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const handleCopyNoteId = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      // Copy the note ID (note1... format)
-      const noteId = nip19.noteEncode(event.id);
+      // Copy the note ID (note1... format) of the displayed event
+      const noteId = nip19.noteEncode(displayEvent.id);
       await navigator.clipboard.writeText(noteId);
       setIsCopied(true);
       toast({
@@ -201,13 +242,28 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
 
       {/* Main Post */}
       <Card className="border-lime-500/30 bg-black/50 backdrop-blur-sm">
+        {/* Show repost indicator if this is a repost */}
+        {isRepost && (
+          <div className="px-6 pt-4 pb-0">
+            <div className="flex items-center text-sm text-lime-500/60 mb-2">
+              <Repeat className="h-4 w-4 mr-2" />
+              <span
+                className="cursor-pointer hover:text-lime-400 transition-colors"
+                onClick={(e) => handleAvatarClick(e, event.pubkey)}
+              >
+                {reposterDisplayName} reposted
+              </span>
+            </div>
+          </div>
+        )}
+
         <CardHeader className="pb-3">
           <div className="flex items-center space-x-3">
             <Avatar
               className="h-12 w-12 border-2 border-lime-500/30 cursor-pointer hover:border-lime-400/50 transition-colors"
-              onClick={handleAvatarClick}
+              onClick={(e) => handleAvatarClick(e, displayEvent.pubkey)}
             >
-              <AvatarImage src={metadata?.picture} alt={displayName} />
+              <AvatarImage src={originalAuthorMetadata?.picture} alt={displayName} />
               <AvatarFallback className="bg-lime-500/20 text-lime-400">
                 {displayName.charAt(0).toUpperCase()}
               </AvatarFallback>
@@ -216,11 +272,11 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
               <div className="flex items-center space-x-2">
                 <span
                   className="font-semibold text-lime-400 text-lg cursor-pointer hover:text-lime-300 transition-colors"
-                  onClick={handleAvatarClick}
+                  onClick={(e) => handleAvatarClick(e, displayEvent.pubkey)}
                 >
                   {displayName}
                 </span>
-                {metadata?.nip05 && (
+                {originalAuthorMetadata?.nip05 && (
                   <span className="text-xs text-lime-500/70">✓</span>
                 )}
               </div>
@@ -260,7 +316,7 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
 
         <CardContent className="pt-0">
           <div className="whitespace-pre-wrap break-words text-lime-100 mb-4">
-            <NoteContent event={event} />
+            <NoteContent event={displayEvent} />
           </div>
 
           <div className="flex items-center space-x-1 pt-3 border-t border-lime-500/20">
@@ -392,8 +448,8 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
             <div className="p-3 bg-lime-500/10 rounded-lg border border-lime-500/20 overflow-hidden">
               <p className="text-xs text-lime-500/60 mb-1">Original post:</p>
               <div className="text-sm text-lime-100 line-clamp-3 break-words overflow-hidden">
-                {event.content.substring(0, 150)}
-                {event.content.length > 150 && '...'}
+                {displayEvent.content.substring(0, 150)}
+                {displayEvent.content.length > 150 && '...'}
               </div>
             </div>
 
