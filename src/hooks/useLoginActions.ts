@@ -84,18 +84,69 @@ export function useLoginActions() {
         console.error('❌ Bunker login failed:', error);
         console.error('Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
 
+        // Check if this is an auth challenge URL (NIP-46 auth flow)
+        if (error instanceof Error && error.message.startsWith('https://')) {
+          const authUrl = error.message;
+          console.log('🔐 Auth challenge detected! Opening authorization URL...');
+
+          // Open the auth URL in a new window
+          const width = 600;
+          const height = 700;
+          const left = (window.screen.width - width) / 2;
+          const top = (window.screen.height - height) / 2;
+          const authWindow = window.open(
+            authUrl,
+            'bunker-auth',
+            `width=${width},height=${height},left=${left},top=${top},popup=yes,noopener,noreferrer`
+          );
+
+          if (!authWindow) {
+            throw new Error('Please allow popups for this site to complete bunker authentication.');
+          }
+
+          // Wait for the auth to complete and retry the connection
+          console.log('⏳ Waiting for authorization... Please approve the connection in the opened window.');
+
+          // Extract request ID from the URL for monitoring
+          const urlObj = new URL(authUrl);
+          const reqId = urlObj.searchParams.get('reqId');
+          console.log('📝 Request ID:', reqId);
+
+          // Retry the connection with a longer timeout
+          const retryPromise = NLogin.fromBunker(uri, nostr);
+          const retryTimeout = new Promise((_, reject) => {
+            setTimeout(() => {
+              console.error('⏱️ Authorization timeout after 60s');
+              reject(new Error('Authorization timeout. Please approve the connection faster or try again.'));
+            }, 60000); // 60 second timeout for auth
+          });
+
+          try {
+            const login = await Promise.race([retryPromise, retryTimeout]) as Awaited<typeof retryPromise>;
+            console.log('✅ Bunker authorized and connected!');
+            authWindow.close();
+            addLogin(login);
+            return;
+          } catch (retryError) {
+            authWindow.close();
+            throw retryError;
+          }
+        }
+
         // Provide more user-friendly error messages
         if (error instanceof Error) {
           const errorMsg = error.message.toLowerCase();
 
           if (errorMsg.includes('timeout')) {
             throw new Error('Connection timeout. The bunker relay may be unreachable or not responding.');
-          } else if (errorMsg.includes('relay') || errorMsg.includes('websocket') || errorMsg.includes('connect')) {
+          } else if (errorMsg.includes('relay') || errorMsg.includes('websocket')) {
             throw new Error('Failed to connect to the bunker relay. Please verify the relay URL is correct and accessible.');
           } else if (errorMsg.includes('secret') || errorMsg.includes('auth')) {
             throw new Error('Authentication failed. Please check your bunker secret is correct.');
           } else if (errorMsg.includes('pubkey') || errorMsg.includes('invalid')) {
             throw new Error('Invalid bunker URI. Please check the pubkey and parameters.');
+          } else if (errorMsg.includes('popup')) {
+            throw new Error('Please enable popups for this site to complete bunker authentication.');
           } else {
             // Return the original error message if it doesn't match known patterns
             throw new Error(`Bunker connection failed: ${error.message}`);

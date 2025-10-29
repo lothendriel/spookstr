@@ -63,11 +63,19 @@ This URI format is correct and should work IF:
 - Check your network/firewall settings
 
 ### Issue: "Connection timeout"
-**Cause**: The bunker didn't respond within 30 seconds
+**Cause**: The bunker didn't respond within 30-60 seconds
 **Solutions**:
 - Ensure your remote signer (bunker) is running
 - Verify it's listening on the correct relay
 - Check the pubkey in the URI matches your bunker's pubkey
+- If a popup opened, approve the connection quickly
+
+### Issue: "Please allow popups"
+**Cause**: Browser blocked the authorization popup window
+**Solutions**:
+- Click the popup blocked icon in your browser's address bar
+- Allow popups for this site
+- Try logging in again after allowing popups
 
 ### Issue: "Authentication failed"
 **Cause**: The secret doesn't match or is invalid
@@ -83,8 +91,23 @@ This URI format is correct and should work IF:
 3. **Client** sends a `connect` request to the remote signer pubkey
 4. **Remote signer** (bunker) receives the request
 5. **Remote signer** may prompt for approval (depending on configuration)
+   - **Auth Challenge**: If approval is needed, bunker sends an auth URL
+   - **Popup Window**: Client opens the URL in a popup for user authorization
+   - **User Action**: You must approve the connection in the popup window
 6. **Remote signer** sends back a `connect` response with authentication
 7. Connection established - client can now request signatures
+
+## Auth Challenge Flow (What Happens Now)
+
+When you try to log in with your bunker URI, the system will:
+
+1. **Send connection request** to the bunker via the relay
+2. **Receive auth challenge** - A URL like `https://use.nsec.app/key/npub1...`
+3. **Open popup window** automatically with the authorization page
+4. **Wait for your approval** (up to 60 seconds)
+5. **Complete connection** once you approve in the popup
+
+**Important**: You must **allow popups** for this site! The auth challenge requires opening a new window.
 
 ## Next Steps for Debugging
 
