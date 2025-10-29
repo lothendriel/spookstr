@@ -381,14 +381,14 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                   )}
 
                   {metric.lastError && (
-                    <div className="mt-4 p-3 bg-red-50 rounded-lg">
+                    <div className="mt-4 p-3 border border-red-200 bg-red-50 rounded-lg">
                       <div className="text-sm font-medium text-red-900">
                         Last Error
                       </div>
-                      <div className="text-xs text-red-700 mt-1">
+                      <div className="text-xs text-red-800 mt-1">
                         {metric.lastError.message}
                       </div>
-                      <div className="text-xs text-red-600 mt-1">
+                      <div className="text-xs text-red-700 mt-1">
                         {new Date(metric.lastError.timestamp).toLocaleString()}
                       </div>
                     </div>
@@ -528,10 +528,13 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                   <Badge variant="outline">{requestStats.currentAlgorithm}</Badge>
 
                   {requestStats.totalRequests === 0 && (
-                    <div className="text-xs text-muted-foreground mt-3 p-3 bg-blue-50 rounded">
-                      <strong>Getting Started:</strong> Statistics will appear as you use the app.
-                      Try browsing posts, refreshing the feed, or checking notifications to see
-                      intelligent routing in action.
+                    <div className="text-xs mt-3 p-3 border border-blue-200 bg-blue-50 rounded">
+                      <strong className="text-blue-900">Getting Started:</strong>
+                      <span className="text-blue-800 ml-1">
+                        Statistics will appear as you use the app.
+                        Try browsing posts, refreshing the feed, or checking notifications to see
+                        intelligent routing in action.
+                      </span>
                     </div>
                   )}
                 </div>
@@ -546,7 +549,7 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
               <CardContent>
                 <div className="space-y-3">
                   {connectionStats.length > 0 ? connectionStats.map((conn) => (
-                    <div key={conn.relayUrl} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={conn.relayUrl} className="flex items-center justify-between p-3 border border-border rounded-lg bg-card">
                       <div className="flex items-center gap-3">
                         <div className={cn(
                           "w-3 h-3 rounded-full",
@@ -556,13 +559,13 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                           'bg-gray-400'
                         )} />
                         <div>
-                          <div className="font-medium">{new URL(conn.relayUrl).hostname}</div>
+                          <div className="font-medium text-foreground">{new URL(conn.relayUrl).hostname}</div>
                           <div className="text-sm text-muted-foreground">{conn.connectionStatus}</div>
                         </div>
                       </div>
 
                       <div className="text-right text-sm">
-                        <div className="font-medium">{Math.round(conn.averageLatency)}ms avg</div>
+                        <div className="font-medium text-foreground">{Math.round(conn.averageLatency)}ms avg</div>
                         <div className="text-muted-foreground">{conn.totalRequests} requests</div>
                       </div>
                     </div>
@@ -695,9 +698,9 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                   <CardContent>
                     <div className="space-y-2">
                       {strategy.primary.map((url) => (
-                        <div key={url} className="flex items-center justify-between p-2 bg-green-50 rounded">
-                          <span className="font-medium">{new URL(url).hostname}</span>
-                          <Badge variant="secondary">Primary</Badge>
+                        <div key={url} className="flex items-center justify-between p-3 border border-green-200 bg-green-50 rounded">
+                          <span className="font-medium text-green-900">{new URL(url).hostname}</span>
+                          <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-300">Primary</Badge>
                         </div>
                       ))}
                     </div>
@@ -713,9 +716,9 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                     <CardContent>
                       <div className="space-y-2">
                         {strategy.secondary.map((url) => (
-                          <div key={url} className="flex items-center justify-between p-2 bg-yellow-50 rounded">
-                            <span>{new URL(url).hostname}</span>
-                            <Badge variant="secondary">Secondary</Badge>
+                          <div key={url} className="flex items-center justify-between p-3 border border-yellow-200 bg-yellow-50 rounded">
+                            <span className="font-medium text-yellow-900">{new URL(url).hostname}</span>
+                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300">Secondary</Badge>
                           </div>
                         ))}
                       </div>
@@ -731,9 +734,9 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                   <CardContent>
                     <div className="space-y-2">
                       {strategy.publish.map((url) => (
-                        <div key={url} className="flex items-center justify-between p-2 bg-blue-50 rounded">
-                          <span>{new URL(url).hostname}</span>
-                          <Badge variant="secondary">Publish</Badge>
+                        <div key={url} className="flex items-center justify-between p-3 border border-blue-200 bg-blue-50 rounded">
+                          <span className="font-medium text-blue-900">{new URL(url).hostname}</span>
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-300">Publish</Badge>
                         </div>
                       ))}
                     </div>
@@ -749,9 +752,9 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                     <CardContent>
                       <div className="space-y-2">
                         {strategy.discovery.map((url) => (
-                          <div key={url} className="flex items-center justify-between p-2 bg-purple-50 rounded">
-                            <span>{new URL(url).hostname}</span>
-                            <Badge variant="secondary">Discovery</Badge>
+                          <div key={url} className="flex items-center justify-between p-3 border border-purple-200 bg-purple-50 rounded">
+                            <span className="font-medium text-purple-900">{new URL(url).hostname}</span>
+                            <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-300">Discovery</Badge>
                           </div>
                         ))}
                       </div>
