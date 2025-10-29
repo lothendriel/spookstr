@@ -26,20 +26,18 @@ export function NoteContent({
     // First, extract media items from the content
     const mediaItems = parseMediaFromContent(text);
 
-
-
     // If no media found, use the original logic
     if (mediaItems.length === 0) {
       return processTextContent(text);
     }
 
-    // Process content with media replacement
+    // Create a Set of URLs that are being handled as media
+    const skipUrls = new Set(mediaItems.map(item => item.url));
+
+    // Remove media URLs from the text completely and create ordered parts
     const parts: React.ReactNode[] = [];
     let processedText = text;
     let keyCounter = 0;
-
-    // Create a Set of URLs that are being handled as media or links
-    const skipUrls = new Set(mediaItems.map(item => item.url));
 
     // Sort media items by their position in the text (earlier first)
     const sortedMedia = [...mediaItems].sort((a, b) => {
@@ -52,23 +50,25 @@ export function NoteContent({
     sortedMedia.forEach((media) => {
       const mediaIndex = processedText.indexOf(media.url);
 
-      if (mediaIndex > 0) {
-        // Add text before the media URL
-        const beforeText = processedText.substring(0, mediaIndex);
-        parts.push(...processTextContent(beforeText, keyCounter, skipUrls));
-        keyCounter += beforeText.split(/\s+/).length; // Rough estimate for key increment
+      if (mediaIndex >= 0) {
+        // Add text before the media URL (if any)
+        if (mediaIndex > 0) {
+          const beforeText = processedText.substring(0, mediaIndex);
+          parts.push(...processTextContent(beforeText, keyCounter, skipUrls));
+          keyCounter += beforeText.split(/\s+/).length; // Rough estimate for key increment
+        }
+
+        // Add the media display component
+        parts.push(
+          <MediaDisplay
+            key={`media-${keyCounter++}`}
+            media={media}
+          />
+        );
+
+        // Remove the processed part from the text
+        processedText = processedText.substring(mediaIndex + media.url.length);
       }
-
-      // Add the media display component
-      parts.push(
-        <MediaDisplay
-          key={`media-${keyCounter++}`}
-          media={media}
-        />
-      );
-
-      // Remove the processed part from the text
-      processedText = processedText.substring(mediaIndex + media.url.length);
     });
 
     // Add any remaining text
@@ -111,11 +111,11 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
     }
 
     if (url) {
-      // Skip URLs that are already handled as media or links
+      // Skip URLs that are already handled as media - don't render them at all
       if (skipUrls.has(url)) {
-        parts.push(url);
+        // Don't add anything for media URLs - they're completely hidden from text
       } else {
-        // Handle URLs
+        // Handle URLs that aren't media
         parts.push(
           <a
             key={`url-${keyCounter++}`}
