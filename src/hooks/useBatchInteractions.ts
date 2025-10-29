@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNostr } from '@nostrify/react';
+import { useEffect, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useMultiRelayQuery } from './useMultiRelayQuery';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface InteractionCounts {
@@ -11,69 +11,82 @@ interface InteractionCounts {
 }
 
 /**
- * Batch hook for fetching interactions for multiple posts at once.
+ * Enhanced batch hook for fetching interactions using multi-relay approach.
+ * Queries ALL configured relays to get comprehensive interaction counts.
  * This dramatically reduces network requests compared to individual queries per post.
  */
 export function useBatchInteractions(eventIds: string[]) {
-  const { nostr } = useNostr();
   const queryClient = useQueryClient();
 
-  const { data: batchData, isLoading } = useQuery({
-    queryKey: ['batch-interactions', eventIds.sort().join(',')],
-    queryFn: async (c) => {
-      if (eventIds.length === 0) return {};
-
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
-
-      // Single query to fetch interactions for all posts
-      const events = await nostr.query([{
-        kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
-        '#e': eventIds,
-        limit: 1000, // Higher limit to capture interactions for multiple posts
-      }], { signal });
-
-      // Group interactions by event ID
-      const countsMap: Record<string, InteractionCounts> = {};
-
-      for (const eventId of eventIds) {
-        countsMap[eventId] = {
-          likes: 0,
-          reposts: 0,
-          zaps: 0,
-          comments: 0,
-        };
-      }
-
-      // Count interactions for each event
-      for (const event of events) {
-        const referencedEventId = event.tags.find(([tag]) => tag === 'e')?.[1];
-        if (!referencedEventId || !countsMap[referencedEventId]) continue;
-
-        switch (event.kind) {
-          case 7: // Like
-            countsMap[referencedEventId].likes++;
-            break;
-          case 6: // Repost
-            countsMap[referencedEventId].reposts++;
-            break;
-          case 9735: // Zap
-            countsMap[referencedEventId].zaps++;
-            break;
-          case 1: // Text note reply
-          case 1111: // Comment
-            countsMap[referencedEventId].comments++;
-            break;
-        }
-      }
-
-      return countsMap;
-    },
+  const { data: events, isLoading } = useMultiRelayQuery({
+    filters: eventIds.length === 0 ? [] : [{
+      kinds: [6, 7, 9735, 1, 1111, 16], // reposts, likes, zaps, replies, comments, generic reposts
+      '#e': eventIds,
+      limit: 1500, // Higher limit to capture interactions from multiple relays
+    }],
     enabled: eventIds.length > 0,
     staleTime: 30000, // 30 seconds - fresher data for better UX
-    gcTime: 300000, // 5 minutes
-    refetchOnMount: false, // Don't refetch if data exists
-    refetchOnWindowFocus: false, // Rely on real-time updates instead
+    retry: 2, // More retries for critical interaction data
   });
+
+  // Process events into interaction counts
+  const batchData = useMemo(() => {
+    if (!events || eventIds.length === 0) return {};
+
+    // Group interactions by event ID
+    const countsMap: Record<string, InteractionCounts> = {};
+
+    // Initialize counts for all requested events
+    for (const eventId of eventIds) {
+      countsMap[eventId] = {
+        likes: 0,
+        reposts: 0,
+        zaps: 0,
+        comments: 0,
+      };
+    }
+
+    // Deduplicate events by ID (multiple relays may return same event)
+    const uniqueEvents = Array.from(
+      new Map(events.map(event => [event.id, event])).values()
+    );
+
+    console.log(`[Batch Interactions] Processing ${uniqueEvents.length} unique interactions (from ${events.length} total)`);
+
+    // Count interactions for each event
+    for (const event of uniqueEvents) {
+      const referencedEventId = event.tags.find(([tag]) => tag === 'e')?.[1];
+      if (!referencedEventId || !countsMap[referencedEventId]) continue;
+
+      switch (event.kind) {
+        case 7: // Like
+          countsMap[referencedEventId].likes++;
+          break;
+        case 6: // Repost
+        case 16: // Generic repost
+          countsMap[referencedEventId].reposts++;
+          break;
+        case 9735: // Zap
+          countsMap[referencedEventId].zaps++;
+          break;
+        case 1: // Text note reply
+        case 1111: // Comment
+          countsMap[referencedEventId].comments++;
+          break;
+      }
+    }
+
+    // Log interaction summary for debugging
+    const totalInteractions = Object.values(countsMap).reduce((acc, counts) =>
+      acc + counts.likes + counts.reposts + counts.zaps + counts.comments, 0
+    );
+
+    if (totalInteractions > 0) {
+      console.log(`[Batch Interactions] Found ${totalInteractions} total interactions across ${eventIds.length} posts`);
+    }
+
+    return countsMap;
+  }, [events, eventIds]);
 
   // Update individual post interaction caches
   useEffect(() => {
@@ -97,3 +110,5 @@ export function useBatchInteractions(eventIds: string[]) {
     isLoading,
   };
 }
+
+

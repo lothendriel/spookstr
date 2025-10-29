@@ -1,8 +1,8 @@
-import { useNostr } from '@nostrify/react';
-import { useQuery } from '@tanstack/react-query';
+import { useMultiRelayQuery } from './useMultiRelayQuery';
 import { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 import { nip19 } from 'nostr-tools';
+import { useMemo } from 'react';
 
 const PARANORMAL_TAGS = [
   'paranormal',
@@ -144,71 +144,99 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
 }
 
 export function useParanormalFeed() {
-  const { nostr } = useNostr();
-
-  return useQuery({
-    queryKey: ['paranormal-feed'],
-    queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
-
-      // Query for notes with paranormal tags AND reposts of paranormal content
-      const events = await nostr.query([
-        {
-          kinds: [1],
-          '#t': PARANORMAL_TAGS,
-          limit: 50,
-        },
-        {
-          kinds: [6], // Include reposts
-          limit: 50,
-        }
-      ], { signal });
-
-      // Filter out NSFW content
-      let filteredEvents = filterNSFWContent(events);
-
-      // Filter out blocked users
-      filteredEvents = filterBlockedUsers(filteredEvents);
-
-      // Filter reposts to only include those with paranormal tags
-      filteredEvents = filterRepostsByTags(filteredEvents);
-
-      // Sort by created_at (newest first)
-      filteredEvents.sort((a, b) => b.created_at - a.created_at);
-
-      return filteredEvents;
-    },
-    refetchOnWindowFocus: false,
+  // Enhanced: Use multi-relay query for better content discovery
+  const { data: events, isLoading } = useMultiRelayQuery({
+    filters: [
+      {
+        kinds: [1],
+        '#t': PARANORMAL_TAGS,
+        limit: 80, // Increased limit for better multi-relay coverage
+      },
+      {
+        kinds: [6], // Include reposts
+        limit: 40, // Balanced limit for reposts
+      }
+    ],
     staleTime: 60000, // 1 minute
-    gcTime: 300000, // 5 minutes
-    retry: 1,
+    retry: 2, // More retries for critical feed data
   });
+
+  // Process the events with filters and sorting
+  const processedEvents = useMemo(() => {
+    if (!events) return [];
+
+    console.log(`[Paranormal Feed] Processing ${events.length} events from multi-relay query`);
+
+    // Deduplicate events by ID (multiple relays may return same event)
+    const uniqueEvents = Array.from(
+      new Map(events.map(event => [event.id, event])).values()
+    );
+
+    console.log(`[Paranormal Feed] ${uniqueEvents.length} unique events after deduplication`);
+
+    // Filter out NSFW content
+    let filteredEvents = filterNSFWContent(uniqueEvents);
+    console.log(`[Paranormal Feed] ${filteredEvents.length} events after NSFW filter`);
+
+    // Filter out blocked users
+    filteredEvents = filterBlockedUsers(filteredEvents);
+    console.log(`[Paranormal Feed] ${filteredEvents.length} events after blocking filter`);
+
+    // Filter reposts to only include those with paranormal tags
+    filteredEvents = filterRepostsByTags(filteredEvents);
+    console.log(`[Paranormal Feed] ${filteredEvents.length} events after repost tag filter`);
+
+    // Sort by created_at (newest first)
+    filteredEvents.sort((a, b) => b.created_at - a.created_at);
+
+    return filteredEvents;
+  }, [events]);
+
+  return {
+    data: processedEvents,
+    isLoading,
+  };
 }
 
 export function useParanormalReplies(noteId: string) {
-  const { nostr } = useNostr();
-
-  return useQuery({
-    queryKey: ['paranormal-replies', noteId],
-    queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
-
-      const events = await nostr.query([{
-        kinds: [1],
-        '#e': [noteId],
-        limit: 100,
-      }], { signal });
-
-      // Filter out NSFW content from replies as well
-      let filteredEvents = filterNSFWContent(events);
-
-      // Filter out blocked users from replies
-      filteredEvents = filterBlockedUsers(filteredEvents);
-
-      return filteredEvents;
-    },
+  // Enhanced: Use multi-relay query for comprehensive reply coverage
+  const { data: events, isLoading } = useMultiRelayQuery({
+    filters: noteId ? [{
+      kinds: [1],
+      '#e': [noteId],
+      limit: 150, // Increased limit for multi-relay deduplication
+    }] : [],
     enabled: !!noteId,
-    refetchOnWindowFocus: false,
     staleTime: 30000,
+    retry: 2,
   });
+
+  // Process replies with filters
+  const processedEvents = useMemo(() => {
+    if (!events) return [];
+
+    console.log(`[Paranormal Replies] Processing ${events.length} replies from multi-relay query`);
+
+    // Deduplicate events by ID
+    const uniqueEvents = Array.from(
+      new Map(events.map(event => [event.id, event])).values()
+    );
+
+    console.log(`[Paranormal Replies] ${uniqueEvents.length} unique replies after deduplication`);
+
+    // Filter out NSFW content from replies as well
+    let filteredEvents = filterNSFWContent(uniqueEvents);
+
+    // Filter out blocked users from replies
+    filteredEvents = filterBlockedUsers(filteredEvents);
+
+    console.log(`[Paranormal Replies] ${filteredEvents.length} replies after filtering`);
+
+    return filteredEvents;
+  }, [events]);
+
+  return {
+    data: processedEvents,
+    isLoading,
+  };
 }
