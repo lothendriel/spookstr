@@ -137,10 +137,10 @@ export function useLoginActions() {
           const reqId = urlObj.searchParams.get('reqId');
           console.log('📝 Request ID:', reqId);
 
-          // Wait a bit for the user to approve, then retry with extended timeout
-          console.log('⏰ Waiting 2 seconds for authorization approval...');
+          // Wait for the user to approve and for the bunker to process it
+          console.log('⏰ Waiting 5 seconds for authorization approval and processing...');
           onStatus?.('Waiting for authorization approval...');
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 5000));
 
           console.log('🔄 Retrying bunker connection after auth approval...');
           onStatus?.('Completing connection after authorization...');
@@ -160,9 +160,9 @@ export function useLoginActions() {
 
           const retryTimeout = new Promise((_, reject) => {
             setTimeout(() => {
-              console.error('⏱️ Authorization timeout after 90s');
+              console.error('⏱️ Authorization timeout after 60s');
               reject(new Error('Authorization timeout. The bunker did not respond after approval. Please try again.'));
-            }, 90000); // 90 second timeout for auth response
+            }, 60000); // 60 second timeout for auth response
           });
 
           try {
