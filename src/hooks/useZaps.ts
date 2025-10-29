@@ -49,9 +49,9 @@ export function useZaps(
     staleTime: 60000, // 1 minute - zap receipts are relatively static once created
     gcTime: 300000, // 5 minutes - keep zap data cached
     // Enhanced caching: Smart background refresh for zap receipts
-    refetchInterval: (data, query) => {
-      // Only refetch if component is mounted, tab is visible, and we have data
-      if (document.hidden || !data || query.getObserversCount() === 0) return false;
+    refetchInterval: (data) => {
+      // Only refetch if tab is visible and we have data
+      if (document.hidden || !data) return false;
 
       // Background refresh every 2 minutes for zap receipts
       return 120000; // 2 minutes
