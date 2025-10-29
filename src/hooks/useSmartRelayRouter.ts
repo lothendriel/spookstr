@@ -7,22 +7,22 @@ import type { RelayConfig, RelayPriority } from '@/contexts/AppContext';
 export interface SmartRelayRouting {
   /** Get relays for feed queries (fast, reliable relays only) */
   getFeedRelays: () => string[];
-  
+
   /** Get relays for querying a specific user's content (their write relays) */
   getUserContentRelays: (pubkey: string) => string[];
-  
+
   /** Get relays for sending mentions to a user (their read relays) */
   getUserMentionRelays: (pubkey: string) => string[];
-  
+
   /** Get relays for publishing your content (your write relays) */
   getPublishRelays: () => string[];
-  
+
   /** Get relays for receiving mentions (your read relays) */
   getNotificationRelays: () => string[];
-  
+
   /** Get relays for search and discovery */
   getSearchRelays: () => string[];
-  
+
   /** Get relays with performance scores for optimization */
   getRelayPerformance: () => Array<RelayConfig & { score: number }>;
 }
@@ -33,7 +33,7 @@ export interface SmartRelayRouting {
 export function useSmartRelayRouter(): SmartRelayRouting {
   const { config } = useAppContext();
   const relayConfigs = config.relays || [];
-  
+
   // Get health data for all configured relays
   const healthStatus = useRelayHealth(relayConfigs);
 
@@ -42,12 +42,12 @@ export function useSmartRelayRouter(): SmartRelayRouting {
     return relayConfigs.map(relay => {
       const health = healthStatus[relay.url];
       let score = 50; // Base score
-      
+
       // Health status impact
       if (health?.status === 'connected') score += 30;
       else if (health?.status === 'connecting') score += 10;
       else if (health?.status === 'error') score -= 40;
-      
+
       // Latency impact (lower latency = higher score)
       if (health?.latency) {
         if (health.latency < 100) score += 20;
@@ -55,36 +55,50 @@ export function useSmartRelayRouter(): SmartRelayRouting {
         else if (health.latency < 1000) score -= 10;
         else score -= 30;
       }
-      
+
       // Reliability score impact
       if (relay.reliabilityScore) {
         score += (relay.reliabilityScore - 50) * 0.4; // -20 to +20 points
       }
-      
+
       // Priority impact
       if (relay.priority === 'primary') score += 15;
       else if (relay.priority === 'backup') score -= 10;
-      
+
       return { ...relay, score: Math.max(0, Math.min(100, score)) };
     }).sort((a, b) => b.score - a.score);
   }, [relayConfigs, healthStatus]);
 
   // Get fast, reliable relays for feed queries (max 3)
   const getFeedRelays = (): string[] => {
+    // Try to get primary relays first
     const primaryRelays = relayPerformance
-      .filter(r => (r.mode === 'read' || r.mode === 'both') && r.score >= 60)
+      .filter(r => (r.mode === 'read' || r.mode === 'both') && (r.priority === 'primary' || r.score >= 60))
       .slice(0, 3)
       .map(r => r.url);
-    
-    // Fallback to any read relays if no good ones found
-    if (primaryRelays.length === 0) {
-      return relayConfigs
-        .filter(r => r.mode === 'read' || r.mode === 'both')
-        .slice(0, 2)
-        .map(r => r.url);
+
+    console.log(`[SmartRelayRouter] Primary relays (${primaryRelays.length}):`, primaryRelays);
+
+    // If we have primary relays, use them
+    if (primaryRelays.length > 0) {
+      return primaryRelays;
     }
-    
-    return primaryRelays;
+
+    // Fallback to any read relays if no primary ones found
+    const fallbackRelays = relayConfigs
+      .filter(r => r.mode === 'read' || r.mode === 'both')
+      .slice(0, 3) // Increased to 3 for better coverage
+      .map(r => r.url);
+
+    console.log(`[SmartRelayRouter] Fallback relays (${fallbackRelays.length}):`, fallbackRelays);
+
+    // If still no relays, use a sensible default
+    if (fallbackRelays.length === 0) {
+      console.warn('[SmartRelayRouter] No configured relays found, using defaults');
+      return ['wss://relay.nostr.band', 'wss://relay.damus.io'];
+    }
+
+    return fallbackRelays;
   };
 
   // Get relays for publishing (all write relays, prioritized by performance)
@@ -120,7 +134,7 @@ export function useSmartRelayRouter(): SmartRelayRouting {
   };
 
   const getUserMentionRelays = (pubkey: string): string[] => {
-    // Check cache first  
+    // Check cache first
     const cached = userRelayCache.get(pubkey);
     if (cached) return cached.read;
 
@@ -145,18 +159,18 @@ export function useSmartRelayRouter(): SmartRelayRouting {
  */
 export function useUserRelayPreferences(pubkey: string) {
   const { data: userRelays } = useUserRelays(pubkey);
-  
+
   return useMemo(() => {
     if (!userRelays) return { write: [], read: [] };
-    
+
     const write = userRelays
       .filter(r => r.mode === 'write' || r.mode === 'both')
       .map(r => r.url);
-      
+
     const read = userRelays
       .filter(r => r.mode === 'read' || r.mode === 'both')
       .map(r => r.url);
-    
+
     return { write, read };
   }, [userRelays]);
 }

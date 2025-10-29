@@ -33,7 +33,7 @@ export function useRealtimeNotifications() {
   useEffect(() => {
     if (!user?.pubkey) return;
 
-    // Get comprehensive relay list
+    // Get a reasonable relay list (limit excessive connections)
     const relaySet = new Set<string>();
 
     if (config.spookstrOnlyMode) {
@@ -41,28 +41,42 @@ export function useRealtimeNotifications() {
       if (spookstrRelay) relaySet.add(spookstrRelay.url);
       else relaySet.add('wss://spookstr2.nostr1.com');
     } else {
-      // Add user's NIP-65 read relays (inbox model)
-      if (userRelayList && userRelayList.length > 0) {
-        userRelayList
-          .filter(r => r.mode === 'read' || r.mode === 'both')
-          .forEach(r => relaySet.add(r.url));
-      }
-
-      // Add ALL preset relays for maximum coverage
-      presetRelays.forEach(r => relaySet.add(r.url));
-
-      // Add configured relays as fallback
+      // Add user's configured read relays (limit to 5 for performance)
       if (config.relays) {
         config.relays
           .filter(r => r.mode === 'read' || r.mode === 'both')
+          .slice(0, 5) // Limit to 5 relays max
           .forEach(r => relaySet.add(r.url));
-      } else if (config.relayUrl) {
-        relaySet.add(config.relayUrl);
+      }
+
+      // Add user's NIP-65 read relays only if we have few configured relays
+      if (relaySet.size < 3 && userRelayList && userRelayList.length > 0) {
+        userRelayList
+          .filter(r => r.mode === 'read' || r.mode === 'both')
+          .slice(0, 3 - relaySet.size) // Fill up to 3 total
+          .forEach(r => relaySet.add(r.url));
+      }
+
+      // Add fallback relay if still none
+      if (relaySet.size === 0) {
+        relaySet.add(config.relayUrl || 'wss://relay.nostr.band');
       }
     }
 
     const notificationRelays = Array.from(relaySet);
     if (notificationRelays.length === 0) return;
+
+    // Throttle subscription creation to prevent excessive reconnections
+    const throttleKey = `throttle-${user.pubkey}`;
+    const lastCreation = (window as any)[throttleKey] || 0;
+    const now = Date.now();
+
+    if (now - lastCreation < 10000) { // 10 second throttle
+      console.log('[Real-time Notifications] Throttling subscription creation');
+      return;
+    }
+
+    (window as any)[throttleKey] = now;
 
     // Create subscription key
     const subscriptionKey = `notifications-${user.pubkey}-${notificationRelays.sort().join(',')}`;
@@ -104,13 +118,12 @@ export function useRealtimeNotifications() {
       }
     };
   }, [
-    user?.pubkey, 
-    nostr, 
-    queryClient, 
+    user?.pubkey,
+    nostr,
+    queryClient,
     config.spookstrOnlyMode,
-    userRelayList?.length,
-    presetRelays.map(r => r.url).join(','),
-    config.relays?.map(r => r.url).join(','),
+    // Stabilize dependencies to prevent excessive re-subscriptions
+    config.relays?.length, // Only react to count changes, not order
     config.relayUrl
   ]);
 }
@@ -128,19 +141,33 @@ async function createNotificationSubscription(
   try {
     // First, get user's posts to know what to watch for interactions
     let userPosts: NostrEvent[] = [];
-    
+
     try {
       const relayGroup = nostr.group(notificationRelays);
       userPosts = await relayGroup.query([{
         kinds: [1],
         authors: [userPubkey],
-        limit: 500
+        limit: 200 // Reduced from 500 for better performance
       }], { signal: abortController.signal });
-      
+
       console.log(`[Real-time Notifications] Found ${userPosts.length} user posts to monitor`);
     } catch (error) {
-      console.error('[Real-time Notifications] Error fetching user posts:', error);
-      return;
+      console.log('[Real-time Notifications] Relay group failed, trying fallback:', error.message);
+
+      // Fallback: try with just the first relay
+      try {
+        const singleRelay = nostr.relay(notificationRelays[0]);
+        userPosts = await singleRelay.query([{
+          kinds: [1],
+          authors: [userPubkey],
+          limit: 200
+        }], { signal: abortController.signal });
+
+        console.log(`[Real-time Notifications] Fallback: Found ${userPosts.length} user posts`);
+      } catch (fallbackError) {
+        console.error('[Real-time Notifications] Fallback also failed:', fallbackError);
+        return;
+      }
     }
 
     const userPostIds = userPosts.map(post => post.id);
