@@ -165,26 +165,19 @@ export function useParanormalFeed() {
   const processedEvents = useMemo(() => {
     if (!events) return [];
 
-    console.log(`[Paranormal Feed] Processing ${events.length} events from multi-relay query`);
-
     // Deduplicate events by ID (multiple relays may return same event)
     const uniqueEvents = Array.from(
       new Map(events.map(event => [event.id, event])).values()
     );
 
-    console.log(`[Paranormal Feed] ${uniqueEvents.length} unique events after deduplication`);
-
     // Filter out NSFW content
     let filteredEvents = filterNSFWContent(uniqueEvents);
-    console.log(`[Paranormal Feed] ${filteredEvents.length} events after NSFW filter`);
 
     // Filter out blocked users
     filteredEvents = filterBlockedUsers(filteredEvents);
-    console.log(`[Paranormal Feed] ${filteredEvents.length} events after blocking filter`);
 
     // Filter reposts to only include those with paranormal tags
     filteredEvents = filterRepostsByTags(filteredEvents);
-    console.log(`[Paranormal Feed] ${filteredEvents.length} events after repost tag filter`);
 
     // Sort by created_at (newest first)
     filteredEvents.sort((a, b) => b.created_at - a.created_at);
@@ -215,22 +208,16 @@ export function useParanormalReplies(noteId: string) {
   const processedEvents = useMemo(() => {
     if (!events) return [];
 
-    console.log(`[Paranormal Replies] Processing ${events.length} replies from multi-relay query`);
-
     // Deduplicate events by ID
     const uniqueEvents = Array.from(
       new Map(events.map(event => [event.id, event])).values()
     );
-
-    console.log(`[Paranormal Replies] ${uniqueEvents.length} unique replies after deduplication`);
 
     // Filter out NSFW content from replies as well
     let filteredEvents = filterNSFWContent(uniqueEvents);
 
     // Filter out blocked users from replies
     filteredEvents = filterBlockedUsers(filteredEvents);
-
-    console.log(`[Paranormal Replies] ${filteredEvents.length} replies after filtering`);
 
     return filteredEvents;
   }, [events]);

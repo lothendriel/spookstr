@@ -25,26 +25,34 @@ export function useMultiRelayQuery({
   const { presetRelays = [], config } = useAppContext();
 
   return useQuery({
-    queryKey: ['multi-relay-query', filters, presetRelays.map(r => r.url), config.relays?.map(r => r.url) || config.relayUrl],
+    queryKey: ['multi-relay-query', filters, presetRelays.map(r => r.url), config.relays?.map(r => r.url) || config.relayUrl, config.spookstrOnlyMode],
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
 
-      // Get all available relay URLs from preset relays + app config
+      // Check if Spookstr Only Mode is enabled
+      const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
+
       let relayUrls: string[] = [];
 
-      // Add preset relays if available
-      if (presetRelays && presetRelays.length > 0) {
-        relayUrls = presetRelays.map(r => r.url);
+      if (config.spookstrOnlyMode) {
+        // When Spookstr Only Mode is enabled, use only the Spookstr relay
+        relayUrls = [SPOOKSTR_RELAY];
       } else {
-        // Fallback to configured relays from app context
-        if (config.relays && config.relays.length > 0) {
-          relayUrls = config.relays.map(r => r.url);
-        } else if (config.relayUrl) {
-          relayUrls = [config.relayUrl];
+        // Normal mode - use all available relays
+        // Add preset relays if available
+        if (presetRelays && presetRelays.length > 0) {
+          relayUrls = presetRelays.map(r => r.url);
+        } else {
+          // Fallback to configured relays from app context
+          if (config.relays && config.relays.length > 0) {
+            relayUrls = config.relays.map(r => r.url);
+          } else if (config.relayUrl) {
+            relayUrls = [config.relayUrl];
+          }
         }
       }
 
-      console.log(`MultiRelayQuery: Fetching from ${relayUrls.length} relays:`, relayUrls);
+      console.log(`MultiRelayQuery: ${config.spookstrOnlyMode ? '[SPOOKSTR ONLY MODE]' : ''} Fetching from ${relayUrls.length} relays:`, relayUrls);
       console.log('MultiRelayQuery: Filters:', JSON.stringify(filters, null, 2));
 
       // If we have multiple relays, query from all of them
