@@ -238,9 +238,25 @@ export function useNotifications() {
       config.spookstrOnlyMode || // Always enabled in spookstr-only mode
       !isLoadingRelays // Or when relay list is done loading (even if null)
     ),
-    refetchInterval: 30000, // Refetch every 30 seconds
     retry: 2, // Retry failed queries up to 2 times
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
-    staleTime: 10000, // Consider data stale after 10 seconds
+    staleTime: 30000, // 30 seconds - notifications don't need to be super fresh
+    gcTime: 300000, // 5 minutes - keep notification data cached
+    // Enhanced caching: Smart background refresh for notifications
+    refetchInterval: (data, query) => {
+      // Only refetch if tab is visible and we have a user
+      if (document.hidden || !user?.pubkey) return false;
+
+      // Background refresh every 60 seconds for notifications
+      // More frequent than feed since users want to see interactions quickly
+      return 60000; // 1 minute
+    },
+    // Smarter window focus behavior for notifications
+    refetchOnWindowFocus: (query) => {
+      if (!user?.pubkey || !query.state.data) return true;
+      const lastUpdated = query.state.dataUpdatedAt;
+      const twoMinutesAgo = Date.now() - 120000;
+      return lastUpdated < twoMinutesAgo;
+    }
   });
 }

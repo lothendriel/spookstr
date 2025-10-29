@@ -54,7 +54,17 @@ export function useAuthor(pubkey: string | undefined) {
     initialData,
     enabled: !!pubkey,
     retry: 1,
-    staleTime: 300000, // 5 minutes - profiles don't change often
-    gcTime: 600000, // 10 minutes
+    staleTime: 900000, // 15 minutes - profiles change very infrequently
+    gcTime: 1800000, // 30 minutes - keep profile data cached much longer
+    // Enhanced caching: Very infrequent background refresh for profiles
+    refetchInterval: (data, query) => {
+      // Only refetch if tab is visible and we have data
+      if (document.hidden || !data || !pubkey) return false;
+
+      // Background refresh every 30 minutes for profile metadata
+      // Profiles rarely change, so this is very conservative
+      return 1800000; // 30 minutes
+    },
+    refetchOnWindowFocus: false, // Profiles don't need frequent updates
   });
 }

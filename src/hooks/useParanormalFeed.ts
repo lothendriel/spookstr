@@ -179,9 +179,24 @@ export function useParanormalFeed() {
       return filteredEvents;
     },
     refetchOnWindowFocus: false,
-    staleTime: 60000, // 1 minute
-    gcTime: 300000, // 5 minutes
+    staleTime: 60000, // 1 minute - consider data fresh for this period
+    gcTime: 600000, // 10 minutes - keep in cache longer for better UX
     retry: 1,
+    // Enhanced caching: Background refetch every 5 minutes when tab is active
+    refetchInterval: (data, query) => {
+      // Only refetch if the tab is visible and we have existing data
+      if (document.hidden || !data) return false;
+
+      // Refetch every 5 minutes for active users
+      return 300000; // 5 minutes
+    },
+    // Refetch when the tab becomes visible if data is older than 2 minutes
+    refetchOnWindowFocus: (query) => {
+      if (!query.state.data) return true;
+      const lastUpdated = query.state.dataUpdatedAt;
+      const twoMinutesAgo = Date.now() - 120000;
+      return lastUpdated < twoMinutesAgo;
+    },
   });
 }
 
@@ -209,6 +224,15 @@ export function useParanormalReplies(noteId: string) {
     },
     enabled: !!noteId,
     refetchOnWindowFocus: false,
-    staleTime: 30000,
+    staleTime: 60000, // 1 minute - replies don't change as frequently as main feed
+    gcTime: 300000, // 5 minutes - keep replies cached for reasonable time
+    // Enhanced caching: Background refetch for active conversations
+    refetchInterval: (data, query) => {
+      // Only refetch if tab is visible and we have data
+      if (document.hidden || !data || !noteId) return false;
+
+      // Refetch every 2 minutes for active conversation threads
+      return 120000; // 2 minutes
+    },
   });
 }

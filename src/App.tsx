@@ -29,11 +29,19 @@ const head = createHead({
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false,
-      staleTime: 60000, // 1 minute
-      gcTime: 300000, // 5 minutes
+      refetchOnWindowFocus: false, // Individual hooks control their own window focus behavior
+      staleTime: 60000, // 1 minute default - individual hooks override as needed
+      gcTime: 600000, // 10 minutes - keep data cached longer for better UX
       retry: 1, // Reduce retries for faster failure recovery
       refetchOnMount: false, // Prevent unnecessary refetches
+      // Enhanced default behavior: No background refetch unless explicitly set
+      refetchInterval: false, // Individual hooks control their own intervals
+      // Better error retry strategy
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff capped at 5s
+    },
+    mutations: {
+      retry: 1, // Single retry for mutations
+      retryDelay: 1000, // 1 second delay for mutation retries
     },
   },
 });

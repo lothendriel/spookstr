@@ -69,10 +69,19 @@ export function useBatchInteractions(eventIds: string[]) {
       return countsMap;
     },
     enabled: eventIds.length > 0,
-    staleTime: 30000, // 30 seconds - fresher data for better UX
-    gcTime: 300000, // 5 minutes
+    staleTime: 45000, // 45 seconds - balanced freshness with performance
+    gcTime: 600000, // 10 minutes - keep interaction data cached longer
     refetchOnMount: false, // Don't refetch if data exists
     refetchOnWindowFocus: false, // Rely on real-time updates instead
+    // Enhanced caching: Smart background refresh for active content
+    refetchInterval: (data, query) => {
+      // Only refetch if tab is visible and we have data and event IDs
+      if (document.hidden || !data || eventIds.length === 0) return false;
+
+      // Background refresh every 90 seconds for interaction counts
+      // This ensures users see updated likes/zaps/comments without manual refresh
+      return 90000; // 1.5 minutes
+    },
   });
 
   // Update individual post interaction caches
