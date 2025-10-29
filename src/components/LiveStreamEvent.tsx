@@ -89,13 +89,17 @@ export function LiveStreamEvent({ event, className, showPlayer = false }: LiveSt
   };
 
   const handleWatchClick = () => {
-    if (streamUrl && status === 'live') {
-      // For live streams, try to show embedded player
+    if (status === 'live' && streaming) {
+      // For live streams with streaming URL, show embedded player
       setIsPlayerOpen(!isPlayerOpen);
+    } else if (status === 'ended' && altLink) {
+      // For ended streams, open recording on zap.stream
+      window.open(altLink, '_blank', 'noopener,noreferrer');
     } else if (altLink) {
-      // For ended streams or external links, open in new tab
+      // Fallback to alt link
       window.open(altLink, '_blank', 'noopener,noreferrer');
     } else if (streamUrl) {
+      // Fallback to stream URL
       window.open(streamUrl, '_blank', 'noopener,noreferrer');
     }
   };
@@ -125,19 +129,19 @@ export function LiveStreamEvent({ event, className, showPlayer = false }: LiveSt
       <CardContent className="pt-0">
         {/* Thumbnail/Video Player */}
         <div className="relative mb-4 rounded-lg overflow-hidden bg-black/40">
-          {isPlayerOpen && streamUrl && status === 'live' ? (
+          {isPlayerOpen && streaming && status === 'live' ? (
             <div className="aspect-video">
-              {streamUrl.includes('.m3u8') ? (
+              {streaming.includes('.m3u8') ? (
                 // HLS Stream
                 <video
                   className="w-full h-full"
                   controls
                   autoPlay
                   playsInline
-                  src={streamUrl}
+                  src={streaming}
                   poster={thumb}
                 >
-                  <source src={streamUrl} type="application/x-mpegURL" />
+                  <source src={streaming} type="application/x-mpegURL" />
                   Your browser does not support HLS video.
                 </video>
               ) : (
@@ -147,7 +151,7 @@ export function LiveStreamEvent({ event, className, showPlayer = false }: LiveSt
                   controls
                   autoPlay
                   playsInline
-                  src={streamUrl}
+                  src={streaming}
                   poster={thumb}
                 >
                   Your browser does not support this video format.
@@ -155,7 +159,14 @@ export function LiveStreamEvent({ event, className, showPlayer = false }: LiveSt
               )}
             </div>
           ) : (
-            <div className="aspect-video relative group cursor-pointer" onClick={handleWatchClick}>
+            <div
+              className={`aspect-video relative group ${
+                status === 'live' && streaming ? 'cursor-pointer' :
+                status === 'ended' && altLink ? 'cursor-pointer' :
+                'cursor-default'
+              }`}
+              onClick={status === 'ended' || (status === 'live' && streaming) ? handleWatchClick : undefined}
+            >
               {thumb ? (
                 <img
                   src={thumb}
@@ -167,13 +178,24 @@ export function LiveStreamEvent({ event, className, showPlayer = false }: LiveSt
                   <Play className="h-16 w-16 text-white/70" />
                 </div>
               )}
-              
-              {/* Play overlay */}
-              <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 transition-colors flex items-center justify-center">
-                <div className="bg-white/90 rounded-full p-4 group-hover:scale-110 transition-transform">
-                  <Play className="h-8 w-8 text-black fill-black" />
+
+              {/* Play overlay - only show if stream is playable */}
+              {((status === 'live' && streaming) || (status === 'ended' && altLink)) && (
+                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 transition-colors flex items-center justify-center">
+                  <div className="bg-white/90 rounded-full p-4 group-hover:scale-110 transition-transform">
+                    <Play className="h-8 w-8 text-black fill-black" />
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Inactive overlay for ended streams without recording */}
+              {status === 'ended' && !altLink && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                  <div className="bg-gray-500/80 rounded-full p-4">
+                    <Play className="h-8 w-8 text-gray-300" />
+                  </div>
+                </div>
+              )}
 
               {/* Duration badge for recorded streams */}
               {status === 'ended' && startTime && endTime && (
@@ -238,15 +260,41 @@ export function LiveStreamEvent({ event, className, showPlayer = false }: LiveSt
 
           {/* Action Buttons */}
           <div className="flex gap-2 pt-2">
-            <Button
-              onClick={handleWatchClick}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              <Play className="h-4 w-4 mr-2" />
-              {status === 'live' ? 'Watch Live' : status === 'ended' ? 'Watch Recording' : 'View Stream'}
-            </Button>
-            
-            {altLink && (
+            {status === 'live' && streaming ? (
+              <Button
+                onClick={handleWatchClick}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Watch Live
+              </Button>
+            ) : status === 'ended' && altLink ? (
+              <Button
+                onClick={handleWatchClick}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Watch Recording
+              </Button>
+            ) : status === 'live' && !streaming ? (
+              <Button
+                disabled
+                className="flex-1 bg-gray-600 text-gray-400 cursor-not-allowed"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Stream Unavailable
+              </Button>
+            ) : (
+              <Button
+                disabled
+                className="flex-1 bg-gray-600 text-gray-400 cursor-not-allowed"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Recording Unavailable
+              </Button>
+            )}
+
+            {altLink && status !== 'ended' && (
               <Button
                 variant="outline"
                 size="sm"
@@ -279,7 +327,7 @@ export function LiveStreamEvent({ event, className, showPlayer = false }: LiveSt
         </div>
 
         {/* Embedded Player Toggle for Live Streams */}
-        {status === 'live' && streamUrl && (
+        {status === 'live' && streaming && (
           <div className="mt-3 pt-3 border-t border-purple-500/20">
             <Button
               variant="ghost"
