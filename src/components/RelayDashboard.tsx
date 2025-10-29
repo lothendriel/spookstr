@@ -42,6 +42,7 @@ import { useRelayHealth as useAdvancedRelayHealth } from '@/lib/relayHealth';
 import { useGeographicRelay } from '@/lib/relayGeography';
 import { useRelayLoadBalancer } from '@/lib/relayLoadBalancer';
 import { useIntelligentRelay } from '@/lib/intelligentRelayManager';
+import { useRequestTracker } from '@/lib/requestTracker';
 
 interface RelayDashboardProps {
   relayUrls: string[];
@@ -51,7 +52,7 @@ interface RelayDashboardProps {
 export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
   const { metrics: healthMetrics, startMonitoring, isMonitoring } = useAdvancedRelayHealth(relayUrls);
   const { optimalRelays, userLocation, selector: geoSelector } = useGeographicRelay(relayUrls);
-  const { stats: loadBalancerStats, connections, loadBalancer } = useRelayLoadBalancer();
+  const { globalStats: requestStats, relayStats: connectionStats } = useRequestTracker();
   const { strategy, metrics: intelligentMetrics, forceOptimization, manager } = useIntelligentRelay(relayUrls);
 
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -271,15 +272,15 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {Math.round(loadBalancerStats.averageResponseTime)}ms
+              {Math.round(requestStats.averageResponseTime)}ms
             </div>
             <div className="text-xs text-muted-foreground">avg response time</div>
             <div className="flex items-center gap-2 mt-2 text-xs">
               <span className="text-green-600">
-                {loadBalancerStats.successfulRequests} success
+                {requestStats.successfulRequests} success
               </span>
               <span className="text-red-600">
-                {loadBalancerStats.failedRequests} failed
+                {requestStats.failedRequests} failed
               </span>
             </div>
           </CardContent>
@@ -465,25 +466,25 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
           <div className="grid gap-4">
 
             {/* Integration Status */}
-            <Card className="border-yellow-200 bg-yellow-50">
+            <Card className="border-green-200 bg-green-50">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-yellow-800">
-                  <AlertTriangle className="h-5 w-5" />
-                  Load Balancing Status
+                <CardTitle className="flex items-center gap-2 text-green-800">
+                  <CheckCircle className="h-5 w-5" />
+                  Intelligent Load Balancing Active
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="text-sm text-yellow-800">
-                    <strong>Monitoring Mode:</strong> The load balancing system is currently in monitoring mode only.
-                    Actual Nostr requests are handled by the existing NostrProvider for stability.
+                  <div className="text-sm text-green-800">
+                    <strong>Fully Integrated:</strong> All Nostr requests are now routed through the
+                    intelligent relay management system with real-time load balancing and optimization.
                   </div>
-                  <div className="text-xs text-yellow-700">
-                    💡 <strong>Future Enhancement:</strong> Full integration would route all Nostr requests through
-                    the intelligent load balancer for optimal performance across relay pools.
+                  <div className="text-xs text-green-700">
+                    ✅ <strong>Features Active:</strong> Health-based routing, geographic optimization,
+                    automatic failover, and performance tracking for all requests.
                   </div>
-                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
-                    View Only Mode
+                  <Badge variant="secondary" className="bg-green-100 text-green-800">
+                    Fully Integrated
                   </Badge>
                 </div>
               </CardContent>
@@ -492,45 +493,45 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
             {/* Stats Overview */}
             <Card>
               <CardHeader>
-                <CardTitle>Load Balancer Statistics</CardTitle>
+                <CardTitle>Intelligent Routing Statistics</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
                   <div>
-                    <div className="text-2xl font-bold">{loadBalancerStats.totalRequests}</div>
+                    <div className="text-2xl font-bold">{requestStats.totalRequests}</div>
                     <div className="text-sm text-muted-foreground">Total Requests</div>
                   </div>
 
                   <div>
                     <div className="text-2xl font-bold text-green-600">
-                      {loadBalancerStats.successfulRequests}
+                      {requestStats.successfulRequests}
                     </div>
                     <div className="text-sm text-muted-foreground">Successful</div>
                   </div>
 
                   <div>
                     <div className="text-2xl font-bold text-red-600">
-                      {loadBalancerStats.failedRequests}
+                      {requestStats.failedRequests}
                     </div>
                     <div className="text-sm text-muted-foreground">Failed</div>
                   </div>
 
                   <div>
-                    <div className="text-2xl font-bold">{loadBalancerStats.failoverCount}</div>
+                    <div className="text-2xl font-bold">{requestStats.failoverCount}</div>
                     <div className="text-sm text-muted-foreground">Failovers</div>
                   </div>
                 </div>
 
                 <div className="mt-4 space-y-2">
-                  <div className="text-sm font-medium mb-2">Algorithm</div>
-                  <Badge variant="outline">{loadBalancerStats.currentAlgorithm}</Badge>
+                  <div className="text-sm font-medium mb-2">Routing Algorithm</div>
+                  <Badge variant="outline">{requestStats.currentAlgorithm}</Badge>
 
-                  {loadBalancerStats.totalRequests === 0 && (
-                    <div className="text-xs text-muted-foreground mt-3 p-3 bg-gray-50 rounded">
-                      <strong>Note:</strong> Load balancing statistics will show data when requests
-                      are routed through the intelligent system. Currently, requests use the
-                      existing NostrProvider for stability.
+                  {requestStats.totalRequests === 0 && (
+                    <div className="text-xs text-muted-foreground mt-3 p-3 bg-blue-50 rounded">
+                      <strong>Getting Started:</strong> Statistics will appear as you use the app.
+                      Try browsing posts, refreshing the feed, or checking notifications to see
+                      intelligent routing in action.
                     </div>
                   )}
                 </div>
@@ -540,45 +541,52 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
             {/* Connection Status */}
             <Card>
               <CardHeader>
-                <CardTitle>Connection Status</CardTitle>
+                <CardTitle>Relay Connection Status</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {connections.map((conn) => (
-                    <div key={conn.url} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  {connectionStats.length > 0 ? connectionStats.map((conn) => (
+                    <div key={conn.relayUrl} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className={cn(
                           "w-3 h-3 rounded-full",
-                          conn.status === 'connected' ? 'bg-green-500' :
-                          conn.status === 'connecting' ? 'bg-yellow-500' :
-                          'bg-red-500'
+                          conn.connectionStatus === 'connected' ? 'bg-green-500' :
+                          conn.connectionStatus === 'connecting' ? 'bg-yellow-500' :
+                          conn.connectionStatus === 'error' ? 'bg-red-500' :
+                          'bg-gray-400'
                         )} />
                         <div>
-                          <div className="font-medium">{new URL(conn.url).hostname}</div>
-                          <div className="text-sm text-muted-foreground">{conn.status}</div>
+                          <div className="font-medium">{new URL(conn.relayUrl).hostname}</div>
+                          <div className="text-sm text-muted-foreground">{conn.connectionStatus}</div>
                         </div>
                       </div>
 
                       <div className="text-right text-sm">
-                        <div className="font-medium">{conn.activeRequests} active</div>
-                        <div className="text-muted-foreground">{conn.totalRequests} total</div>
+                        <div className="font-medium">{Math.round(conn.averageLatency)}ms avg</div>
+                        <div className="text-muted-foreground">{conn.totalRequests} requests</div>
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="text-center py-4 text-muted-foreground">
+                      <Network className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>No connection data yet</p>
+                      <p className="text-xs">Use the app to see connection statistics</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
             {/* Request Distribution */}
-            {Object.keys(loadBalancerStats.relayUtilization).length > 0 && (
+            {Object.keys(requestStats.relayUtilization).length > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle>Request Distribution</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {Object.entries(loadBalancerStats.relayUtilization).map(([url, count]) => {
-                      const percentage = (count / loadBalancerStats.totalRequests) * 100;
+                    {Object.entries(requestStats.relayUtilization).map(([url, count]) => {
+                      const percentage = (count / requestStats.totalRequests) * 100;
                       return (
                         <div key={url}>
                           <div className="flex justify-between text-sm mb-1">
