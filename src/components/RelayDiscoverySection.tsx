@@ -35,7 +35,7 @@ export function RelayDiscoverySection({
   onChangeMode,
   className
 }: RelayDiscoverySectionProps) {
-  const { discoveredRelays, insights, isLoading } = useRelayDiscovery();
+  const { discoveredRelays, insights, isLoading, error } = useRelayDiscovery();
   const [selectedTab, setSelectedTab] = useState('overview');
 
   const handleAddRelay = (relay: DiscoveredRelay) => {
@@ -117,19 +117,28 @@ export function RelayDiscoverySection({
             Relay Discovery
           </CardTitle>
           <CardDescription>
-            No relay discovery data available
+            {error ? 'Discovery error occurred' : 'No relay discovery data available'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              Unable to discover relays from your network. This could be because:
-              <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-                <li>You're not following anyone yet</li>
-                <li>Your contacts haven't published relay lists (NIP-65)</li>
-                <li>The relay discovery service is temporarily unavailable</li>
-              </ul>
+              {error ? (
+                <div>
+                  <p className="font-semibold">Discovery failed with error:</p>
+                  <p className="text-sm mt-1 font-mono bg-red-50 p-2 rounded">{error.message}</p>
+                </div>
+              ) : (
+                <div>
+                  Unable to discover relays from your network. This could be because:
+                  <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+                    <li>You're not following anyone yet</li>
+                    <li>Your contacts haven't published relay lists (NIP-65)</li>
+                    <li>The relay discovery service is temporarily unavailable</li>
+                  </ul>
+                </div>
+              )}
             </AlertDescription>
           </Alert>
         </CardContent>

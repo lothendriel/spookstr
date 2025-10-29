@@ -151,7 +151,10 @@ export default function RelaySettings() {
     const urlToAdd = url || newRelayUrl;
     const modeToUse = mode || newRelayMode;
 
+    console.log('[handleAddRelay] Called with:', { url, mode, urlToAdd, modeToUse, typeof_url: typeof url });
+
     if (!isValidRelayUrl(urlToAdd)) {
+      console.log('[handleAddRelay] Validation failed for:', urlToAdd);
       toast({
         title: 'Invalid relay URL',
         description: 'Please enter a valid WebSocket URL (e.g., wss://relay.example.com or relay.example.com)',
