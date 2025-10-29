@@ -4,7 +4,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createHead, UnheadProvider } from '@unhead/react/client';
 import { InferSeoMetaPlugin } from '@unhead/addons';
-import { Suspense } from 'react';
+import { Suspense, lazy } from 'react';
 import NostrProvider from '@/components/NostrProvider';
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,10 +15,21 @@ import { PodcastProvider } from '@/contexts/PodcastContext';
 import { AppConfig } from '@/contexts/AppContext';
 import AppRouter from './AppRouter';
 
+// Conditionally load React Query DevTools only in development
+const ReactQueryDevtools = import.meta.env.DEV
+  ? lazy(() =>
+      import('@tanstack/react-query-devtools').then((d) => ({
+        default: d.ReactQueryDevtools,
+      }))
+    )
+  : null;
+
 import { ScrollToTop } from '@/components/ScrollToTop';
 import { PopOutPodcastPlayer } from '@/components/PopOutPodcastPlayer';
 import { PodcastIndicator } from '@/components/PodcastIndicator';
 import { SpookstrProfileSync } from '@/components/SpookstrProfileSync';
+import { PerformanceMonitor } from '@/components/PerformanceMonitor';
+import { DebugPanel } from '@/components/DebugPanel';
 
 const head = createHead({
   plugins: [
@@ -81,6 +92,23 @@ export function App() {
                     <Suspense>
                       <AppRouter />
                     </Suspense>
+
+                    {/* Development-only React Query DevTools */}
+                    {ReactQueryDevtools && (
+                      <Suspense fallback={null}>
+                        <ReactQueryDevtools
+                          initialIsOpen={false}
+                          position="bottom-right"
+                          buttonPosition="bottom-right"
+                        />
+                      </Suspense>
+                    )}
+
+                    {/* Development-only Performance Monitor */}
+                    <PerformanceMonitor />
+
+                    {/* Development-only Debug Panel */}
+                    <DebugPanel />
 
                     {/* Sync user profile to Spookstr relay on login */}
                     <SpookstrProfileSync />

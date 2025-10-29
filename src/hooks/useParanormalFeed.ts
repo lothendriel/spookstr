@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 import { nip19 } from 'nostr-tools';
+import { feedLogger, perfLogger } from '@/lib/devLogger';
 
 const PARANORMAL_TAGS = [
   'paranormal',
@@ -149,34 +150,51 @@ export function useParanormalFeed() {
   return useQuery({
     queryKey: ['paranormal-feed'],
     queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      return await perfLogger.timeAsync('Feed Query', async () => {
+        feedLogger.info('Starting paranormal feed query', { tagCount: PARANORMAL_TAGS.length });
 
-      // Query for notes with paranormal tags AND reposts of paranormal content
-      const events = await nostr.query([
-        {
-          kinds: [1],
-          '#t': PARANORMAL_TAGS,
-          limit: 50,
-        },
-        {
-          kinds: [6], // Include reposts
-          limit: 50,
-        }
-      ], { signal });
+        const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
-      // Filter out NSFW content
-      let filteredEvents = filterNSFWContent(events);
+        // Query for notes with paranormal tags AND reposts of paranormal content
+        const events = await nostr.query([
+          {
+            kinds: [1],
+            '#t': PARANORMAL_TAGS,
+            limit: 50,
+          },
+          {
+            kinds: [6], // Include reposts
+            limit: 50,
+          }
+        ], { signal });
 
-      // Filter out blocked users
-      filteredEvents = filterBlockedUsers(filteredEvents);
+        feedLogger.info('Raw events fetched', { count: events.length });
 
-      // Filter reposts to only include those with paranormal tags
-      filteredEvents = filterRepostsByTags(filteredEvents);
+        // Filter out NSFW content
+        let filteredEvents = filterNSFWContent(events);
+        feedLogger.debug('After NSFW filter', { count: filteredEvents.length, filtered: events.length - filteredEvents.length });
 
-      // Sort by created_at (newest first)
-      filteredEvents.sort((a, b) => b.created_at - a.created_at);
+        // Filter out blocked users
+        filteredEvents = filterBlockedUsers(filteredEvents);
+        feedLogger.debug('After blocked users filter', { count: filteredEvents.length });
 
-      return filteredEvents;
+        // Filter reposts to only include those with paranormal tags
+        filteredEvents = filterRepostsByTags(filteredEvents);
+        feedLogger.debug('After repost tag filter', { count: filteredEvents.length });
+
+        // Sort by created_at (newest first)
+        filteredEvents.sort((a, b) => b.created_at - a.created_at);
+
+        feedLogger.info('Feed query completed', {
+          finalCount: filteredEvents.length,
+          kinds: filteredEvents.reduce((acc, e) => {
+            acc[e.kind] = (acc[e.kind] || 0) + 1;
+            return acc;
+          }, {} as Record<number, number>)
+        });
+
+        return filteredEvents;
+      });
     },
     refetchOnWindowFocus: false,
     staleTime: 60000, // 1 minute - consider data fresh for this period
