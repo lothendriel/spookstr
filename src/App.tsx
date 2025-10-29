@@ -30,7 +30,6 @@ import { PodcastIndicator } from '@/components/PodcastIndicator';
 import { SpookstrProfileSync } from '@/components/SpookstrProfileSync';
 import { PerformanceMonitor } from '@/components/PerformanceMonitor';
 import { DebugPanel } from '@/components/DebugPanel';
-import { CompactOfflineIndicator } from '@/components/OfflineIndicator';
 
 const head = createHead({
   plugins: [
@@ -110,9 +109,6 @@ export function App() {
 
                     {/* Development-only Debug Panel */}
                     <DebugPanel />
-
-                    {/* Offline status indicator */}
-                    <CompactOfflineIndicator className="fixed top-4 right-4 z-40" />
 
                     {/* Sync user profile to Spookstr relay on login */}
                     <SpookstrProfileSync />
