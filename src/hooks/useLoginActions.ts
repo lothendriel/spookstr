@@ -75,9 +75,22 @@ export function useLoginActions() {
         });
 
         console.log('🚀 Attempting to connect to bunker via NLogin.fromBunker...');
-        const loginPromise = NLogin.fromBunker(uri, nostr);
 
-        const login = await Promise.race([loginPromise, timeoutPromise]) as Awaited<typeof loginPromise>;
+        // Wrap the bunker connection to catch auth challenges immediately
+        const wrappedLoginPromise = (async () => {
+          try {
+            return await NLogin.fromBunker(uri, nostr);
+          } catch (err) {
+            // Check if this is an auth challenge (URL thrown as error)
+            if (err instanceof Error && err.message.startsWith('https://')) {
+              console.log('🔐 Auth challenge detected immediately!');
+              throw err; // Re-throw to be caught by outer try-catch
+            }
+            throw err;
+          }
+        })();
+
+        const login = await Promise.race([wrappedLoginPromise, timeoutPromise]) as Awaited<typeof wrappedLoginPromise>;
         console.log('✅ Bunker connection successful!');
         addLogin(login);
       } catch (error) {

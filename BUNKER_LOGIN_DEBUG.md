@@ -48,10 +48,41 @@ Your provided bunker URI:
 bunker://0155373ac79b7ffb0f586c3e68396f9e82d46f7afe7016d46ed9ca46ba3e1bed?relay=wss://relay.nsec.app&secret=6b8349bda4b421626ca9a6ce36df76ce
 ```
 
-This URI format is correct and should work IF:
-1. The relay `wss://relay.nsec.app` is online and accessible
-2. The remote signer (bunker) is listening on that relay
-3. The secret is valid for this connection
+### Current Test Results (from your console):
+✅ **URI validation**: Passed
+✅ **Relay connectivity**: wss://relay.nsec.app is reachable
+❌ **Bunker response**: Timeout after 30 seconds
+
+### What This Means
+The relay is working fine, but the bunker service (remote signer) is not responding. This URI should work IF:
+1. ✅ The relay `wss://relay.nsec.app` is online and accessible - **CONFIRMED WORKING**
+2. ❌ The remote signer (bunker) is listening on that relay - **NOT RESPONDING**
+3. ❓ The secret is valid for this connection - **UNABLE TO VERIFY** (never got to auth step)
+
+### Most Likely Issues
+
+**Issue #1: Secret Expired/Used**
+Bunker secrets are often **single-use only**. If you've tried this URI before, the secret may be consumed.
+
+**Solution**: Generate a fresh bunker URI from nsec.app:
+1. Go to https://nsec.app (or your bunker service)
+2. Generate a NEW connection string
+3. Use the fresh URI immediately
+
+**Issue #2: Bunker Service Not Running**
+Your nsec.app bunker may not be active or configured to listen on that relay.
+
+**Solution**:
+1. Check if you have an active bunker session at nsec.app
+2. Verify the bunker is configured to use wss://relay.nsec.app
+3. Try regenerating the connection string
+
+**Issue #3: Library Compatibility**
+The `@nostrify/react` library might have compatibility issues with nsec.app's bunker implementation.
+
+**Solution**: Try alternative login methods:
+- Browser extension (Alby, nos2x, Flamingo, etc.)
+- Direct nsec key import (less secure)
 
 ## Common Issues and Solutions
 
