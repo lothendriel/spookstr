@@ -4,6 +4,8 @@ import { NostrContext } from '@nostrify/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppContext } from '@/hooks/useAppContext';
 import { RelayConfig } from '@/contexts/AppContext';
+import { intelligentRelayManager } from '@/lib/intelligentRelayManager';
+import { offlineSync } from '@/lib/offlineSync';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -21,12 +23,37 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
   // Use refs so the pool always has the latest data
   const relays = useRef<RelayConfig[]>([]);
   const spookstrOnlyMode = useRef<boolean>(false);
+  const intelligentRelayInitialized = useRef<boolean>(false);
 
   // Update refs when config changes
   useEffect(() => {
     relays.current = config.relays || [{ url: config.relayUrl, mode: 'both' }];
     spookstrOnlyMode.current = config.spookstrOnlyMode ?? false;
     queryClient.resetQueries();
+
+    // Initialize intelligent relay manager with available relays
+    const initializeIntelligentRelay = async () => {
+      if (!intelligentRelayInitialized.current) {
+        const allRelayUrls = relays.current.map(r => r.url);
+
+        try {
+          await intelligentRelayManager.initialize(allRelayUrls);
+
+          // Connect offline sync to the Nostr client
+          if (pool.current) {
+            offlineSync.init(pool.current);
+          }
+
+          intelligentRelayInitialized.current = true;
+          console.log('✅ Intelligent relay system initialized');
+        } catch (error) {
+          console.error('❌ Failed to initialize intelligent relay system:', error);
+        }
+      }
+    };
+
+    // Delay initialization to ensure pool is ready
+    setTimeout(initializeIntelligentRelay, 1000);
   }, [config.relays, config.relayUrl, config.spookstrOnlyMode, queryClient]);
 
   // Spookstr relay URL
