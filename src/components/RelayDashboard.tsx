@@ -70,10 +70,27 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
 
   const handleForceOptimization = async () => {
     setIsOptimizing(true);
+    console.log('🎯 [Optimize] User triggered relay strategy optimization');
     try {
+      const beforeStrategy = strategy?.name || 'None';
+      console.log('🎯 [Optimize] Current strategy:', beforeStrategy);
+
       await forceOptimization();
+
+      // Wait a moment for strategy to update
+      setTimeout(() => {
+        const afterStrategy = strategy?.name || 'None';
+        console.log('🎯 [Optimize] New strategy:', afterStrategy);
+
+        if (beforeStrategy !== afterStrategy) {
+          console.log('✅ [Optimize] Strategy updated successfully!');
+        } else {
+          console.log('ℹ️ [Optimize] Current strategy already optimal');
+        }
+      }, 1000);
+
     } catch (error) {
-      console.error('Optimization failed:', error);
+      console.error('❌ [Optimize] Optimization failed:', error);
     } finally {
       setIsOptimizing(false);
     }
@@ -447,6 +464,31 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
         <TabsContent value="load-balancing" className="space-y-4">
           <div className="grid gap-4">
 
+            {/* Integration Status */}
+            <Card className="border-yellow-200 bg-yellow-50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-yellow-800">
+                  <AlertTriangle className="h-5 w-5" />
+                  Load Balancing Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="text-sm text-yellow-800">
+                    <strong>Monitoring Mode:</strong> The load balancing system is currently in monitoring mode only.
+                    Actual Nostr requests are handled by the existing NostrProvider for stability.
+                  </div>
+                  <div className="text-xs text-yellow-700">
+                    💡 <strong>Future Enhancement:</strong> Full integration would route all Nostr requests through
+                    the intelligent load balancer for optimal performance across relay pools.
+                  </div>
+                  <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+                    View Only Mode
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Stats Overview */}
             <Card>
               <CardHeader>
@@ -480,9 +522,17 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
                   </div>
                 </div>
 
-                <div className="mt-4">
+                <div className="mt-4 space-y-2">
                   <div className="text-sm font-medium mb-2">Algorithm</div>
                   <Badge variant="outline">{loadBalancerStats.currentAlgorithm}</Badge>
+
+                  {loadBalancerStats.totalRequests === 0 && (
+                    <div className="text-xs text-muted-foreground mt-3 p-3 bg-gray-50 rounded">
+                      <strong>Note:</strong> Load balancing statistics will show data when requests
+                      are routed through the intelligent system. Currently, requests use the
+                      existing NostrProvider for stability.
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -550,6 +600,34 @@ export function RelayDashboard({ relayUrls, className }: RelayDashboardProps) {
         <TabsContent value="strategy" className="space-y-4">
           {strategy ? (
             <div className="grid gap-4">
+
+              {/* Optimize Button Explanation */}
+              <Card className="border-blue-200 bg-blue-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-blue-800">
+                    <Zap className="h-5 w-5" />
+                    Strategy Optimization
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 text-sm text-blue-800">
+                    <div>
+                      <strong>What the Optimize button does:</strong>
+                    </div>
+                    <ul className="list-disc list-inside space-y-1 text-blue-700 ml-2">
+                      <li>Analyzes health metrics from all configured relays</li>
+                      <li>Considers your geographic location for optimal routing</li>
+                      <li>Evaluates performance history and success rates</li>
+                      <li>Generates optimal relay assignments for different purposes</li>
+                      <li>Updates strategy if significant improvement is possible</li>
+                    </ul>
+                    <div className="text-xs text-blue-600 mt-3">
+                      💡 <strong>Best results:</strong> Run health monitoring first, then optimize after 1-2 minutes
+                      of data collection for more accurate strategy generation.
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Strategy Overview */}
               <Card>
