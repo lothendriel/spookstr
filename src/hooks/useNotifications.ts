@@ -16,6 +16,23 @@ export interface Notification {
   read: boolean;
 }
 
+// Cache for user posts to avoid refetching them on every notification check
+const userPostsCache = new Map<string, { posts: NostrEvent[], timestamp: number }>();
+const CACHE_DURATION = 300000; // 5 minutes
+
+// Cleanup old cache entries to prevent memory leaks
+const cleanupCache = () => {
+  const now = Date.now();
+  for (const [key, value] of userPostsCache.entries()) {
+    if (now - value.timestamp > CACHE_DURATION * 2) {
+      userPostsCache.delete(key);
+    }
+  }
+};
+
+// Run cleanup every 10 minutes
+setInterval(cleanupCache, 600000);
+
 export function useNotifications() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
@@ -34,7 +51,8 @@ export function useNotifications() {
     queryFn: async ({ pageParam = undefined, signal: querySignal }) => {
       console.log('[Notifications] 🔔 Query function called', {
         pubkey: user?.pubkey?.slice(0, 8) + '...',
-        pageParam
+        pageParam,
+        isInitialLoad: !pageParam
       });
 
       if (!user?.pubkey) {
@@ -42,83 +60,102 @@ export function useNotifications() {
         return { notifications: [], hasMore: false, oldestTimestamp: undefined };
       }
 
-      const signal = AbortSignal.any([querySignal, AbortSignal.timeout(10000)]); // Increased to 10s for multiple relays
+      const signal = AbortSignal.any([querySignal, AbortSignal.timeout(10000)]);
 
       // Get read relays using inbox model (NIP-65)
       let readRelays: string[];
       if (config.spookstrOnlyMode) {
-        // Only use Spookstr relay in spookstrOnlyMode
         const spookstrRelay = config.relays?.find(r => r.url.includes('spookstr'));
         readRelays = spookstrRelay ? [spookstrRelay.url] : ['wss://spookstr2.nostr1.com'];
       } else if (userRelayList && userRelayList.length > 0) {
-        // Use user's NIP-65 read relays (inbox model)
         const nip65ReadRelays = userRelayList
           .filter(r => r.mode === 'read' || r.mode === 'both')
           .map(r => r.url);
-
-        // Combine with configured relays as fallback
         const configReadRelays = config.relays
           ?.filter(r => r.mode === 'read' || r.mode === 'both')
           .map(r => r.url) || [config.relayUrl];
-
-        // Use NIP-65 relays first, then add config relays
         const relaySet = new Set([...nip65ReadRelays, ...configReadRelays]);
         readRelays = Array.from(relaySet);
-
         console.log('[Notifications] 📥 Using inbox model with user\'s NIP-65 read relays:', nip65ReadRelays.length);
       } else {
-        // Fallback to configured read relays
         readRelays = config.relays
           ?.filter(r => r.mode === 'read' || r.mode === 'both')
           .map(r => r.url) || [config.relayUrl];
       }
 
-      // Use all read relays for queries
       const relayGroup = readRelays.length > 0 ? nostr.group(readRelays) : nostr;
-
       console.log(`[Notifications] Querying ${readRelays.length} relays (spookstrOnly: ${config.spookstrOnlyMode}):`, readRelays);
 
-      // First, get user posts from ALL relays (increase limit to catch more)
-      let userPosts;
-      try {
-        userPosts = await relayGroup.query(
-          [{ kinds: [1], authors: [user.pubkey], limit: 500 }],
-          { signal }
-        );
-        console.log(`[Notifications] Found ${userPosts.length} user posts`);
-      } catch (error) {
-        console.error('[Notifications] Error fetching user posts:', error);
-        // Return empty on error - query will retry automatically
-        return { notifications: [], hasMore: false, oldestTimestamp: undefined };
-      }
+      // **OPTIMIZATION 1: Cache user posts to avoid refetching every time**
+      const cacheKey = `${user.pubkey}-${relayKey}`;
+      const now = Date.now();
+      const cached = userPostsCache.get(cacheKey);
 
-      const userPostIds = userPosts.map(post => post.id);
+      let userPosts: NostrEvent[];
+      let userPostIds: string[];
+
+      if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+        // Use cached posts
+        userPosts = cached.posts;
+        userPostIds = userPosts.map(post => post.id);
+        console.log(`[Notifications] ♻️ Using ${userPosts.length} cached user posts`);
+      } else {
+        // Fetch fresh posts
+        try {
+          userPosts = await relayGroup.query(
+            [{ kinds: [1], authors: [user.pubkey], limit: 300 }], // Reduced from 500 to 300
+            { signal }
+          );
+          userPostIds = userPosts.map(post => post.id);
+
+          // Cache the results
+          userPostsCache.set(cacheKey, { posts: userPosts, timestamp: now });
+          console.log(`[Notifications] 🔄 Fetched and cached ${userPosts.length} user posts`);
+        } catch (error) {
+          console.error('[Notifications] Error fetching user posts:', error);
+          return { notifications: [], hasMore: false, oldestTimestamp: undefined };
+        }
+      }
 
       if (userPostIds.length === 0) {
         console.log('[Notifications] No user posts found, returning empty');
         return { notifications: [], hasMore: false, oldestTimestamp: undefined };
       }
 
+      // **OPTIMIZATION 2: Use recent posts for initial load, all posts for pagination**
+      let queryPostIds: string[];
+      if (!pageParam) {
+        // For initial load, only check interactions on recent posts (last 50)
+        // This dramatically reduces query size for new notification checks
+        const recentPosts = userPosts
+          .sort((a, b) => b.created_at - a.created_at)
+          .slice(0, 50);
+        queryPostIds = recentPosts.map(post => post.id);
+        console.log(`[Notifications] 🆕 Initial load: checking interactions on ${queryPostIds.length} recent posts`);
+      } else {
+        // For pagination, check all posts
+        queryPostIds = userPostIds;
+        console.log(`[Notifications] 📖 Pagination: checking interactions on all ${queryPostIds.length} posts`);
+      }
+
       // Build query filter with pagination
       const filter: any = {
-        kinds: [1, 6, 7, 9735, 16], // 1=comment, 6=repost, 7=like, 9735=zap, 16=generic repost
-        '#e': userPostIds,
-        limit: 200, // Load more to ensure we have enough after deduplication
+        kinds: [1, 6, 7, 9735, 16],
+        '#e': queryPostIds,
+        limit: 100, // Reduced from 200 for better performance
       };
 
-      // Add pagination using until timestamp
       if (pageParam) {
         filter.until = pageParam;
       }
 
-      // Query for interactions with user's posts from ALL read relays
+      // Query for interactions
       let interactions;
       try {
         interactions = await relayGroup.query([filter], { signal });
         console.log(`[Notifications] Found ${interactions.length} raw interactions from relays`);
       } catch (error) {
         console.error('[Notifications] Error fetching interactions:', error);
-        // Return empty on error - query will retry automatically
         return { notifications: [], hasMore: false, oldestTimestamp: undefined };
       }
 
@@ -238,25 +275,27 @@ export function useNotifications() {
       config.spookstrOnlyMode || // Always enabled in spookstr-only mode
       !isLoadingRelays // Or when relay list is done loading (even if null)
     ),
-    retry: 2, // Retry failed queries up to 2 times
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff
-    staleTime: 30000, // 30 seconds - notifications don't need to be super fresh
-    gcTime: 300000, // 5 minutes - keep notification data cached
-    // Enhanced caching: Smart background refresh for notifications
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
+    staleTime: 60000, // Increased to 1 minute - reduce unnecessary refetches
+    gcTime: 600000, // Increased to 10 minutes - keep data longer
+    // **OPTIMIZATION 3: Smarter background refresh**
     refetchInterval: (data, query) => {
-      // Only refetch if tab is visible and we have a user
       if (document.hidden || !user?.pubkey) return false;
 
-      // Background refresh every 60 seconds for notifications
-      // More frequent than feed since users want to see interactions quickly
-      return 60000; // 1 minute
+      // Only auto-refresh the first page to check for new notifications
+      // Avoid refreshing all pages which would re-query everything
+      const hasMultiplePages = data?.pages && data.pages.length > 1;
+      if (hasMultiplePages) return false; // Don't auto-refresh when user has scrolled down
+
+      return 120000; // 2 minutes for initial page only
     },
-    // Smarter window focus behavior for notifications
+    // **OPTIMIZATION 4: Reduce window focus refetches**
     refetchOnWindowFocus: (query) => {
       if (!user?.pubkey || !query.state.data) return true;
       const lastUpdated = query.state.dataUpdatedAt;
-      const twoMinutesAgo = Date.now() - 120000;
-      return lastUpdated < twoMinutesAgo;
+      const fiveMinutesAgo = Date.now() - 300000; // Increased from 2 to 5 minutes
+      return lastUpdated < fiveMinutesAgo;
     }
   });
 }
