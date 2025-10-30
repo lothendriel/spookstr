@@ -186,6 +186,16 @@ export function useBatchInteractions(eventIds: string[]) {
     if (!batchData) return;
 
     console.log('[Batch Interactions] Updating individual caches for', Object.keys(batchData).length, 'posts');
+    console.log('[Batch Interactions] All batch data:',
+      Object.entries(batchData).map(([id, counts]) => ({
+        id: id.slice(0, 8),
+        likes: counts.likes,
+        reposts: counts.reposts,
+        zaps: counts.zaps,
+        comments: counts.comments,
+        total: counts.likes + counts.reposts + counts.zaps + counts.comments
+      }))
+    );
 
     // Log detailed counts for debugging
     const postsWithInteractions = Object.entries(batchData).filter(([_, counts]) =>
@@ -206,6 +216,7 @@ export function useBatchInteractions(eventIds: string[]) {
 
     for (const [eventId, counts] of Object.entries(batchData)) {
       queryClient.setQueryData(['post-interactions', eventId], counts);
+      console.log(`[Batch Interactions] Set cache for ${eventId.slice(0, 8)}:`, counts);
     }
   }, [batchData, queryClient]);
 

@@ -102,6 +102,23 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const commentCount = interactionCounts?.comments || 0;
   const zapCount = interactionCounts?.zaps || 0;
 
+  // Debug logging to see what's happening
+  console.log(`[ParanormalPost] DEBUG - Post ${interactionEventId.slice(0, 8)}:`, {
+    isRepost,
+    hasRepostedContent: !!repostedEvent,
+    interactionEventId: interactionEventId.slice(0, 8),
+    isLoadingCounts,
+    hasInteractionData: !!interactionCounts,
+    interactionCounts,
+    likeCount,
+    repostCount,
+    commentCount,
+    zapCount,
+    userPubkey: user?.pubkey?.slice(0, 8),
+    eventPubkey: displayEvent.pubkey?.slice(0, 8),
+    isOwnPost: user?.pubkey === displayEvent.pubkey
+  });
+
 
 
   // Get metadata for the reposter
