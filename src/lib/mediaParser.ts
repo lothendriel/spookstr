@@ -1,7 +1,7 @@
 import { type NostrEvent } from '@nostrify/nostrify';
 
 export interface MediaItem {
-  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'hls' | 'dash' | 'imdb';
+  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'hls' | 'dash' | 'imdb' | 'instagram' | 'twitter';
   url: string;
   alt?: string;
   title?: string;
@@ -41,6 +41,8 @@ const mediaPatterns = {
   dailymotion: /(?:dailymotion\.com\/video\/|dai\.ly\/)([a-zA-Z0-9]+)/gi,
   tiktok: /(?:tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/)([a-zA-Z0-9]+)/gi,
   spotify: /(?:open\.spotify\.com\/)(track|album|playlist|artist|show|episode)\/([a-zA-Z0-9]+)/gi,
+  instagram: /(?:www\.instagram\.com|instagram\.com)\/(?:p|reel)\/([A-Za-z0-9_-]+)/gi,
+  twitter: /(?:twitter\.com|x\.com)\/[a-zA-Z0-9_]+\/status\/([0-9]+)/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
   // Streaming formats
@@ -64,7 +66,7 @@ const mediaPatterns = {
   genericCDN: /https?:\/\/[^\s]+\/(?:media|attachments|files|assets|images|static|uploads|content|cdn-cgi|mediaproxy)(?:_attachments)?\/[^\s]+/gi,
   // IMDB links for special preview handling
   imdb: /https?:\/\/(?:www\.)?imdb\.com\/(?:title|name)\/(?:[a-z0-9]+)(?:\/[^\s]*)?/gi,
-  website: /https?:\/\/(?:www\.)?(?!www\.youtube\.com|youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|cdn\.bsky\.app|image\.nostr\.build|nostr\.build|void\.cat|cdn\.satellite\.earth|media\.tenor\.com|media\.giphy\.com|media\.witter\.cz|files\.mastodon\.social|media\.mas\.to|blossom\.primal\.net|media\.channels\.im|cdn\.masto\.host|media\.pubeurope\.com|o\.mastodon\.nz|social\.anoxinon\.de|imdb\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|jpe|jp|j|png|pn|p|gif|gi|g|webp|svg|bmp|avif|ico|tiff?|tif|psd|heic?|heif|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
+  website: /https?:\/\/(?:www\.)?(?!www\.youtube\.com|youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|cdn\.bsky\.app|image\.nostr\.build|nostr\.build|void\.cat|cdn\.satellite\.earth|media\.tenor\.com|media\.giphy\.com|media\.witter\.cz|files\.mastodon\.social|media\.mas\.to|blossom\.primal\.net|media\.channels\.im|cdn\.masto\.host|media\.pubeurope\.com|o\.mastodon\.nz|social\.anoxinon\.de|imdb\.com|instagram\.com|twitter\.com|x\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|jpe|jp|j|png|pn|p|gif|gi|g|webp|svg|bmp|avif|ico|tiff?|tif|psd|heic?|heif|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
 };
 
 // Helper function to normalize URLs (ensure HTTPS and consistent format)
@@ -115,7 +117,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   }
 
   // Process other media types in order of precedence
-  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'imdb', 'genericCDN'];
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'instagram', 'twitter', 'imdb', 'genericCDN'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -418,6 +420,30 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
           metadata: {
             spotifyType,
             spotifyId
+          }
+        };
+
+      case 'instagram':
+        const instagramId = extractInstagramId(cleanUrl);
+        const instagramType = cleanUrl.includes('/reel/') ? 'reel' : 'post';
+        return {
+          type: 'instagram',
+          url: cleanUrl,
+          title: `Instagram ${instagramType.charAt(0).toUpperCase() + instagramType.slice(1)}`,
+          metadata: {
+            instagramId,
+            instagramType
+          }
+        };
+
+      case 'twitter':
+        const tweetId = extractTwitterId(cleanUrl);
+        return {
+          type: 'twitter',
+          url: cleanUrl,
+          title: 'Twitter Post',
+          metadata: {
+            tweetId
           }
         };
 
@@ -983,6 +1009,60 @@ function detectFileExtension(url: string): string {
   }
 
   return 'unknown';
+}
+
+// Helper function to extract Instagram ID from URL
+function extractInstagramId(url: string): string {
+  try {
+    console.log('📷 Extracting Instagram ID from:', url);
+
+    // Handle various Instagram URL formats including www subdomains and both p/ and reel/
+    const patterns = [
+      /(?:www\.instagram\.com|instagram\.com)\/p\/([A-Za-z0-9_-]+)/,
+      /(?:www\.instagram\.com|instagram\.com)\/reel\/([A-Za-z0-9_-]+)/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        console.log('✅ Instagram ID extracted:', match[1], 'using pattern:', pattern);
+        return match[1];
+      }
+    }
+
+    console.warn('❌ No Instagram ID found in URL:', url);
+  } catch (error) {
+    console.warn('Failed to extract Instagram ID from:', url, error);
+  }
+
+  return '';
+}
+
+// Helper function to extract Twitter ID from URL
+function extractTwitterId(url: string): string {
+  try {
+    console.log('🐦 Extracting Twitter ID from:', url);
+
+    // Handle both twitter.com and x.com URLs
+    const patterns = [
+      /twitter\.com\/[a-zA-Z0-9_]+\/status\/([0-9]+)/,
+      /x\.com\/[a-zA-Z0-9_]+\/status\/([0-9]+)/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        console.log('✅ Twitter ID extracted:', match[1], 'using pattern:', pattern);
+        return match[1];
+      }
+    }
+
+    console.warn('❌ No Twitter ID found in URL:', url);
+  } catch (error) {
+    console.warn('Failed to extract Twitter ID from:', url, error);
+  }
+
+  return '';
 }
 
 // Placeholder data for IMDB links (actual data will be fetched asynchronously by the component)

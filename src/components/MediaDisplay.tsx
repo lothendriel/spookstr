@@ -1255,6 +1255,154 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
       case 'imdb':
         return <IMDBPreview url={media.url} />;
 
+      case 'instagram':
+        const instagramId = extractInstagramId(media.url);
+        const instagramType = media.url.includes('/reel/') ? 'reel' : 'post';
+
+        if (!instagramId) {
+          return (
+            <Card className="bg-lime-500/5 border-lime-500/20 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-lime-500/20 rounded-lg flex items-center justify-center">
+                      <ExternalLink className="h-6 w-6 text-lime-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-lime-100">
+                      Invalid Instagram URL
+                    </p>
+                    <p className="text-xs text-lime-500/60 truncate max-w-xs">
+                      {media.url}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-lime-500/30 text-lime-400 hover:bg-lime-500/10"
+                  onClick={() => window.open(media.url, '_blank')}
+                >
+                  Open
+                </Button>
+              </div>
+            </Card>
+          );
+        }
+
+        return (
+          <div className="relative rounded-lg overflow-hidden bg-white group">
+            {/* Instagram embed iframe */}
+            <div className="relative" style={{ paddingBottom: instagramType === 'reel' ? '177.77%' : '120%' }}>
+              <blockquote
+                className="instagram-media"
+                data-instgrm-permalink={`https://www.instagram.com/p/${instagramId}/`}
+                data-instgrm-version="14"
+                data-instgrm-captioned
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                }}
+              />
+            </div>
+
+            {/* Load Instagram embed script */}
+            <script async src="//www.instagram.com/embed.js"></script>
+
+            {/* Fallback loading state and external link button */}
+            <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-lime-500 mx-auto mb-2"></div>
+                <p className="text-sm text-gray-600">Loading Instagram {instagramType}...</p>
+              </div>
+            </div>
+
+            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 text-white hover:bg-white/20 bg-black/60 backdrop-blur-sm"
+                onClick={() => window.open(media.url, '_blank')}
+                title="View on Instagram"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 'twitter':
+        const tweetId = extractTwitterId(media.url);
+
+        if (!tweetId) {
+          return (
+            <Card className="bg-lime-500/5 border-lime-500/20 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-lime-500/20 rounded-lg flex items-center justify-center">
+                      <ExternalLink className="h-6 w-6 text-lime-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-lime-100">
+                      Invalid Twitter URL
+                    </p>
+                    <p className="text-xs text-lime-500/60 truncate max-w-xs">
+                      {media.url}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-lime-500/30 text-lime-400 hover:bg-lime-500/10"
+                  onClick={() => window.open(media.url, '_blank')}
+                >
+                  Open
+                </Button>
+              </div>
+            </Card>
+          );
+        }
+
+        return (
+          <div className="relative rounded-lg overflow-hidden bg-white group">
+            {/* Twitter embed iframe */}
+            <div className="relative" style={{ paddingBottom: '80%' }}>
+              <iframe
+                className="absolute top-0 left-0 w-full h-full rounded-lg border-0"
+                src={`https://platform.twitter.com/embed/Tweet.html?id=${tweetId}&theme=light`}
+                title="Twitter Tweet"
+                frameBorder="0"
+                scrolling="no"
+                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                allowFullScreen
+                onError={(e) => {
+                  console.warn('Twitter embed failed to load:', e);
+                }}
+              />
+            </div>
+
+            {/* External link button */}
+            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 text-white hover:bg-white/20 bg-black/60 backdrop-blur-sm"
+                onClick={() => window.open(media.url, '_blank')}
+                title="View on Twitter"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+
       case 'link':
         return <LinkPreview media={media} />;
 
@@ -1375,4 +1523,58 @@ function extractSpotifyData(url: string): { type: string; id: string } | null {
 function extractImdbId(url: string): string {
   const match = url.match(/imdb\.com\/(?:title|name)\/([a-z0-9]+)/);
   return match ? match[1] : '';
+}
+
+// Helper function to extract Instagram ID from URL
+function extractInstagramId(url: string): string {
+  try {
+    console.log('📷 Extracting Instagram ID from:', url);
+
+    // Handle various Instagram URL formats including www subdomains and both p/ and reel/
+    const patterns = [
+      /(?:www\.instagram\.com|instagram\.com)\/p\/([A-Za-z0-9_-]+)/,
+      /(?:www\.instagram\.com|instagram\.com)\/reel\/([A-Za-z0-9_-]+)/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        console.log('✅ Instagram ID extracted:', match[1], 'using pattern:', pattern);
+        return match[1];
+      }
+    }
+
+    console.warn('❌ No Instagram ID found in URL:', url);
+  } catch (error) {
+    console.warn('Failed to extract Instagram ID from:', url, error);
+  }
+
+  return '';
+}
+
+// Helper function to extract Twitter ID from URL
+function extractTwitterId(url: string): string {
+  try {
+    console.log('🐦 Extracting Twitter ID from:', url);
+
+    // Handle both twitter.com and x.com URLs
+    const patterns = [
+      /twitter\.com\/[a-zA-Z0-9_]+\/status\/([0-9]+)/,
+      /x\.com\/[a-zA-Z0-9_]+\/status\/([0-9]+)/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        console.log('✅ Twitter ID extracted:', match[1], 'using pattern:', pattern);
+        return match[1];
+      }
+    }
+
+    console.warn('❌ No Twitter ID found in URL:', url);
+  } catch (error) {
+    console.warn('Failed to extract Twitter ID from:', url, error);
+  }
+
+  return '';
 }
