@@ -127,6 +127,15 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   // Check if author has lightning address for zapping
   const hasLightningAddress = originalAuthorMetadata?.lud16 || originalAuthorMetadata?.lud06;
 
+  // Check if this post is from the current user
+  const isOwnPost = user?.pubkey === displayEvent.pubkey;
+
+  // Determine if we should show zap button (not on own posts, but author needs lightning address)
+  const shouldShowZapButton = !isOwnPost && hasLightningAddress;
+
+  // Always show zap count if there are zaps, regardless of who the author is
+  const shouldShowZapCount = zapCount > 0;
+
   // Show skeleton if not yet in view
   if (!inView) {
     return (
@@ -445,25 +454,36 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                     <MessageCircle className="h-4 w-4" />
                     <span className="text-xs">?</span>
                   </Button>
-                  {hasLightningAddress ? (
-                    <ZapButton
-                      target={event}
-                      className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-                    >
-                      <Zap className="h-4 w-4" />
-                      <span className="text-xs">?</span>
-                    </ZapButton>
-                  ) : (
-                    <ZapDialog target={event}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-                      >
+                  {/* Always show zap count even in error state */}
+                  {(shouldShowZapCount || (!isOwnPost)) && (
+                    shouldShowZapButton ? (
+                      hasLightningAddress ? (
+                        <ZapButton
+                          target={event}
+                          className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                        >
+                          <Zap className="h-4 w-4" />
+                          <span className="text-xs">?</span>
+                        </ZapButton>
+                      ) : (
+                        <ZapDialog target={event}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                          >
+                            <Zap className="h-4 w-4" />
+                            <span className="text-xs">?</span>
+                          </Button>
+                        </ZapDialog>
+                      )
+                    ) : (
+                      /* Just show zap count without button (for own posts) */
+                      <div className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 px-2 py-1">
                         <Zap className="h-4 w-4" />
                         <span className="text-xs">?</span>
-                      </Button>
-                    </ZapDialog>
+                      </div>
+                    )
                   )}
                 </div>
               ) : (
@@ -542,25 +562,36 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                     <span className="text-xs">{commentCount}</span>
                   </Button>
 
-                  {hasLightningAddress ? (
-                    <ZapButton
-                      target={event}
-                      className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-                    >
-                      <Zap className="h-4 w-4" />
-                      <span className="text-xs">{zapCount}</span>
-                    </ZapButton>
-                  ) : (
-                    <ZapDialog target={event}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-                      >
+                  {/* Always show zap count if there are zaps, or if it's someone else's post */}
+                  {(shouldShowZapCount || (!isOwnPost && zapCount >= 0)) && (
+                    shouldShowZapButton ? (
+                      hasLightningAddress ? (
+                        <ZapButton
+                          target={event}
+                          className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                        >
+                          <Zap className="h-4 w-4" />
+                          <span className="text-xs">{zapCount}</span>
+                        </ZapButton>
+                      ) : (
+                        <ZapDialog target={event}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                          >
+                            <Zap className="h-4 w-4" />
+                            <span className="text-xs">{zapCount}</span>
+                          </Button>
+                        </ZapDialog>
+                      )
+                    ) : (
+                      /* Just show zap count without button (for own posts) */
+                      <div className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 px-2 py-1">
                         <Zap className="h-4 w-4" />
                         <span className="text-xs">{zapCount}</span>
-                      </Button>
-                    </ZapDialog>
+                      </div>
+                    )
                   )}
                 </>
               )}
