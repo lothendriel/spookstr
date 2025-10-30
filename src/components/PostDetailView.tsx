@@ -12,6 +12,8 @@ import { ZapButton } from '@/components/ZapButton';
 import { ZapDialog } from '@/components/ZapDialog';
 import { CommentsSection } from '@/components/comments/CommentsSection';
 import { useRealtimeInteractions } from '@/hooks/useRealtimeInteractions';
+import { useZaps } from '@/hooks/useZaps';
+import { useWallet } from '@/hooks/useWallet';
 import { ArrowLeft, Heart, Repeat, MessageCircle, Zap, Quote, RadioTower, MoreVertical, Copy, Check } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { getDisplayName } from '@/lib/getDisplayName';
@@ -75,6 +77,14 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const [postToSpookstr2Only, setPostToSpookstr2Only] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const { toast } = useToast();
+  const { webln, activeNWC } = useWallet();
+
+  // Get zap data for total sats amount
+  const { totalSats, isLoading: isZapLoading } = useZaps(
+    displayEvent,
+    webln,
+    activeNWC
+  );
 
   // Use the original event ID for interactions, not the reposted event
   const interactionEventId = isRepost && repostedEvent ? repostedEvent.id : event.id;
@@ -391,9 +401,10 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
                   <ZapButton
                     target={event}
                     className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
+                    zapData={{ count: zapCount, totalSats, isLoading: isZapLoading }}
                   >
                     <Zap className="h-4 w-4" />
-                    <span className="text-xs">{zapCount}</span>
+                    <span className="text-xs">{isZapLoading ? '...' : totalSats > 0 ? totalSats.toLocaleString() : 'Zap'}</span>
                   </ZapButton>
                 ) : (
                   <ZapDialog target={event}>
@@ -403,7 +414,7 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
                       className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
                     >
                       <Zap className="h-4 w-4" />
-                      <span className="text-xs">{zapCount}</span>
+                      <span className="text-xs">{isZapLoading ? '...' : totalSats > 0 ? totalSats.toLocaleString() : 'Zap'}</span>
                     </Button>
                   </ZapDialog>
                 )}

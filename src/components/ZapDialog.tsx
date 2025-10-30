@@ -415,11 +415,11 @@ export const ZapDialog = memo(({ target, children, className }: ZapDialogProps) 
     if (user === null && !isDeveloper) {
       return false;
     }
-    if (!isDeveloper && (!user || user.pubkey === target.pubkey || authorQuery?.isLoading || !hasLightningAddress)) {
+    if (!isDeveloper && (!user || authorQuery?.isLoading || !hasLightningAddress)) {
       return false;
     }
     return true;
-  }, [user, isDeveloper, target.pubkey, authorQuery?.isLoading, hasLightningAddress]);
+  }, [user, isDeveloper, authorQuery?.isLoading, hasLightningAddress]);
 
   // Don't render if conditions aren't met
   if (!shouldRender) {

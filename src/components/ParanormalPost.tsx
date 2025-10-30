@@ -11,6 +11,8 @@ import { ZapButton } from '@/components/ZapButton';
 import { ZapDialog } from '@/components/ZapDialog';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useZaps } from '@/hooks/useZaps';
+import { useWallet } from '@/hooks/useWallet';
 import { Heart, Repeat, MessageCircle, Zap, Quote, RadioTower, MoreVertical, Copy, Check } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -86,6 +88,14 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const [isQuoting, setIsQuoting] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const { toast } = useToast();
+  const { webln, activeNWC } = useWallet();
+
+  // Get zap data for total sats amount
+  const { totalSats, isLoading: isZapLoading } = useZaps(
+    inView ? displayEvent : null,
+    webln,
+    activeNWC
+  );
 
   // Use original event ID for interactions, not the reposted event
   const interactionEventId = useMemo(() => {
@@ -560,7 +570,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                       <ZapButton
                         target={event}
                         className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-                        zapData={{ count: zapCount, totalSats: 0, isLoading: false }}
+                        zapData={{ count: zapCount, totalSats, isLoading: isZapLoading }}
                       />
                     ) : (
                       <ZapDialog target={event}>
@@ -657,7 +667,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                     <ZapButton
                       target={event}
                       className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-                      zapData={{ count: zapCount, totalSats: 0, isLoading: false }}
+                      zapData={{ count: zapCount, totalSats, isLoading: isZapLoading }}
                     />
                   ) : (
                     <ZapDialog target={event}>
