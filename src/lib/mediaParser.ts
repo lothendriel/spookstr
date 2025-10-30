@@ -1023,7 +1023,18 @@ function extractInstagramId(url: string): string {
       /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/reel\/([A-Za-z0-9_-]+)(?:\/?|\?[^\s]*)?/,
     ];
 
+    // Also try a more comprehensive pattern that combines both p and reel
+    const comprehensivePattern = /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/(?:p|reel)\/([A-Za-z0-9_-]+)/;
+    console.log('🔍 Testing comprehensive pattern:', comprehensivePattern);
+    const comprehensiveMatch = url.match(comprehensivePattern);
+    if (comprehensiveMatch && comprehensiveMatch[1]) {
+      console.log('✅ Instagram ID extracted via comprehensive pattern:', comprehensiveMatch[1]);
+      return comprehensiveMatch[1];
+    }
+
+    // Try individual patterns
     for (const pattern of patterns) {
+      console.log('🔍 Testing pattern:', pattern);
       const match = url.match(pattern);
       if (match && match[1]) {
         console.log('✅ Instagram ID extracted:', match[1], 'using pattern:', pattern);
@@ -1031,7 +1042,18 @@ function extractInstagramId(url: string): string {
       }
     }
 
+    // Try even more basic pattern as fallback
+    const basicPattern = /instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+)/;
+    console.log('🔍 Testing basic pattern:', basicPattern);
+    const basicMatch = url.match(basicPattern);
+    if (basicMatch && basicMatch[1]) {
+      console.log('✅ Instagram ID extracted via basic pattern:', basicMatch[1]);
+      return basicMatch[1];
+    }
+
     console.warn('❌ No Instagram ID found in URL:', url);
+    console.warn('🔍 URL parts:', url.split('/'));
+    console.warn('🔍 Query parameters:', url.split('?')[1]);
   } catch (error) {
     console.warn('Failed to extract Instagram ID from:', url, error);
   }

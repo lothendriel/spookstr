@@ -55,6 +55,7 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
   const [dashInstance, setDashInstance] = useState<any>(null);
   const [currentQuality, setCurrentQuality] = useState<string>('auto');
   const [availableQualities, setAvailableQualities] = useState<Array<{ id: string; name: string; height: number }>>([]);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout>();
@@ -1291,36 +1292,62 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
           );
         }
 
+        // Use a more reliable iframe-based approach for Instagram embeds
         return (
           <div className="relative rounded-lg overflow-hidden bg-white group">
             {/* Instagram embed iframe */}
             <div className="relative" style={{ paddingBottom: instagramType === 'reel' ? '177.77%' : '120%' }}>
-              <blockquote
-                className="instagram-media"
-                data-instgrm-permalink={`https://www.instagram.com/p/${instagramId}/`}
-                data-instgrm-version="14"
-                data-instgrm-captioned
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
+              <iframe
+                className={`absolute top-0 left-0 w-full h-full rounded-lg border-0 transition-opacity duration-300 ${iframeLoaded ? 'opacity-100' : 'opacity-0'}`}
+                src={`https://www.instagram.com/${instagramType}/${instagramId}/embed`}
+                title={`Instagram ${instagramType.charAt(0).toUpperCase() + instagramType.slice(1)}`}
+                frameBorder="0"
+                scrolling="no"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                loading="lazy"
+                onLoad={() => {
+                  console.log('✅ Instagram iframe loaded successfully');
+                  setIframeLoaded(true);
+                }}
+                onError={(e) => {
+                  console.warn('Instagram iframe failed to load:', e);
+                  console.log('📷 Instagram ID:', instagramId);
+                  console.log('📷 Instagram URL:', media.url);
+                  setError('Failed to load Instagram embed');
+                  setIframeLoaded(true); // Hide loading state even on error
                 }}
               />
             </div>
 
-            {/* Load Instagram embed script */}
-            <script async src="//www.instagram.com/embed.js"></script>
-
-            {/* Fallback loading state and external link button */}
-            <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-lime-500 mx-auto mb-2"></div>
-                <p className="text-sm text-gray-600">Loading Instagram {instagramType}...</p>
+            {/* Loading state that disappears once iframe loads */}
+            {!iframeLoaded && (
+              <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-lime-500 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-600">Loading Instagram {instagramType}...</p>
+                </div>
               </div>
-            </div>
+            )}
 
+            {/* Error state */}
+            {iframeLoaded && error && (
+              <div className="absolute inset-0 bg-red-50 flex items-center justify-center">
+                <div className="text-center p-4">
+                  <div className="text-red-500 mb-2">Failed to load Instagram embed</div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-red-300 text-red-600 hover:bg-red-100"
+                    onClick={() => window.open(media.url, '_blank')}
+                  >
+                    View on Instagram
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* External link button */}
             <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <Button
                 size="sm"
@@ -1537,7 +1564,19 @@ function extractInstagramId(url: string): string {
       /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/reel\/([A-Za-z0-9_-]+)(?:\/?|\?[^\s]*)?/,
     ];
 
+    // Also try a more comprehensive pattern that combines both p and reel
+    const comprehensivePattern = /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/(?:p|reel)\/([A-Za-z0-9_-]+)/;
+
+    console.log('🔍 Testing comprehensive pattern:', comprehensivePattern);
+    const comprehensiveMatch = url.match(comprehensivePattern);
+    if (comprehensiveMatch && comprehensiveMatch[1]) {
+      console.log('✅ Instagram ID extracted via comprehensive pattern:', comprehensiveMatch[1]);
+      return comprehensiveMatch[1];
+    }
+
+    // Try individual patterns
     for (const pattern of patterns) {
+      console.log('🔍 Testing pattern:', pattern);
       const match = url.match(pattern);
       if (match && match[1]) {
         console.log('✅ Instagram ID extracted:', match[1], 'using pattern:', pattern);
@@ -1545,7 +1584,18 @@ function extractInstagramId(url: string): string {
       }
     }
 
+    // Try even more basic pattern as fallback
+    const basicPattern = /instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+)/;
+    console.log('🔍 Testing basic pattern:', basicPattern);
+    const basicMatch = url.match(basicPattern);
+    if (basicMatch && basicMatch[1]) {
+      console.log('✅ Instagram ID extracted via basic pattern:', basicMatch[1]);
+      return basicMatch[1];
+    }
+
     console.warn('❌ No Instagram ID found in URL:', url);
+    console.warn('🔍 URL parts:', url.split('/'));
+    console.warn('🔍 Query parameters:', url.split('?')[1]);
   } catch (error) {
     console.warn('Failed to extract Instagram ID from:', url, error);
   }
