@@ -1,4 +1,4 @@
-import { useState, memo } from 'react';
+import { useState, memo, useEffect, useCallback, useMemo } from 'react';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 import { useNostr } from '@nostrify/react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRealtimeInteractions } from '@/hooks/useRealtimeInteractions';
 import { useInView } from 'react-intersection-observer';
 import {
@@ -44,6 +44,9 @@ interface ParanormalPostProps {
 }
 
 export function ParanormalPost({ event, onClick, showActions = true }: ParanormalPostProps) {
+  // Query client for cache management
+  const queryClient = useQueryClient();
+
   // Lazy loading with intersection observer
   const { ref, inView } = useInView({
     triggerOnce: true,
@@ -62,10 +65,10 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
       const parsed = JSON.parse(event.content);
       if (parsed.id && parsed.pubkey && parsed.created_at && parsed.kind !== undefined) {
         repostedEvent = parsed as NostrEvent;
-        displayEvent = repostedEvent; // Show the reposted content
+        displayEvent = repostedEvent; // Show reposted content
       }
     } catch (e) {
-      // If parsing fails, fall back to showing the repost event itself
+      // If parsing fails, fall back to showing repost event itself
       console.warn('Failed to parse repost content:', e);
     }
   }
@@ -75,8 +78,6 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const navigate = useNavigate();
-  const [liked, setLiked] = useState(false);
-  const [reposted, setReposted] = useState(false);
   const [isQuoteDialogOpen, setIsQuoteDialogOpen] = useState(false);
   const [quoteContent, setQuoteContent] = useState('');
   const [postToSpookstr2Only, setPostToSpookstr2Only] = useState(false);
@@ -86,8 +87,10 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const [isCopied, setIsCopied] = useState(false);
   const { toast } = useToast();
 
-  // Use the original event ID for interactions, not the reposted event
-  const interactionEventId = isRepost && repostedEvent ? repostedEvent.id : event.id;
+  // Use original event ID for interactions, not the reposted event
+  const interactionEventId = useMemo(() => {
+    return isRepost && repostedEvent ? repostedEvent.id : event.id;
+  }, [isRepost, repostedEvent?.id, event.id]);
 
   // Fetch all interaction counts with real-time updates
   const {
@@ -97,16 +100,65 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     optimisticUpdate
   } = useRealtimeInteractions(interactionEventId);
 
+  // Get interaction counts
   const likeCount = interactionCounts?.likes || 0;
   const repostCount = interactionCounts?.reposts || 0;
   const commentCount = interactionCounts?.comments || 0;
   const zapCount = interactionCounts?.zaps || 0;
 
+  // Check if user has already interacted with this post
+  const { data: userInteractions } = useQuery({
+    queryKey: ['user-interactions', user?.pubkey, interactionEventId],
+    queryFn: async () => {
+      if (!user) return { liked: false, reposted: false, zapped: false };
+
+      // Check cache for existing interactions first
+      const cacheKey = `user-interaction-${user.pubkey}-${interactionEventId}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+
+      // Query for existing interactions
+      const { nostr } = await import('@nostrify/react');
+      const { useNostr } = nostr;
+      const nostrClient = useNostr();
+
+      try {
+        const signal = AbortSignal.timeout(3000);
+        const events = await nostrClient.query([{
+          kinds: [6, 7, 9735], // reposts, likes, zaps
+          '#e': [interactionEventId],
+          authors: [user.pubkey],
+          limit: 10,
+        }], { signal });
+
+        const liked = events.some(e => e.kind === 7);
+        const reposted = events.some(e => e.kind === 6);
+        const zapped = events.some(e => e.kind === 9735);
+
+        const result = { liked, reposted, zapped };
+
+        // Cache the result for 5 minutes
+        localStorage.setItem(cacheKey, JSON.stringify(result));
+        return result;
+      } catch (error) {
+        console.warn('Failed to fetch user interactions:', error);
+        return { liked: false, reposted: false, zapped: false };
+      }
+    },
+    enabled: !!user && !!interactionEventId,
+    staleTime: 60000, // 1 minute
+  });
+
+  const hasLiked = userInteractions?.liked || false;
+  const hasReposted = userInteractions?.reposted || false;
+
   // Debug logging to see what's happening
-  console.log(`[ParanormalPost] DEBUG - Post ${interactionEventId.slice(0, 8)}:`, {
+  console.log(`[ParanormalPost] DEBUG - Post ${interactionEventId?.slice(0, 8)}:`, {
     isRepost,
     hasRepostedContent: !!repostedEvent,
-    interactionEventId: interactionEventId.slice(0, 8),
+    interactionEventId: interactionEventId?.slice(0, 8),
     isLoadingCounts,
     hasInteractionData: !!interactionCounts,
     interactionCounts,
@@ -116,16 +168,16 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     zapCount,
     userPubkey: user?.pubkey?.slice(0, 8),
     eventPubkey: displayEvent.pubkey?.slice(0, 8),
-    isOwnPost: user?.pubkey === displayEvent.pubkey
+    isOwnPost: user?.pubkey === displayEvent.pubkey,
+    hasLiked,
+    hasReposted
   });
 
-
-
-  // Get metadata for the reposter
+  // Get metadata for reposter
   const reposterMetadata = author.data?.metadata;
   const reposterDisplayName = getDisplayName(reposterMetadata, event.pubkey);
 
-  // Get metadata for the original author (if this is a repost)
+  // Get metadata for original author (if this is a repost)
   const originalAuthorMetadata = repostedEvent ? repostedAuthor.data?.metadata : reposterMetadata;
   const displayName = repostedEvent
     ? getDisplayName(originalAuthorMetadata, repostedEvent.pubkey)
@@ -136,10 +188,8 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   // Check if author has lightning address for zapping
   const hasLightningAddress = originalAuthorMetadata?.lud16 || originalAuthorMetadata?.lud06;
 
-  // Show zap button if author has lightning address
-  const shouldShowZapButton = hasLightningAddress;
-
-  // Always show zap count
+  // Always show zap button and count - disable button if no lightning address
+  const shouldShowZapButton = true;
   const shouldShowZapCount = true;
 
   // Show skeleton if not yet in view
@@ -174,7 +224,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   };
 
   const handleLike = () => {
-    if (!user || isLiking) return;
+    if (!user || isLiking || hasLiked) return;
 
     setIsLiking(true);
 
@@ -197,17 +247,35 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     }, {
       onSuccess: () => {
         setIsLiking(false);
-        setLiked(true);
+
+        // Update local cache
+        const cacheKey = `user-interaction-${user.pubkey}-${interactionEventId}`;
+        const updatedInteractions = { ...userInteractions, liked: true };
+        localStorage.setItem(cacheKey, JSON.stringify(updatedInteractions));
+
+        // Update query cache
+        queryClient.setQueryData(['user-interactions', user.pubkey, interactionEventId], updatedInteractions);
+
+        toast({
+          title: "Liked!",
+          description: "Your like was published successfully.",
+        });
       },
       onError: () => {
         setIsLiking(false);
         optimisticUpdate(7, -1); // Revert on error
+
+        toast({
+          title: "Like failed",
+          description: "Failed to publish like",
+          variant: "destructive",
+        });
       }
     });
   };
 
   const handleRepost = (spookstrOnly: boolean = false) => {
-    if (!user || isReposting) return;
+    if (!user || isReposting || hasReposted) return;
 
     setIsReposting(true);
 
@@ -236,17 +304,36 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     }, {
       onSuccess: () => {
         setIsReposting(false);
-        setReposted(true);
+
+        // Update local cache
+        const cacheKey = `user-interaction-${user.pubkey}-${interactionEventId}`;
+        const updatedInteractions = { ...userInteractions, reposted: true };
+        localStorage.setItem(cacheKey, JSON.stringify(updatedInteractions));
+
+        // Update query cache
+        queryClient.setQueryData(['user-interactions', user.pubkey, interactionEventId], updatedInteractions);
+
         if (spookstrOnly) {
           toast({
             title: "Reposted to Spookstr",
-            description: "Your repost was published to the Spookstr relay only.",
+            description: "Your repost was published to Spookstr relay only.",
+          });
+        } else {
+          toast({
+            title: "Reposted!",
+            description: "Your repost was published successfully.",
           });
         }
       },
       onError: () => {
         setIsReposting(false);
         optimisticUpdate(6, -1); // Revert on error
+
+        toast({
+          title: "Repost failed",
+          description: "Failed to publish repost",
+          variant: "destructive",
+        });
       }
     });
   };
@@ -267,7 +354,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     // Quote the original event, not a repost
     const targetEvent = repostedEvent || event;
 
-    // Extract tags from the original event, excluding 'e', 'p', 'q', 'imeta', and 'client' tags
+    // Extract tags from original event, excluding 'e', 'p', 'q', 'imeta', and 'client' tags
     const originalTags = targetEvent.tags.filter(([tagName]) =>
       !['e', 'p', 'q', 'imeta', 'client'].includes(tagName)
     );
@@ -295,12 +382,22 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
         setIsQuoting(false);
         setQuoteContent('');
         setIsQuoteDialogOpen(false);
-        setReposted(true);
-        setPostToSpookstr2Only(false); // Reset the checkbox
+        setPostToSpookstr2Only(false); // Reset checkbox
+
+        toast({
+          title: "Quote posted!",
+          description: "Your quote was published successfully.",
+        });
       },
       onError: () => {
         setIsQuoting(false);
         optimisticUpdate(1, -1); // Revert on error
+
+        toast({
+          title: "Quote failed",
+          description: "Failed to publish quote",
+          variant: "destructive",
+        });
       }
     });
   };
@@ -308,7 +405,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const handleCopyNoteId = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      // Copy the note ID (note1... format)
+      // Copy note ID (note1... format)
       const noteId = nip19.noteEncode(displayEvent.id);
       await navigator.clipboard.writeText(noteId);
       setIsCopied(true);
@@ -428,24 +525,21 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLike();
-                    }}
-                    disabled={isLiking}
-                    className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                    onClick={handleLike}
+                    disabled={isLiking || hasLiked}
+                    className={`text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 ${hasLiked ? 'text-lime-500' : ''}`}
                   >
-                    <Heart className={`h-4 w-4 ${liked ? 'fill-lime-500 text-lime-500' : ''}`} />
+                    <Heart className={`h-4 w-4 ${hasLiked ? 'fill-current' : ''}`} />
                     <span className="text-xs">?</span>
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={(e) => e.stopPropagation()}
-                    disabled={isReposting}
-                    className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                    disabled={isReposting || hasReposted}
+                    className={`text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 ${hasReposted ? 'text-lime-500' : ''}`}
                   >
-                    <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
+                    <Repeat className={`h-4 w-4 ${hasReposted ? 'fill-current' : ''}`} />
                     <span className="text-xs">?</span>
                   </Button>
                   <Button
@@ -460,35 +554,26 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                     <MessageCircle className="h-4 w-4" />
                     <span className="text-xs">?</span>
                   </Button>
-                  {/* Always show zap count even in error state */}
+                  {/* Always show zap button and count */}
                   {shouldShowZapCount && (
-                    shouldShowZapButton ? (
-                      hasLightningAddress ? (
-                        <ZapButton
-                          target={event}
+                    hasLightningAddress ? (
+                      <ZapButton
+                        target={event}
+                        className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                        zapData={{ count: zapCount, totalSats: 0, isLoading: false }}
+                      />
+                    ) : (
+                      <ZapDialog target={event}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                          disabled
                         >
                           <Zap className="h-4 w-4" />
-                          <span className="text-xs">?</span>
-                        </ZapButton>
-                      ) : (
-                        <ZapDialog target={event}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-                          >
-                            <Zap className="h-4 w-4" />
-                            <span className="text-xs">?</span>
-                          </Button>
-                        </ZapDialog>
-                      )
-                    ) : (
-                      /* Just show zap count without button (for own posts) */
-                      <div className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 px-2 py-1">
-                        <Zap className="h-4 w-4" />
-                        <span className="text-xs">?</span>
-                      </div>
+                          <span className="text-xs">{zapCount}</span>
+                        </Button>
+                      </ZapDialog>
                     )
                   )}
                 </div>
@@ -497,14 +582,11 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLike();
-                    }}
-                    disabled={isLiking}
-                    className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                    onClick={handleLike}
+                    disabled={isLiking || hasLiked}
+                    className={`text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 ${hasLiked ? 'text-lime-500' : ''}`}
                   >
-                    <Heart className={`h-4 w-4 ${liked ? 'fill-lime-500 text-lime-500' : ''}`} />
+                    <Heart className={`h-4 w-4 ${hasLiked ? 'fill-current' : ''}`} />
                     <span className="text-xs">{likeCount}</span>
                   </Button>
 
@@ -514,10 +596,10 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                         variant="ghost"
                         size="sm"
                         onClick={(e) => e.stopPropagation()}
-                        disabled={isReposting}
-                        className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                        disabled={isReposting || hasReposted}
+                        className={`text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 ${hasReposted ? 'text-lime-500' : ''}`}
                       >
-                        <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
+                        <Repeat className={`h-4 w-4 ${hasReposted ? 'fill-current' : ''}`} />
                         <span className="text-xs">{repostCount}</span>
                       </Button>
                     </DropdownMenuTrigger>
@@ -527,20 +609,22 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                           e.stopPropagation();
                           handleRepost(false);
                         }}
+                        disabled={hasReposted}
                         className="flex items-center space-x-2"
                       >
                         <Repeat className="h-4 w-4" />
-                        <span>Repost</span>
+                        <span>{hasReposted ? 'Already Reposted' : 'Repost'}</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation();
                           handleRepost(true);
                         }}
+                        disabled={hasReposted}
                         className="flex items-center space-x-2"
                       >
                         <RadioTower className="h-4 w-4 text-purple-500" />
-                        <span>Repost to Spookstr</span>
+                        <span>{hasReposted ? 'Already Reposted' : 'Repost to Spookstr'}</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={(e) => {
@@ -573,10 +657,8 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                     <ZapButton
                       target={event}
                       className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-                    >
-                      <Zap className="h-4 w-4" />
-                      <span className="text-xs">{zapCount}</span>
-                    </ZapButton>
+                      zapData={{ count: zapCount, totalSats: 0, isLoading: false }}
+                    />
                   ) : (
                     <ZapDialog target={event}>
                       <Button
@@ -644,7 +726,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                 Post to Spookstr2 Relay Only
               </label>
               <p className="text-xs text-lime-500/60">
-                When checked, your quote repost will only be published to the Spookstr2 relay. Uncheck to publish to all relays.
+                When checked, your quote repost will only be published to Spookstr2 relay. Uncheck to publish to all relays.
               </p>
             </div>
           </div>
@@ -669,8 +751,8 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    </>
-  );
+  </>
+);
 }
 
 // Memoize component to prevent unnecessary re-renders
