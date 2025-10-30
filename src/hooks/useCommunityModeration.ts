@@ -16,10 +16,10 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
 
   return useQuery({
     queryKey: ['pending-posts', communityId, communityAuthor],
-    queryFn: async () => {
+    queryFn: async (context) => {
       if (!communityId || !communityAuthor) return [];
 
-      const signal = AbortSignal.timeout(5000);
+      const signal = AbortSignal.any([context.signal, AbortSignal.timeout(10000)]);
       const communityTag = `34550:${communityAuthor}:${communityId}`;
 
       console.log('🔍 Fetching pending posts for community:', communityTag);
@@ -34,32 +34,40 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
       console.log(`📝 Found ${allPosts.length} total posts (kind 1111)`);
 
       // Query for all approval events (kind 4550) for this community
-      // Query by both the community tag AND by author to maximize chances of finding approvals
-      const approvals = await nostr.query([
+      // Use multiple strategies to find approvals more reliably
+      const approvalQueries = [
         {
           kinds: [4550],
           '#a': [communityTag],
           limit: 200
         },
+        // Also search by community author in case some approvals are missing the 'a' tag
         {
           kinds: [4550],
           authors: [communityAuthor],
           limit: 200
         }
-      ], { signal });
+      ];
+
+      const approvals = await nostr.query(approvalQueries, { signal });
 
       console.log(`✅ Found ${approvals.length} approval events (kind 4550)`);
 
       // Create a set of approved event IDs for quick lookup
-      const approvedEventIds = new Set(
-        approvals.flatMap(approval => {
-          const eTags = approval.tags.filter(tag => tag[0] === 'e');
-          console.log('Approval event tags:', approval.tags);
-          return eTags.map(tag => tag[1]);
-        })
-      );
+      const approvedEventIds = new Set<string>();
 
-      console.log(`🎯 ${approvedEventIds.size} unique approved event IDs:`, Array.from(approvedEventIds));
+      approvals.forEach(approval => {
+        const eTags = approval.tags.filter(tag => tag[0] === 'e');
+        console.log(`Approval event ${approval.id.slice(0, 8)}... tags:`, approval.tags);
+        eTags.forEach(eTag => {
+          if (eTag[1]) {
+            approvedEventIds.add(eTag[1]);
+            console.log(`  -> Approved event: ${eTag[1].slice(0, 8)}...`);
+          }
+        });
+      });
+
+      console.log(`🎯 ${approvedEventIds.size} unique approved event IDs:`, Array.from(approvedEventIds).map(id => id.slice(0, 8) + '...'));
 
       // Filter out already approved posts
       const pendingPosts = allPosts
@@ -87,7 +95,9 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
       return pendingPosts as PendingPost[];
     },
     enabled: !!communityId && !!communityAuthor,
-    refetchInterval: 30000 // Refetch every 30 seconds
+    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 5000, // Consider data stale after 5 seconds to ensure fresh data after approvals
+    gcTime: 60000 // Keep data in cache for 1 minute
   });
 }
 
@@ -99,17 +109,17 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
 
   return useQuery({
     queryKey: ['approved-posts', communityId, communityAuthor],
-    queryFn: async () => {
+    queryFn: async (context) => {
       if (!communityId || !communityAuthor) return [];
 
-      const signal = AbortSignal.timeout(5000);
+      const signal = AbortSignal.any([context.signal, AbortSignal.timeout(10000)]);
       const communityTag = `34550:${communityAuthor}:${communityId}`;
 
       console.log('🔍 Fetching approved posts for community:', communityTag);
 
       // Query for all approval events (kind 4550) for this community
-      // Query by both the community tag AND by author to maximize chances of finding approvals
-      const approvals = await nostr.query([
+      // Use multiple strategies to find approvals more reliably
+      const approvalQueries = [
         {
           kinds: [4550],
           '#a': [communityTag],
@@ -120,25 +130,35 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
           authors: [communityAuthor],
           limit: 200
         }
-      ], { signal });
+      ];
+
+      const approvals = await nostr.query(approvalQueries, { signal });
 
       console.log(`✅ Found ${approvals.length} approval events for approved posts`);
 
-      // Extract approved event IDs
-      const approvedEventIds = approvals.flatMap(approval =>
-        approval.tags
-          .filter(tag => tag[0] === 'e')
-          .map(tag => tag[1])
-      );
+      // Extract approved event IDs with better logging
+      const approvedEventIds = new Set<string>();
 
-      console.log(`📋 Approved event IDs (${approvedEventIds.length}):`, approvedEventIds);
+      approvals.forEach(approval => {
+        const eTags = approval.tags.filter(tag => tag[0] === 'e');
+        console.log(`Approval event ${approval.id.slice(0, 8)}... tags:`, approval.tags);
+        eTags.forEach(eTag => {
+          if (eTag[1]) {
+            approvedEventIds.add(eTag[1]);
+            console.log(`  -> Approved event: ${eTag[1].slice(0, 8)}...`);
+          }
+        });
+      });
 
-      if (approvedEventIds.length === 0) return [];
+      const approvedEventIdsArray = Array.from(approvedEventIds);
+      console.log(`📋 ${approvedEventIdsArray.length} unique approved event IDs:`, approvedEventIdsArray.map(id => id.slice(0, 8) + '...'));
+
+      if (approvedEventIdsArray.length === 0) return [];
 
       // Query for the actual approved posts
       const approvedPosts = await nostr.query([{
         kinds: [1111],
-        ids: approvedEventIds,
+        ids: approvedEventIdsArray,
         limit: 200
       }], { signal });
 
@@ -159,6 +179,8 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
         .sort((a, b) => b.event.created_at - a.event.created_at);
     },
     enabled: !!communityId && !!communityAuthor,
-    refetchInterval: 30000
+    refetchInterval: 30000,
+    staleTime: 5000, // Consider data stale after 5 seconds to ensure fresh data after approvals
+    gcTime: 60000 // Keep data in cache for 1 minute
   });
 }

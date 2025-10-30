@@ -17,6 +17,7 @@ import { NostrEvent } from '@nostrify/nostrify';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NoteContent } from '@/components/NoteContent';
 import { formatDistanceToNow } from 'date-fns';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface ModerationPanelProps {
   community: CommunityDefinition;
@@ -24,6 +25,7 @@ interface ModerationPanelProps {
 
 export function ModerationPanel({ community }: ModerationPanelProps) {
   const { user } = useCurrentUser();
+  const queryClient = useQueryClient();
   const { data: pendingPosts, isLoading: loadingPending, refetch: refetchPending } = usePendingPosts(community.id, community.author);
   const { data: approvedPosts, isLoading: loadingApproved, refetch: refetchApproved } = useApprovedPosts(community.id, community.author);
   const { mutateAsync: createEvent, isPending: isPublishing } = useNostrPublish();
@@ -83,7 +85,8 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
               ['e', selectedPost.id], // Post being approved
               ['p', selectedPost.pubkey], // Post author (for notifications)
               ['k', postKindTag] // Original post kind
-            ]
+            ],
+            created_at: Math.floor(Date.now() / 1000)
           }
         });
 
@@ -94,9 +97,22 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
           description: 'The post has been approved and is now visible to the community.',
         });
 
-        // Refetch both pending and approved lists
-        await refetchPending();
-        await refetchApproved();
+        // Invalidate queries to force refetch with fresh data
+        setTimeout(async () => {
+          console.log('🔄 Force invalidating and refetching moderation data...');
+
+          // Invalidate the cache first
+          await queryClient.invalidateQueries({
+            queryKey: ['pending-posts', community.id, community.author]
+          });
+          await queryClient.invalidateQueries({
+            queryKey: ['approved-posts', community.id, community.author]
+          });
+
+          // Then force refetch
+          await Promise.all([refetchPending(), refetchApproved()]);
+          console.log('🔄 Cache invalidation and refetch completed');
+        }, 1500); // Wait 1.5 seconds for the approval to propagate
 
         setSelectedPost(null);
         setActionType(null);
@@ -116,6 +132,7 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
         description: 'The post has been denied and will remain hidden from the community.',
       });
 
+      // No need to wait for denial since no event is created
       await refetchPending();
       setSelectedPost(null);
       setActionType(null);
