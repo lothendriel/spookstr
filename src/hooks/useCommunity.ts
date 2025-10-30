@@ -138,32 +138,47 @@ export function useCommunityComments(parentEventId?: string, parentEventAuthor?:
 
   return useQuery({
     queryKey: ['community-comments', parentEventId, parentEventAuthor],
-    queryFn: async () => {
+    queryFn: async (context) => {
       if (!parentEventId) return [];
 
-      const signal = AbortSignal.timeout(5000);
+      const signal = AbortSignal.any([context.signal, AbortSignal.timeout(10000)]);
 
-      // Query for comments/replies (kind 1111 and kind 1 with e tag pointing to parent)
+      console.log(`💬 Fetching comments for post: ${parentEventId.slice(0, 8)}...`);
+
+      // Query for all replies to this post (both community-aware and legacy replies)
       const events = await nostr.query([
         {
-          kinds: [1111],
+          kinds: [1111], // NIP-22 community comments
           '#e': [parentEventId],
           limit: 100
         },
         {
-          kinds: [1],
+          kinds: [1], // Legacy replies (like the one you found)
           '#e': [parentEventId],
           limit: 100
         }
       ], { signal });
 
+      console.log(`💬 Found ${events.length} total replies (kind 1111 + kind 1)`);
+
       // Filter out NSFW content from community comments
       const filteredEvents = filterNSFWContent(events);
+
+      console.log(`💬 ${filteredEvents.length} replies after NSFW filter`);
 
       // Remove duplicates and sort by created_at
       const uniqueEvents = Array.from(
         new Map(filteredEvents.map(e => [e.id, e])).values()
       ).sort((a, b) => a.created_at - b.created_at); // Oldest first for comments
+
+      console.log(`💬 ${uniqueEvents.length} unique replies after deduplication`);
+
+      // Log each reply for debugging
+      uniqueEvents.forEach((event, index) => {
+        console.log(`💬 Reply ${index + 1}: ${event.id.slice(0, 8)}... (kind ${event.kind}) by ${event.pubkey.slice(0, 8)}...`);
+        console.log(`    Content: "${event.content.slice(0, 50)}${event.content.length > 50 ? '...' : ''}"`);
+        console.log(`    Tags:`, event.tags);
+      });
 
       return uniqueEvents.map(event => ({
         id: event.id,
@@ -173,6 +188,8 @@ export function useCommunityComments(parentEventId?: string, parentEventAuthor?:
         tags: event.tags
       })) as CommunityPost[];
     },
-    enabled: !!parentEventId
+    enabled: !!parentEventId,
+    staleTime: 0, // Always fetch fresh comment data
+    refetchInterval: 15000 // Check for new comments every 15 seconds
   });
 }

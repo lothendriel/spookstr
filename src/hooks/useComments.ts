@@ -15,7 +15,7 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
   return useQuery({
     queryKey: ['comments', root instanceof URL ? root.toString() : root.id, limit],
     queryFn: async (c) => {
-      const filter: NostrFilter = { kinds: [1] }; // Only kind 1 events for NIP-10 comments
+      const filter: NostrFilter = { kinds: [1, 1111] }; // Kind 1 for regular comments, kind 1111 for community comments
 
       if (root instanceof URL) {
         filter['#r'] = [root.toString()];
