@@ -21,12 +21,6 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
-import { nip19 } from 'nostr-tools';
-
-// Authorized npubs that can access the debug panel
-const AUTHORIZED_NPUBS = [
-  'npub1q92nwwk8ndllkr6cdslxswt0n6pdgmm6lecpd4rwm89ydw37r0kslptxrw'
-];
 
 interface DebugInfo {
   user: any;
@@ -40,7 +34,7 @@ interface DebugInfo {
 /**
  * Debug Panel component for development-time debugging and inspection.
  * Provides real-time information about app state, caches, and performance.
- * Only available for authorized npubs. Hidden for all other users and when logged out.
+ * Only available in development mode.
  */
 export function DebugPanel() {
   const [isVisible, setIsVisible] = useState(false);
@@ -51,18 +45,8 @@ export function DebugPanel() {
   const { user } = useCurrentUser();
   const { config } = useAppContext();
 
-  // Convert user pubkey to npub for comparison
-  const userNpub = user ? nip19.npubEncode(user.pubkey) : null;
-
-  // Check if current user is authorized to see the debug panel
-  const isAuthorizedUser = userNpub && AUTHORIZED_NPUBS.includes(userNpub);
-
-  // Hide debug panel completely unless user is authorized with the specific npub
-  // This applies to both development and production environments
-  if (!isAuthorizedUser) return null;
-
-  // Only show the toggle button for authorized users
-  const shouldShowToggleButton = isAuthorizedUser;
+  // Don't render in production
+  if (import.meta.env.PROD) return null;
 
   // Collect debug information
   const collectDebugInfo = () => {
@@ -108,8 +92,6 @@ export function DebugPanel() {
     setDebugInfo({
       user: user ? {
         pubkey: user.pubkey?.slice(0, 8) + '...',
-        npub: userNpub?.slice(0, 16) + '...',
-        isAuthorized: isAuthorizedUser,
         signer: user.signer?.constructor?.name || 'Unknown',
         loginType: user.constructor?.name || 'Unknown'
       } : null,
@@ -170,9 +152,6 @@ export function DebugPanel() {
   };
 
   if (!isVisible) {
-    // Only show the toggle button for authorized users or in development
-    if (!shouldShowToggleButton) return null;
-
     return (
       <div className="fixed bottom-4 left-4 z-50">
         <Button
@@ -183,7 +162,6 @@ export function DebugPanel() {
         >
           <Bug className="h-4 w-4 mr-2" />
           Debug
-          <Badge variant="secondary" className="ml-2 text-xs">ADMIN</Badge>
         </Button>
       </div>
     );
@@ -197,7 +175,7 @@ export function DebugPanel() {
             <CardTitle className="flex items-center gap-2">
               <Bug className="h-5 w-5" />
               Debug Panel
-              <Badge variant="default">ADMIN</Badge>
+              <Badge variant="secondary">DEV</Badge>
             </CardTitle>
             <div className="flex items-center gap-2">
               <Button
