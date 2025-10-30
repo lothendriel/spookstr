@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
 import { NostrEvent } from '@nostrify/nostrify';
