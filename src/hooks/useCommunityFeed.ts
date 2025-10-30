@@ -3,6 +3,12 @@ import { useNostr } from './useNostr';
 import { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 import { useCurrentUser } from './useCurrentUser';
+import {
+  isCommunityContent,
+  validateCommunityEvent,
+  getContentType,
+  filterForCommunityFeed
+} from '@/lib/contentType';
 
 export interface CommunityFeedPost {
   id: string;
@@ -50,8 +56,38 @@ export function useCommunityFeed(communityId?: string, communityAuthor?: string)
 
         console.log(`📝 Found ${allPosts.length} total posts for moderator`);
 
-        // Filter out NSFW content and sort
-        const filteredPosts = filterNSFWContent(allPosts);
+        // Filter out NSFW content
+        let filteredPosts = filterNSFWContent(allPosts);
+
+        // CRITICAL: Ensure only valid community content is included
+        filteredPosts = filteredPosts.filter(event => {
+          const isValidCommunity = isCommunityContent(event);
+          const isValidEvent = validateCommunityEvent(event);
+          const contentType = getContentType(event);
+
+          if (!isValidCommunity) {
+            console.warn('Excluding non-community event from community feed:', {
+              eventId: event.id.substring(0, 8),
+              kind: event.kind,
+              contentType
+            });
+            return false;
+          }
+
+          if (!isValidEvent) {
+            console.warn('Excluding invalid community event:', {
+              eventId: event.id.substring(0, 8),
+              kind: event.kind,
+              contentType
+            });
+            return false;
+          }
+
+          return true;
+        });
+
+        console.log(`✅ Validated ${filteredPosts.length} community posts for display`);
+
         const sortedPosts = filteredPosts.sort((a, b) => b.created_at - a.created_at);
 
         return sortedPosts.map(event => ({
@@ -80,7 +116,7 @@ export function useCommunityFeed(communityId?: string, communityAuthor?: string)
 
         // Extract approved post IDs
         const approvedEventIds = new Set<string>();
-        
+
         approvals.forEach(approval => {
           const eTags = approval.tags.filter(tag => tag[0] === 'e');
           eTags.forEach(eTag => {
@@ -109,8 +145,38 @@ export function useCommunityFeed(communityId?: string, communityAuthor?: string)
 
         console.log(`📝 Found ${approvedPosts.length} actual approved posts`);
 
-        // Filter out NSFW content and sort
-        const filteredPosts = filterNSFWContent(approvedPosts);
+        // Filter out NSFW content
+        let filteredPosts = filterNSFWContent(approvedPosts);
+
+        // CRITICAL: Ensure only valid community content is included for regular users too
+        filteredPosts = filteredPosts.filter(event => {
+          const isValidCommunity = isCommunityContent(event);
+          const isValidEvent = validateCommunityEvent(event);
+          const contentType = getContentType(event);
+
+          if (!isValidCommunity) {
+            console.warn('Excluding non-community event from approved posts:', {
+              eventId: event.id.substring(0, 8),
+              kind: event.kind,
+              contentType
+            });
+            return false;
+          }
+
+          if (!isValidEvent) {
+            console.warn('Excluding invalid community event from approved posts:', {
+              eventId: event.id.substring(0, 8),
+              kind: event.kind,
+              contentType
+            });
+            return false;
+          }
+
+          return true;
+        });
+
+        console.log(`✅ Validated ${filteredPosts.length} approved community posts for regular users`);
+
         const sortedPosts = filteredPosts.sort((a, b) => b.created_at - a.created_at);
 
         return sortedPosts.map(event => ({

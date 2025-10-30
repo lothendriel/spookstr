@@ -1,6 +1,11 @@
 import { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { useRelayHintQuery } from '@/hooks/useRelayHintQuery';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
+import {
+  isCommunityContent,
+  getContentType,
+  getCommunityTag
+} from '@/lib/contentType';
 
 interface ThreadNode {
   event: NostrEvent;
@@ -45,6 +50,16 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
       kind: root instanceof URL ? 'URL' : root.kind,
       pubkey: root instanceof URL ? 'N/A' : root.pubkey
     });
+
+    // Log comment types for debugging
+    const commentTypes = filteredEvents.map(event => ({
+      id: event.id.substring(0, 8),
+      kind: event.kind,
+      contentType: getContentType(event),
+      isCommunity: isCommunityContent(event),
+      communityTag: getCommunityTag(event)
+    }));
+    console.log('🏷️ [useComments] Comment types:', commentTypes);
 
       // Helper function to get e tags with their marker (root, reply, mention)
       const getETags = (event: NostrEvent): Array<{ id: string; marker?: string }> => {

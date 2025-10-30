@@ -4,6 +4,11 @@ import { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 import { nip19 } from 'nostr-tools';
 import { feedLogger, perfLogger } from '@/lib/devLogger';
+import {
+  shouldAppearInMainFeed,
+  getContentType,
+  filterForMainFeed
+} from '@/lib/contentType';
 
 const PARANORMAL_TAGS = [
   'paranormal',
@@ -144,6 +149,8 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
   });
 }
 
+
+
 export function useParanormalFeed() {
   const { nostr } = useNostr();
 
@@ -160,18 +167,35 @@ export function useParanormalFeed() {
           {
             kinds: [1],
             '#t': PARANORMAL_TAGS,
-            limit: 30, // Reduced from 50 to save memory
+            limit: 50,
           },
           {
             kinds: [6], // Include reposts
-            limit: 20, // Reduced from 50 to save memory
+            limit: 20,
           }
         ], { signal });
 
         feedLogger.info('Raw events fetched', { count: events.length });
 
+        // CRITICAL: Filter out replies and community content to prevent cross-contamination
+        let filteredEvents = filterForMainFeed(events);
+
+        // Log excluded events for debugging
+        const excludedEvents = events.filter(event => !shouldAppearInMainFeed(event));
+        if (excludedEvents.length > 0) {
+          feedLogger.debug('Events excluded from main feed', {
+            count: excludedEvents.length,
+            types: excludedEvents.map(e => getContentType(e))
+          });
+        }
+
+        feedLogger.debug('After reply/community filter', {
+          count: filteredEvents.length,
+          filtered: events.length - filteredEvents.length
+        });
+
         // Filter out NSFW content
-        let filteredEvents = filterNSFWContent(events);
+        filteredEvents = filterNSFWContent(filteredEvents);
         feedLogger.debug('After NSFW filter', { count: filteredEvents.length, filtered: events.length - filteredEvents.length });
 
         // Filter out blocked users

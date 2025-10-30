@@ -32,7 +32,7 @@ export function usePostComment() {
         );
 
         if (communityATag) {
-          // This is a community post, use kind 1111 and NIP-72 format
+          // CRITICAL: ALWAYS use kind 1111 for community content to ensure proper separation
           kind = 1111;
           communityTag = communityATag[1];
 
@@ -43,17 +43,17 @@ export function usePostComment() {
           tags.push(['A', communityTag]);
           tags.push(['P', communityAuthor]);
           tags.push(['K', '34550']);
+
+          // Add lowercase tags for community context
+          tags.push(['a', communityTag]);
+          tags.push(['k', root.kind.toString()]);
+
+          console.log('🏘️ Creating community comment with kind 1111 for community:', communityTag);
         }
 
         // NIP-10/NIP-72 threading: Add parent event reference
         tags.push(['e', root.id, '', reply ? 'root' : 'reply']);
         tags.push(['p', root.pubkey]);
-
-        // Add lowercase tags for the parent post
-        if (communityTag) {
-          tags.push(['a', communityTag]);
-          tags.push(['k', root.kind.toString()]);
-        }
       }
 
       // If replying to another comment, add reply reference (NIP-10)
@@ -61,6 +61,7 @@ export function usePostComment() {
         tags.push(['e', reply.id, '', 'reply']);
         tags.push(['p', reply.pubkey]);
         if (communityTag) {
+          // Ensure community context is maintained for comment replies too
           tags.push(['k', reply.kind.toString()]);
         }
       }
@@ -100,8 +101,14 @@ export function usePostComment() {
         kind,
         content,
         tags: tags,
-        isCommunityComment: !!communityTag
+        isCommunityComment: !!communityTag,
+        communityTag: communityTag || 'none'
       });
+
+      // CRITICAL: Validate that community content always uses kind 1111
+      if (communityTag && kind !== 1111) {
+        throw new Error('Community content must use kind 1111 for proper separation');
+      }
 
       const event = await publishEvent({
         event: {
@@ -118,6 +125,11 @@ export function usePostComment() {
       // Invalidate and refetch comments
       queryClient.invalidateQueries({
         queryKey: ['comments', root instanceof URL ? root.toString() : root.id]
+      });
+
+      // Also invalidate the main feed to ensure content separation is maintained
+      queryClient.invalidateQueries({
+        queryKey: ['paranormal-feed']
       });
     },
   });
