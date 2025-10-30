@@ -111,8 +111,11 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
     }
 
     if (url) {
+      // Normalize URL for comparison (add https:// if missing)
+      const normalizedUrl = url.startsWith('http') ? url : `https://${url}`;
+
       // Skip URLs that are already handled as media - don't render them at all
-      if (skipUrls.has(url)) {
+      if (skipUrls.has(normalizedUrl)) {
         // Don't add anything for media URLs - they're completely hidden from text
       } else {
         // Handle URLs that aren't media
