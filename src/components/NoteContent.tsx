@@ -46,9 +46,54 @@ export function NoteContent({
       return indexA - indexB;
     });
 
+    // Normalize URLs for better matching
+    const normalizedMediaItems = mediaItems.map(item => ({
+      ...item,
+      normalizedUrl: item.url.startsWith('http') ? item.url : `https://${item.url}`,
+      urlWithoutQuery: item.url.split('?')[0],
+    }));
+
     // Process each media item and the text around it
     sortedMedia.forEach((media) => {
-      const mediaIndex = processedText.indexOf(media.url);
+      // Find the media URL in the current processed text
+      // We need to search for both the original URL and normalized URL
+      let mediaIndex = -1;
+      let foundUrl = media.url;
+
+      // Try to find the original URL first
+      if (processedText.includes(media.url)) {
+        mediaIndex = processedText.indexOf(media.url);
+        foundUrl = media.url;
+      } else {
+        // If not found, try to find the URL without query parameters
+        const urlWithoutQuery = media.url.split('?')[0];
+        if (processedText.includes(urlWithoutQuery)) {
+          mediaIndex = processedText.indexOf(urlWithoutQuery);
+          foundUrl = urlWithoutQuery;
+        } else {
+          // As a fallback, try to find just the Instagram ID in the URL
+          const instagramIdMatch = media.url.match(/\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
+          if (instagramIdMatch) {
+            const instagramId = instagramIdMatch[1];
+            const possibleUrls = [
+              `/p/${instagramId}`,
+              `/reel/${instagramId}`,
+              `instagram.com/p/${instagramId}`,
+              `instagram.com/reel/${instagramId}`,
+              `www.instagram.com/p/${instagramId}`,
+              `www.instagram.com/reel/${instagramId}`,
+            ];
+
+            for (const possibleUrl of possibleUrls) {
+              if (processedText.includes(possibleUrl)) {
+                mediaIndex = processedText.indexOf(possibleUrl);
+                foundUrl = possibleUrl;
+                break;
+              }
+            }
+          }
+        }
+      }
 
       if (mediaIndex >= 0) {
         // Add text before the media URL (if any)
@@ -67,7 +112,28 @@ export function NoteContent({
         );
 
         // Remove the processed part from the text
-        processedText = processedText.substring(mediaIndex + media.url.length);
+        // Also remove any trailing punctuation or whitespace that might be attached
+        let endIndex = mediaIndex + foundUrl.length;
+
+        // Check if there's a trailing slash or query parameters that should be removed
+        if (processedText.length > endIndex) {
+          const nextChar = processedText[endIndex];
+          if (nextChar === '/' || nextChar === '?') {
+            // Find the end of the URL (next space or end of string)
+            const urlEnd = processedText.indexOf(' ', endIndex);
+            if (urlEnd === -1) {
+              // URL goes to end of string
+              endIndex = processedText.length;
+            } else {
+              endIndex = urlEnd;
+            }
+          }
+        }
+
+        processedText = processedText.substring(endIndex);
+      } else {
+        console.warn('Could not find media URL in text for removal:', media.url);
+        console.warn('Current processed text:', processedText);
       }
     });
 
