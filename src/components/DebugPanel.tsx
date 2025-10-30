@@ -169,7 +169,7 @@ export function DebugPanel() {
 
   return (
     <div className="fixed inset-4 z-50 flex items-center justify-center pointer-events-none">
-      <Card className="w-full max-w-4xl max-h-[80vh] pointer-events-auto bg-background/95 backdrop-blur-sm">
+      <Card className="w-full max-w-4xl max-h-[80vh] pointer-events-auto bg-background/95 backdrop-blur-sm border-border">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
@@ -216,7 +216,7 @@ export function DebugPanel() {
                   {expandedSections.has('user') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="px-6 py-2">
-                  <pre className="text-xs bg-muted p-3 rounded overflow-auto">
+                  <pre className="text-xs bg-muted p-3 rounded overflow-auto text-foreground">
                     {JSON.stringify(debugInfo?.user || "Not logged in", null, 2)}
                   </pre>
                 </CollapsibleContent>
@@ -237,7 +237,7 @@ export function DebugPanel() {
                   {expandedSections.has('config') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="px-6 py-2">
-                  <pre className="text-xs bg-muted p-3 rounded overflow-auto">
+                  <pre className="text-xs bg-muted p-3 rounded overflow-auto text-foreground">
                     {JSON.stringify(debugInfo?.config, null, 2)}
                   </pre>
                 </CollapsibleContent>
@@ -267,7 +267,7 @@ export function DebugPanel() {
                       Clear Cache
                     </Button>
                   </div>
-                  <pre className="text-xs bg-muted p-3 rounded overflow-auto">
+                  <pre className="text-xs bg-muted p-3 rounded overflow-auto text-foreground">
                     {JSON.stringify(debugInfo?.queryCache, null, 2)}
                   </pre>
                 </CollapsibleContent>
@@ -328,7 +328,7 @@ export function DebugPanel() {
                   {expandedSections.has('performance') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </CollapsibleTrigger>
                 <CollapsibleContent className="px-6 py-2">
-                  <pre className="text-xs bg-muted p-3 rounded overflow-auto">
+                  <pre className="text-xs bg-muted p-3 rounded overflow-auto text-foreground">
                     {JSON.stringify(debugInfo?.performance, null, 2)}
                   </pre>
                 </CollapsibleContent>
