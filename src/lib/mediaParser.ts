@@ -41,7 +41,7 @@ const mediaPatterns = {
   dailymotion: /(?:dailymotion\.com\/video\/|dai\.ly\/)([a-zA-Z0-9]+)/gi,
   tiktok: /(?:tiktok\.com\/@[\w.-]+\/video\/|vm\.tiktok\.com\/)([a-zA-Z0-9]+)/gi,
   spotify: /(?:open\.spotify\.com\/)(track|album|playlist|artist|show|episode)\/([a-zA-Z0-9]+)/gi,
-  instagram: /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/(?:p|reel)\/([A-Za-z0-9_-]+)(?:\/|\?[^\s]*)?/gi,
+  instagram: /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/(?:p|reel)\/([A-Za-z0-9_-]+)(?:\/?|\?[^\s]*)?/gi,
   twitter: /(?:twitter\.com|x\.com)\/[a-zA-Z0-9_]+\/status\/([0-9]+)/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
@@ -1019,8 +1019,8 @@ function extractInstagramId(url: string): string {
     // Handle various Instagram URL formats including www subdomains and both p/ and reel/
     // Updated pattern to handle URLs with query parameters properly
     const patterns = [
-      /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/p\/([A-Za-z0-9_-]+)/,
-      /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/reel\/([A-Za-z0-9_-]+)/,
+      /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/p\/([A-Za-z0-9_-]+)(?:\/?|\?[^\s]*)?/,
+      /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/reel\/([A-Za-z0-9_-]+)(?:\/?|\?[^\s]*)?/,
     ];
 
     for (const pattern of patterns) {

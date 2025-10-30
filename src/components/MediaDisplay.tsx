@@ -1533,8 +1533,8 @@ function extractInstagramId(url: string): string {
     // Handle various Instagram URL formats including www subdomains and both p/ and reel/
     // Updated pattern to handle URLs with query parameters properly
     const patterns = [
-      /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/p\/([A-Za-z0-9_-]+)/,
-      /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/reel\/([A-Za-z0-9_-]+)/,
+      /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/p\/([A-Za-z0-9_-]+)(?:\/?|\?[^\s]*)?/,
+      /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/reel\/([A-Za-z0-9_-]+)(?:\/?|\?[^\s]*)?/,
     ];
 
     for (const pattern of patterns) {
