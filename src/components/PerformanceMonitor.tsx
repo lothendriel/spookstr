@@ -186,10 +186,14 @@ export function PerformanceMonitor() {
     return () => {
       console.log('🛑 [Performance Monitor] Cleaning up performance tracking...');
 
-      // Disconnect all observers
+      // Disconnect all observers with aggressive cleanup
       observersRef.current.forEach(observer => {
         try {
           observer.disconnect();
+          // @ts-ignore - some browsers may have this method
+          if ('takeRecords' in observer) {
+            (observer as any).takeRecords();
+          }
         } catch (e) {
           console.debug('[Performance Monitor] Error disconnecting observer:', e);
         }

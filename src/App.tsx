@@ -31,6 +31,7 @@ import { SpookstrProfileSync } from '@/components/SpookstrProfileSync';
 import { PerformanceMonitor } from '@/components/PerformanceMonitor';
 import { DebugPanel } from '@/components/DebugPanel';
 import { CompactOfflineIndicator } from '@/components/OfflineIndicator';
+import { useMemoryMonitor } from '@/hooks/useMemoryMonitor';
 
 const head = createHead({
   plugins: [
@@ -80,6 +81,9 @@ const presetRelays = [
 ];
 
 export function App() {
+  // Enable global memory monitoring
+  useMemoryMonitor();
+
   return (
     <UnheadProvider head={head}>
       <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={presetRelays}>

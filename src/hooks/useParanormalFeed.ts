@@ -10,7 +10,8 @@ import {
   filterForMainFeed
 } from '@/lib/contentType';
 
-const PARANORMAL_TAGS = [
+// Move large constant arrays to functions to prevent permanent memory retention
+const getParanormalTags = () => [
   'paranormal',
   'haunted',
   'ghost',
@@ -97,15 +98,17 @@ const PARANORMAL_TAGS = [
   'magick'
 ];
 
-// Decode the npub to get the correct hex pubkey
-const blockedNpub = 'npub1uhen8835huh3dhgrcck266ad3fxj02dhwmeh6eg3txp7yz2j64xs7nh4p0';
-const decoded = nip19.decode(blockedNpub);
-const blockedHexPubkey = decoded.data;
+const getBlockedPubkeys = () => {
+  // Decode the npub to get the correct hex pubkey
+  const blockedNpub = 'npub1uhen8835huh3dhgrcck266ad3fxj02dhwmeh6eg3txp7yz2j64xs7nh4p0';
+  const decoded = nip19.decode(blockedNpub);
+  const blockedHexPubkey = decoded.data;
 
-// List of blocked pubkeys (hex format) to filter out from the feed
-const BLOCKED_PUBKEYS = [
-  blockedHexPubkey, // npub1uhen8835huh3dhgrcck266ad3fxj02dhwmeh6eg3txp7yz2j64xs7nh4p0
-];
+  // List of blocked pubkeys (hex format) to filter out from the feed
+  return [
+    blockedHexPubkey, // npub1uhen8835huh3dhgrcck266ad3fxj02dhwmeh6eg3txp7yz2j64xs7nh4p0
+  ];
+};
 
 /**
  * Filters out events from blocked users
@@ -113,6 +116,7 @@ const BLOCKED_PUBKEYS = [
  * @returns Array of events that aren't from blocked users
  */
 export function filterBlockedUsers(events: NostrEvent[]): NostrEvent[] {
+  const BLOCKED_PUBKEYS = getBlockedPubkeys();
   return events.filter(event => !BLOCKED_PUBKEYS.includes(event.pubkey));
 }
 
@@ -122,6 +126,9 @@ export function filterBlockedUsers(events: NostrEvent[]): NostrEvent[] {
  * @returns Array of events with reposts filtered by paranormal tags
  */
 export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
+  const PARANORMAL_TAGS = getParanormalTags();
+  const paranormalTagsSet = new Set(PARANORMAL_TAGS);
+
   return events.filter(event => {
     // Non-reposts pass through without filtering
     if (event.kind !== 6) {
@@ -135,7 +142,7 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
       // Check if any of the reposted event's tags match our paranormal tags
       const hasTags = repostedEvent.tags.some(([tagName, tagValue]) => {
         if (tagName === 't' && tagValue) {
-          return PARANORMAL_TAGS.includes(tagValue.toLowerCase());
+          return paranormalTagsSet.has(tagValue.toLowerCase());
         }
         return false;
       });
@@ -154,10 +161,54 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
 export function useParanormalFeed() {
   const { nostr } = useNostr();
 
+  // Cache filter function creation to avoid recreating on every render
+  const filterFunctions = useMemo(() => {
+    const BLOCKED_PUBKEYS = getBlockedPubkeys();
+    const blockedSet = new Set(BLOCKED_PUBKEYS);
+
+    const filterBlockedUsersCached = (events: NostrEvent[]) => {
+      return events.filter(event => !blockedSet.has(event.pubkey));
+    };
+
+    const PARANORMAL_TAGS = getParanormalTags();
+    const paranormalTagsSet = new Set(PARANORMAL_TAGS);
+
+    const filterRepostsByTagsCached = (events: NostrEvent[]) => {
+      return events.filter(event => {
+        // Non-reposts pass through without filtering
+        if (event.kind !== 6) {
+          return true;
+        }
+
+        // For reposts, check if the reposted content has paranormal tags
+        try {
+          const repostedEvent = JSON.parse(event.content) as NostrEvent;
+
+          // Check if any of the reposted event's tags match our paranormal tags
+          const hasTags = repostedEvent.tags.some(([tagName, tagValue]) => {
+            if (tagName === 't' && tagValue) {
+              return paranormalTagsSet.has(tagValue.toLowerCase());
+            }
+            return false;
+          });
+
+          return hasTags;
+        } catch (e) {
+          // If we can't parse the repost, exclude it
+          console.warn('Failed to parse repost content:', e);
+          return false;
+        }
+      });
+    };
+
+    return { filterBlockedUsersCached, filterRepostsByTagsCached };
+  }, []);
+
   return useQuery({
     queryKey: ['paranormal-feed'],
     queryFn: async (c) => {
       return await perfLogger.timeAsync('Feed Query', async () => {
+        const PARANORMAL_TAGS = getParanormalTags();
         feedLogger.info('Starting paranormal feed query', { tagCount: PARANORMAL_TAGS.length });
 
         const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
@@ -199,11 +250,11 @@ export function useParanormalFeed() {
         feedLogger.debug('After NSFW filter', { count: filteredEvents.length, filtered: events.length - filteredEvents.length });
 
         // Filter out blocked users
-        filteredEvents = filterBlockedUsers(filteredEvents);
+        filteredEvents = filterFunctions.filterBlockedUsersCached(filteredEvents);
         feedLogger.debug('After blocked users filter', { count: filteredEvents.length });
 
         // Filter reposts to only include those with paranormal tags
-        filteredEvents = filterRepostsByTags(filteredEvents);
+        filteredEvents = filterFunctions.filterRepostsByTagsCached(filteredEvents);
         feedLogger.debug('After repost tag filter', { count: filteredEvents.length });
 
         // Sort by created_at (newest first)
@@ -245,6 +296,16 @@ export function useParanormalFeed() {
 export function useParanormalReplies(noteId: string) {
   const { nostr } = useNostr();
 
+  // Cache filter function for replies to avoid recreating on every render
+  const filterBlockedUsersForReplies = useMemo(() => {
+    const BLOCKED_PUBKEYS = getBlockedPubkeys();
+    const blockedSet = new Set(BLOCKED_PUBKEYS);
+
+    return (events: NostrEvent[]) => {
+      return events.filter(event => !blockedSet.has(event.pubkey));
+    };
+  }, []);
+
   return useQuery({
     queryKey: ['paranormal-replies', noteId],
     queryFn: async (c) => {
@@ -260,7 +321,7 @@ export function useParanormalReplies(noteId: string) {
       let filteredEvents = filterNSFWContent(events);
 
       // Filter out blocked users from replies
-      filteredEvents = filterBlockedUsers(filteredEvents);
+      filteredEvents = filterBlockedUsersForReplies(filteredEvents);
 
       return filteredEvents;
     },

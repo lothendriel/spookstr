@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSeoMeta } from '@unhead/react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useParanormalFeed } from '@/hooks/useParanormalFeed';
@@ -11,6 +11,7 @@ import { RedditParanormalFeed } from '@/components/RedditParanormalFeed';
 import { DeveloperTip } from '@/components/DeveloperTip';
 import { PostDetailView } from '@/components/PostDetailView';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
+import { FeedContent } from '@/components/FeedContent';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Button } from '@/components/ui/button';
 import { RotateCcw, Ghost, Plus } from 'lucide-react';
@@ -72,16 +73,19 @@ const Index = () => {
     }
   }, [posts]);
 
-  const handleRefresh = () => {
-    // Refetch paranormal feed and reset pagination
+  // Memoize event handlers to prevent unnecessary re-renders
+  const handleRefresh = useCallback(() => {
     setPostsToShow(12);
     refetch();
-  };
+  }, [refetch]);
 
-  const handleLoadMore = () => {
-    // Load 12 more posts
+  const handleLoadMore = useCallback(() => {
     setPostsToShow(prev => prev + 12);
-  };
+  }, []);
+
+  const handlePostClick = useCallback((post: NostrEvent) => {
+    setSelectedPost(post);
+  }, []);
 
   if (selectedPost) {
     return (
@@ -177,15 +181,12 @@ const Index = () => {
 
             {!isLoading && !error && posts && posts.length > 0 && (
               <div className="space-y-4">
-                {/* Show limited number of posts with "Load More" functionality */}
-                {posts.slice(0, postsToShow).map((post) => (
-                  <ParanormalPost
-                    key={post.id}
-                    event={post}
-                    onClick={() => setSelectedPost(post)}
-                    showActions={true}
-                  />
-                ))}
+                {/* Use memoized FeedContent component for better performance */}
+                <FeedContent
+                  posts={posts}
+                  postsToShow={postsToShow}
+                  onPostClick={handlePostClick}
+                />
 
                 {/* Load More Button - Shown on all devices when more posts available */}
                 {postsToShow < posts.length && (

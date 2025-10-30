@@ -23,6 +23,22 @@ const CLEANUP_INTERVAL = 300000;
 let cleanupTimer: NodeJS.Timeout | null = null;
 
 /**
+ * Complete cleanup function for all realtime subscriptions.
+ * Call this when the app is shutting down or when memory needs to be freed.
+ */
+export const cleanupAllRealtimeSubscriptions = () => {
+  console.log('[Realtime Updates] Cleaning up all subscriptions');
+  for (const [key, info] of activeSubscriptions.entries()) {
+    info.abortController?.abort();
+  }
+  activeSubscriptions.clear();
+  if (cleanupTimer) {
+    clearInterval(cleanupTimer);
+    cleanupTimer = null;
+  }
+};
+
+/**
  * Enhanced real-time interaction updates hook.
  * Uses a SINGLE shared subscription per set of event IDs to prevent connection overload.
  * Features:
