@@ -28,7 +28,7 @@ export function PerformanceMonitor() {
 
   useEffect(() => {
     // Only run in development mode
-    if (!import.meta.env.DEV) return;
+    if (import.meta.env.PROD) return;
 
     console.log('🚀 [Performance Monitor] Starting performance tracking...');
 
@@ -36,7 +36,7 @@ export function PerformanceMonitor() {
     const reportMetric = (name: string, value: number, unit = 'ms') => {
       const rounded = Math.round(value * 100) / 100;
       console.log(`📊 [Performance] ${name}: ${rounded}${unit}`);
-      
+
       // Store in ref for potential future use
       const key = name.toLowerCase().replace(/\s+/g, '') as keyof PerformanceMetrics;
       metricsRef.current[key] = rounded;
@@ -98,15 +98,15 @@ export function PerformanceMonitor() {
           const entries = list.getEntries();
           for (const entry of entries) {
             const navigationEntry = entry as PerformanceNavigationTiming;
-            
+
             // Time to First Byte
             const ttfb = navigationEntry.responseStart - navigationEntry.requestStart;
             reportMetric('Time to First Byte (TTFB)', ttfb);
-            
+
             // DOM Content Loaded
             const dcl = navigationEntry.domContentLoadedEventEnd - navigationEntry.domContentLoadedEventStart;
             reportMetric('DOM Content Loaded', dcl);
-            
+
             // Load Complete
             const loadComplete = navigationEntry.loadEventEnd - navigationEntry.loadEventStart;
             reportMetric('Load Complete', loadComplete);
@@ -126,9 +126,9 @@ export function PerformanceMonitor() {
             const resourceEntry = entry as PerformanceResourceTiming;
             return resourceEntry.transferSize > 1000000; // > 1MB resources
           });
-          
+
           if (largeResources.length > 0) {
-            console.log('📦 [Performance] Large resources detected:', 
+            console.log('📦 [Performance] Large resources detected:',
               largeResources.map(entry => ({
                 name: entry.name.split('/').pop(),
                 size: Math.round(((entry as PerformanceResourceTiming).transferSize || 0) / 1024) + 'KB',
@@ -170,7 +170,7 @@ export function PerformanceMonitor() {
           return total;
         }
       }, 0);
-      
+
       if (cacheSize > 0) {
         console.log('💾 [Performance] Cache Stats:', {
           keys: cacheKeys.length,
@@ -185,7 +185,7 @@ export function PerformanceMonitor() {
     // Cleanup function
     return () => {
       console.log('🛑 [Performance Monitor] Cleaning up performance tracking...');
-      
+
       // Disconnect all observers
       observersRef.current.forEach(observer => {
         try {
@@ -194,10 +194,10 @@ export function PerformanceMonitor() {
           console.debug('[Performance Monitor] Error disconnecting observer:', e);
         }
       });
-      
+
       // Clear intervals
       clearInterval(memoryInterval);
-      
+
       // Log final metrics summary
       const finalMetrics = metricsRef.current;
       if (Object.keys(finalMetrics).length > 0) {
@@ -246,7 +246,7 @@ export function withPerformanceTracking<T extends object>(
 
   const WrappedComponent = (props: T) => {
     const { start, end } = usePerformanceMetric(`${componentName || Component.name} Render`);
-    
+
     useEffect(() => {
       start();
       return () => {

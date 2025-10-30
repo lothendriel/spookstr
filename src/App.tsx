@@ -43,7 +43,7 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false, // Individual hooks control their own window focus behavior
       staleTime: 60000, // 1 minute default - individual hooks override as needed
-      gcTime: 600000, // 10 minutes - keep data cached longer for better UX
+      gcTime: 300000, // 5 minutes - reduced from 10 minutes to save memory
       retry: 1, // Reduce retries for faster failure recovery
       refetchOnMount: false, // Prevent unnecessary refetches
       // Enhanced default behavior: No background refetch unless explicitly set

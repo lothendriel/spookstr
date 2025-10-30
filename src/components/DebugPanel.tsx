@@ -8,13 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Bug, 
-  Database, 
-  Network, 
-  User, 
-  Settings, 
-  ChevronDown, 
+import {
+  Bug,
+  Database,
+  Network,
+  User,
+  Settings,
+  ChevronDown,
   ChevronRight,
   Trash2,
   RefreshCw,
@@ -40,19 +40,19 @@ export function DebugPanel() {
   const [isVisible, setIsVisible] = useState(false);
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
-  
+
   const queryClient = useQueryClient();
   const { user } = useCurrentUser();
   const { config } = useAppContext();
 
   // Don't render in production
-  if (!import.meta.env.DEV) return null;
+  if (import.meta.env.PROD) return null;
 
   // Collect debug information
   const collectDebugInfo = () => {
     const queryCache = queryClient.getQueryCache();
     const queries = queryCache.getAll();
-    
+
     // Get localStorage info
     const localStorageInfo = {
       keys: Object.keys(localStorage),
@@ -118,8 +118,11 @@ export function DebugPanel() {
   useEffect(() => {
     if (isVisible) {
       collectDebugInfo();
-      const interval = setInterval(collectDebugInfo, 2000); // Update every 2 seconds
-      return () => clearInterval(interval);
+      const interval = setInterval(collectDebugInfo, 5000); // Reduced frequency from 2s to 5s
+      return () => {
+        clearInterval(interval);
+        setDebugInfo(null); // Clear debug info when hidden
+      };
     }
   }, [isVisible, user, config]);
 
@@ -192,14 +195,14 @@ export function DebugPanel() {
             </div>
           </div>
         </CardHeader>
-        
+
         <CardContent className="pt-0">
           <ScrollArea className="h-[60vh]">
             <div className="space-y-4">
-              
+
               {/* User Info */}
               <Collapsible>
-                <CollapsibleTrigger 
+                <CollapsibleTrigger
                   className="flex items-center justify-between w-full p-2 hover:bg-muted rounded"
                   onClick={() => toggleSection('user')}
                 >
@@ -223,7 +226,7 @@ export function DebugPanel() {
 
               {/* App Config */}
               <Collapsible>
-                <CollapsibleTrigger 
+                <CollapsibleTrigger
                   className="flex items-center justify-between w-full p-2 hover:bg-muted rounded"
                   onClick={() => toggleSection('config')}
                 >
@@ -244,7 +247,7 @@ export function DebugPanel() {
 
               {/* Query Cache */}
               <Collapsible>
-                <CollapsibleTrigger 
+                <CollapsibleTrigger
                   className="flex items-center justify-between w-full p-2 hover:bg-muted rounded"
                   onClick={() => toggleSection('cache')}
                 >
@@ -274,7 +277,7 @@ export function DebugPanel() {
 
               {/* Local Storage */}
               <Collapsible>
-                <CollapsibleTrigger 
+                <CollapsibleTrigger
                   className="flex items-center justify-between w-full p-2 hover:bg-muted rounded"
                   onClick={() => toggleSection('storage')}
                 >
@@ -314,7 +317,7 @@ export function DebugPanel() {
 
               {/* Performance */}
               <Collapsible>
-                <CollapsibleTrigger 
+                <CollapsibleTrigger
                   className="flex items-center justify-between w-full p-2 hover:bg-muted rounded"
                   onClick={() => toggleSection('performance')}
                 >

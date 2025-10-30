@@ -160,11 +160,11 @@ export function useParanormalFeed() {
           {
             kinds: [1],
             '#t': PARANORMAL_TAGS,
-            limit: 50,
+            limit: 30, // Reduced from 50 to save memory
           },
           {
             kinds: [6], // Include reposts
-            limit: 50,
+            limit: 20, // Reduced from 50 to save memory
           }
         ], { signal });
 
@@ -198,7 +198,7 @@ export function useParanormalFeed() {
     },
     refetchOnWindowFocus: false,
     staleTime: 60000, // 1 minute - consider data fresh for this period
-    gcTime: 600000, // 10 minutes - keep in cache longer for better UX
+    gcTime: 300000, // 5 minutes - reduced from 10 minutes to save memory
     retry: 1,
     // Enhanced caching: Background refetch every 5 minutes when tab is active
     refetchInterval: (data, query) => {

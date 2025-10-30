@@ -77,12 +77,16 @@ export function useRealtimeInteractionUpdates(eventIds: string[]) {
     };
   }, [eventIds.join(','), nostr, queryClient]);
 
-  // Cleanup flush timer on unmount
+  // Cleanup flush timer and queues on unmount
   useEffect(() => {
     return () => {
       if (flushTimerRef.current) {
         clearInterval(flushTimerRef.current);
+        flushTimerRef.current = null;
       }
+      // Clear any pending updates to prevent memory leaks
+      updateQueueRef.current.clear();
+      lastUpdateRef.current.clear();
     };
   }, []);
 }

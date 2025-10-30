@@ -29,7 +29,7 @@ export function useBatchInteractions(eventIds: string[]) {
       const events = await nostr.query([{
         kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
         '#e': eventIds,
-        limit: 1000, // Higher limit to capture interactions for multiple posts
+        limit: 500, // Reduced limit to prevent memory overload
       }], { signal });
 
       // Group interactions by event ID
