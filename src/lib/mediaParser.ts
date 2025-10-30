@@ -92,14 +92,15 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   console.log('🔍 Parsing content:', content.substring(0, 300));
 
   // Process YouTube URLs first
+  // Create a new RegExp instance to avoid shared state issues
+  const youtubeRegex = new RegExp(mediaPatterns.youtube.source, mediaPatterns.youtube.flags);
   let youtubeMatch;
-  const youtubeRegex = mediaPatterns.youtube;
-  youtubeRegex.lastIndex = 0; // Reset regex state
 
   while ((youtubeMatch = youtubeRegex.exec(content)) !== null) {
     const url = youtubeMatch[0];
     const normalizedUrl = normalizeUrl(url);
     if (!processedUrls.has(normalizedUrl)) {
+      console.log('✅ Matched as youtube:', url);
       const mediaItem = createMediaItem(url, 'youtube', youtubeMatch);
       if (mediaItem) {
         mediaItems.push(mediaItem);
@@ -114,8 +115,10 @@ export function parseMediaFromContent(content: string): MediaItem[] {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
 
+    // Create a new RegExp instance to avoid shared state issues
+    const regex = new RegExp(pattern.source, pattern.flags);
     let match;
-    while ((match = pattern.exec(content)) !== null) {
+    while ((match = regex.exec(content)) !== null) {
       const url = match[0];
       const normalizedUrl = normalizeUrl(url);
       if (!processedUrls.has(normalizedUrl)) {
@@ -132,8 +135,10 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   // Process image hosting services last (only if not already caught by directImage)
   const imageHostingPattern = mediaPatterns.imageHosting;
   if (imageHostingPattern) {
+    // Create a new RegExp instance to avoid shared state issues
+    const regex = new RegExp(imageHostingPattern.source, imageHostingPattern.flags);
     let match;
-    while ((match = imageHostingPattern.exec(content)) !== null) {
+    while ((match = regex.exec(content)) !== null) {
       const url = match[0];
       const normalizedUrl = normalizeUrl(url);
       if (!processedUrls.has(normalizedUrl)) {
@@ -150,8 +155,10 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   // Process website links last (excluding already processed URLs)
   const websitePattern = mediaPatterns.website;
   if (websitePattern) {
+    // Create a new RegExp instance to avoid shared state issues
+    const regex = new RegExp(websitePattern.source, websitePattern.flags);
     let match;
-    while ((match = websitePattern.exec(content)) !== null) {
+    while ((match = regex.exec(content)) !== null) {
       const url = match[0];
       const normalizedUrl = normalizeUrl(url);
 
