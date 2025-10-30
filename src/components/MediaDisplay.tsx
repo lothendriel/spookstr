@@ -1012,51 +1012,32 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
 
         return (
           <div className="relative rounded-lg overflow-hidden bg-black group">
-            {/* Fallback overlay for iframe loading errors */}
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-              <div className="text-center p-6">
-                <div className="text-white/80 text-sm mb-3">Video player loading...</div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-white/30 text-white hover:bg-white/10"
-                  onClick={() => window.open(media.url, '_blank')}
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Watch on YouTube
-                </Button>
-              </div>
-            </div>
-
-            {/* YouTube iframe with enhanced parameters */}
+            {/* YouTube iframe with simplified, reliable parameters */}
             <div className="relative pb-[56.25%] h-0">
               <iframe
                 className="absolute top-0 left-0 w-full h-full rounded-lg"
-                src={`https://www.youtube.com/embed/${videoId}?enablejsapi=1&modestbranding=1&rel=0&showinfo=0&origin=${encodeURIComponent(window.location.origin)}`}
+                src={`https://www.youtube-nocookie.com/embed/${videoId}`}
                 title={media.title || 'YouTube Video'}
                 frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
                 loading="lazy"
                 onError={(e) => {
                   console.warn('YouTube iframe failed to load:', e);
-                  // Fallback to opening in new tab if embed fails
-                  setTimeout(() => {
-                    if (confirm('YouTube video failed to load. Open in new tab?')) {
-                      window.open(media.url, '_blank');
-                    }
-                  }, 100);
+                  console.log('🎬 YouTube video ID:', videoId);
+                  console.log('🎬 YouTube URL:', media.url);
                 }}
               />
             </div>
 
-            {/* External link button */}
-            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            {/* Simple external link button */}
+            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <Button
                 size="sm"
                 variant="ghost"
                 className="h-8 w-8 p-0 text-white hover:bg-white/20 bg-black/60 backdrop-blur-sm"
                 onClick={() => window.open(media.url, '_blank')}
+                title="Watch on YouTube"
               >
                 <ExternalLink className="h-4 w-4" />
               </Button>
@@ -1325,13 +1306,13 @@ function extractYouTubeId(url: string): string {
   try {
     console.log('🎬 Extracting YouTube ID from:', url);
 
-    // Handle various YouTube URL formats
+    // Handle various YouTube URL formats including www subdomains
     const patterns = [
-      /youtube\.com\/watch[?]v=([a-zA-Z0-9_-]{11})/,
+      /(?:www\.youtube\.com|youtube\.com)\/watch[?]v=([a-zA-Z0-9_-]{11})/,
       /youtu\.be\/([a-zA-Z0-9_-]{11})/,
-      /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
-      /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
-      /youtube\.com\/live\/([a-zA-Z0-9_-]{11})/,
+      /(?:www\.youtube\.com|youtube\.com)\/embed\/([a-zA-Z0-9_-]{11})/,
+      /(?:www\.youtube\.com|youtube\.com)\/shorts\/([a-zA-Z0-9_-]{11})/,
+      /(?:www\.youtube\.com|youtube\.com)\/live\/([a-zA-Z0-9_-]{11})/,
     ];
 
     for (const pattern of patterns) {
