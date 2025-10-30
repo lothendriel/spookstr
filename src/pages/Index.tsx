@@ -32,8 +32,29 @@ const Index = () => {
 
   // Memoize visible post IDs to prevent unnecessary re-renders
   const visiblePostIds = useMemo(() => {
-    if (!posts) return [];
-    return posts.slice(0, postsToShow).map(post => post.id);
+    if (!posts) {
+      console.log('[Index] No posts available, returning empty visiblePostIds');
+      return [];
+    }
+    const ids = posts.slice(0, postsToShow).map(post => {
+      // For reposts, use the original event ID for interaction queries
+      if (post.kind === 6 || post.kind === 16) {
+        try {
+          const repostedEvent = JSON.parse(post.content);
+          if (repostedEvent?.id) {
+            console.log('[Index] Repost detected, using original event ID:', repostedEvent.id.slice(0, 8), 'for repost event ID:', post.id.slice(0, 8));
+            return repostedEvent.id;
+          }
+        } catch (e) {
+          console.warn('[Index] Failed to parse repost content, using repost event ID:', post.id.slice(0, 8), e);
+          return post.id;
+        }
+      }
+      return post.id;
+    });
+
+    console.log('[Index] Visible post IDs:', ids.map(id => id.slice(0, 8)), '(total:', ids.length, ')');
+    return ids;
   }, [posts, postsToShow]);
 
   // Batch fetch interactions for all visible posts

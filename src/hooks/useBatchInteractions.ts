@@ -27,6 +27,8 @@ export function useBatchInteractions(eventIds: string[]) {
   const { config } = useAppContext();
   const queryClient = useQueryClient();
 
+  console.log('[Batch Interactions] Hook called with eventIds:', eventIds.map(id => id.slice(0, 8)));
+
   const { data: batchData, isLoading, error } = useQuery({
     queryKey: ['batch-interactions', eventIds.sort().join(',')],
     queryFn: async (c) => {
