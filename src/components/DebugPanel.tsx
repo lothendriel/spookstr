@@ -215,8 +215,8 @@ export function DebugPanel() {
                   </div>
                   {expandedSections.has('user') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </CollapsibleTrigger>
-                <CollapsibleContent className="px-6 py-2">
-                  <pre className="text-xs bg-muted p-3 rounded overflow-auto text-foreground">
+                <CollapsibleContent className="px-6 py-2 bg-card border rounded">
+                  <pre className="text-xs p-3 rounded overflow-auto text-foreground">
                     {JSON.stringify(debugInfo?.user || "Not logged in", null, 2)}
                   </pre>
                 </CollapsibleContent>
@@ -236,8 +236,8 @@ export function DebugPanel() {
                   </div>
                   {expandedSections.has('config') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </CollapsibleTrigger>
-                <CollapsibleContent className="px-6 py-2">
-                  <pre className="text-xs bg-muted p-3 rounded overflow-auto text-foreground">
+                <CollapsibleContent className="px-6 py-2 bg-card border rounded">
+                  <pre className="text-xs p-3 rounded overflow-auto text-foreground">
                     {JSON.stringify(debugInfo?.config, null, 2)}
                   </pre>
                 </CollapsibleContent>
@@ -260,14 +260,14 @@ export function DebugPanel() {
                   </div>
                   {expandedSections.has('cache') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </CollapsibleTrigger>
-                <CollapsibleContent className="px-6 py-2 space-y-3">
+                <CollapsibleContent className="px-6 py-2 space-y-3 bg-card border rounded">
                   <div className="flex gap-2">
                     <Button onClick={clearQueryCache} variant="destructive" size="sm">
                       <Trash2 className="h-4 w-4 mr-2" />
                       Clear Cache
                     </Button>
                   </div>
-                  <pre className="text-xs bg-muted p-3 rounded overflow-auto text-foreground">
+                  <pre className="text-xs p-3 rounded overflow-auto text-foreground bg-muted">
                     {JSON.stringify(debugInfo?.queryCache, null, 2)}
                   </pre>
                 </CollapsibleContent>
@@ -293,7 +293,7 @@ export function DebugPanel() {
                   </div>
                   {expandedSections.has('storage') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </CollapsibleTrigger>
-                <CollapsibleContent className="px-6 py-2 space-y-3">
+                <CollapsibleContent className="px-6 py-2 space-y-3 bg-card border rounded">
                   <div className="flex gap-2">
                     <Button onClick={clearLocalStorage} variant="destructive" size="sm">
                       <Trash2 className="h-4 w-4 mr-2" />
@@ -301,7 +301,7 @@ export function DebugPanel() {
                     </Button>
                   </div>
                   <div className="space-y-2">
-                    <div className="text-sm font-medium">Storage Keys:</div>
+                    <div className="text-sm font-medium text-foreground">Storage Keys:</div>
                     <div className="flex flex-wrap gap-1">
                       {debugInfo?.localStorage?.keys?.map((key: string) => (
                         <Badge key={key} variant="outline" className="text-xs">
@@ -327,8 +327,8 @@ export function DebugPanel() {
                   </div>
                   {expandedSections.has('performance') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </CollapsibleTrigger>
-                <CollapsibleContent className="px-6 py-2">
-                  <pre className="text-xs bg-muted p-3 rounded overflow-auto text-foreground">
+                <CollapsibleContent className="px-6 py-2 bg-card border rounded">
+                  <pre className="text-xs p-3 rounded overflow-auto text-foreground bg-muted">
                     {JSON.stringify(debugInfo?.performance, null, 2)}
                   </pre>
                 </CollapsibleContent>
