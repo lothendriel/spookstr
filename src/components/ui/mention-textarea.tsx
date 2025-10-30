@@ -3,12 +3,18 @@ import { cn } from "@/lib/utils";
 import { useUserSearch, type SearchableUser } from "@/hooks/useUserSearch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { nip19 } from "nostr-tools";
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
+import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
+import { Smile } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 
 export interface MentionTextareaProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   onMentionSelect?: (user: SearchableUser) => void;
+  showEmojiPicker?: boolean;
 }
 
 export interface MentionData {
@@ -18,13 +24,15 @@ export interface MentionData {
 }
 
 const MentionTextarea = React.forwardRef<HTMLTextAreaElement, MentionTextareaProps>(
-  ({ className, onMentionSelect, onChange, ...props }, ref) => {
+  ({ className, onMentionSelect, onChange, showEmojiPicker = true, ...props }, ref) => {
     const [isOpen, setIsOpen] = React.useState(false);
     const [mentionQuery, setMentionQuery] = React.useState("");
     const [cursorPosition, setCursorPosition] = React.useState(0);
     const [selectedIndex, setSelectedIndex] = React.useState(0);
+    const [emojiPickerOpen, setEmojiPickerOpen] = React.useState(false);
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
     const { searchUsers, users, clearSearch } = useUserSearch();
+    const { theme } = useTheme();
 
     // Use forwarded ref or internal ref
     const inputRef = ref || textareaRef;
@@ -133,6 +141,38 @@ const MentionTextarea = React.forwardRef<HTMLTextAreaElement, MentionTextareaPro
       onMentionSelect?.(user);
     };
 
+    // Handle emoji selection
+    const handleEmojiSelect = (emojiData: EmojiClickData) => {
+      if (!inputRef || !('current' in inputRef) || !inputRef.current) return;
+
+      const textarea = inputRef.current;
+      const value = textarea.value;
+      const start = textarea.selectionStart || 0;
+      const end = textarea.selectionEnd || 0;
+
+      // Insert emoji at cursor position
+      const beforeCursor = value.slice(0, start);
+      const afterCursor = value.slice(end);
+      const newValue = `${beforeCursor}${emojiData.emoji}${afterCursor}`;
+
+      // Update textarea value
+      textarea.value = newValue;
+
+      // Position cursor after the emoji
+      const newCursorPos = start + emojiData.emoji.length;
+      setTimeout(() => {
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+        textarea.focus();
+      }, 0);
+
+      // Trigger change event
+      const event = new Event('input', { bubbles: true });
+      textarea.dispatchEvent(event);
+
+      // Close emoji picker
+      setEmojiPickerOpen(false);
+    };
+
     // Close dropdown when clicking outside
     React.useEffect(() => {
       const closeDropdown = () => {
@@ -148,17 +188,54 @@ const MentionTextarea = React.forwardRef<HTMLTextAreaElement, MentionTextareaPro
 
     return (
       <div className="relative">
-        <textarea
-          className={cn(
-            "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-            className
-          )}
-          ref={inputRef}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          {...props}
-        />
+        <div className="relative">
+          <textarea
+            className={cn(
+              "flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+              showEmojiPicker && "pr-12", // Add padding for emoji button
+              className
+            )}
+            ref={inputRef}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            {...props}
+          />
 
+          {/* Emoji Picker Button */}
+          {showEmojiPicker && (
+            <div className="absolute top-2 right-2">
+              <Popover open={emojiPickerOpen} onOpenChange={setEmojiPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 hover:bg-accent"
+                    disabled={props.disabled}
+                  >
+                    <Smile className="h-4 w-4" />
+                    <span className="sr-only">Add emoji</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-auto p-0 border-0"
+                  align="end"
+                  side="top"
+                  sideOffset={8}
+                >
+                  <EmojiPicker
+                    onEmojiClick={handleEmojiSelect}
+                    theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
+                    autoFocusSearch={false}
+                    lazyLoadEmojis={true}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+        </div>
+
+        {/* Mention Dropdown */}
         {isOpen && users.length > 0 && (
           <div
             className="absolute z-50 w-80 mt-1 bg-popover border border-border rounded-md shadow-lg"

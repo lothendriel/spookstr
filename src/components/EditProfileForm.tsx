@@ -15,7 +15,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { Switch } from '@/components/ui/switch';
 import { Loader2, Upload } from 'lucide-react';
 import { NSchema as n, type NostrMetadata } from '@nostrify/nostrify';
@@ -153,14 +153,14 @@ export const EditProfileForm: React.FC = () => {
             <FormItem>
               <FormLabel>Bio</FormLabel>
               <FormControl>
-                <Textarea
-                  placeholder="Tell others about yourself"
+                <MentionTextarea
+                  placeholder="Tell others about yourself... (Type @ to mention someone or 😀 for emojis)"
                   className="resize-none"
                   {...field}
                 />
               </FormControl>
               <FormDescription>
-                A short description about yourself.
+                A short description about yourself. You can use emojis and mention other users.
               </FormDescription>
               <FormMessage />
             </FormItem>
