@@ -141,28 +141,26 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
     // Create a wrapper that stores relay hints from all query results
     const originalQuery = basePool.query.bind(basePool);
+
+    // Override the query method to store relay hints
+    basePool.query = async (filters, opts?) => {
+      const events = await originalQuery(filters, opts);
+
+      // Store relay hints from all discovered events
+      for (const event of events) {
+        relayHintCache.storeHints(event);
+      }
+
+      return events;
+    };
+
+    // Store the original req method and override it
     const originalReq = basePool.req.bind(basePool);
+    basePool.req = (filters, opts) => {
+      const subscription = originalReq(filters, opts);
 
-    pool.current = {
-      ...basePool,
-
-      // Intercept query method to store relay hints
-      query: async (filters, opts?) => {
-        const events = await originalQuery(filters, opts);
-
-        // Store relay hints from all discovered events
-        for (const event of events) {
-          relayHintCache.storeHints(event);
-        }
-
-        return events;
-      },
-
-      // Intercept req method to store relay hints from subscription results
-      req: (filters, opts) => {
-        const subscription = originalReq(filters, opts);
-
-        // Wrap the subscription to intercept events
+      // Wrap the subscription to intercept events
+      if (subscription && typeof subscription.on === 'function') {
         const originalOn = subscription.on.bind(subscription);
         subscription.on = (eventName, callback) => {
           if (eventName === 'event') {
@@ -175,10 +173,12 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
           }
           return originalOn(eventName, callback);
         };
+      }
 
-        return subscription;
-      },
-    } as typeof basePool;
+      return subscription;
+    };
+
+    pool.current = basePool;
   }
 
   return (
