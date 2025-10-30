@@ -191,13 +191,7 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff capped at 5s
   });
 
-  // Log state changes for debugging
-  console.log(`[Realtime Interactions] State for ${eventId.slice(0, 8)}:`, {
-    isLoading,
-    hasData: !!initialCounts,
-    data: initialCounts,
-    error: error?.message
-  });
+
 
   return {
     data: initialCounts,

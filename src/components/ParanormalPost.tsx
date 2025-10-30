@@ -102,15 +102,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const commentCount = interactionCounts?.comments || 0;
   const zapCount = interactionCounts?.zaps || 0;
 
-  // Log interaction data for debugging (only in development)
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[ParanormalPost] Interactions for ${interactionEventId.slice(0, 8)}:`, {
-      isLoading: isLoadingCounts,
-      error: interactionError?.message,
-      counts: interactionCounts,
-      totalInteractions: likeCount + repostCount + commentCount + zapCount
-    });
-  }
+
 
   // Get metadata for the reposter
   const reposterMetadata = author.data?.metadata;
@@ -127,14 +119,11 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   // Check if author has lightning address for zapping
   const hasLightningAddress = originalAuthorMetadata?.lud16 || originalAuthorMetadata?.lud06;
 
-  // Check if this post is from the current user
-  const isOwnPost = user?.pubkey === displayEvent.pubkey;
+  // Show zap button if author has lightning address
+  const shouldShowZapButton = hasLightningAddress;
 
-  // Determine if we should show zap button (not on own posts, but author needs lightning address)
-  const shouldShowZapButton = !isOwnPost && hasLightningAddress;
-
-  // Always show zap count if there are zaps, regardless of who the author is
-  const shouldShowZapCount = zapCount > 0;
+  // Always show zap count
+  const shouldShowZapCount = true;
 
   // Show skeleton if not yet in view
   if (!inView) {
@@ -455,7 +444,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                     <span className="text-xs">?</span>
                   </Button>
                   {/* Always show zap count even in error state */}
-                  {(shouldShowZapCount || (!isOwnPost)) && (
+                  {shouldShowZapCount && (
                     shouldShowZapButton ? (
                       hasLightningAddress ? (
                         <ZapButton
@@ -562,36 +551,26 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                     <span className="text-xs">{commentCount}</span>
                   </Button>
 
-                  {/* Always show zap count if there are zaps, or if it's someone else's post */}
-                  {(shouldShowZapCount || (!isOwnPost && zapCount >= 0)) && (
-                    shouldShowZapButton ? (
-                      hasLightningAddress ? (
-                        <ZapButton
-                          target={event}
-                          className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-                        >
-                          <Zap className="h-4 w-4" />
-                          <span className="text-xs">{zapCount}</span>
-                        </ZapButton>
-                      ) : (
-                        <ZapDialog target={event}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
-                          >
-                            <Zap className="h-4 w-4" />
-                            <span className="text-xs">{zapCount}</span>
-                          </Button>
-                        </ZapDialog>
-                      )
-                    ) : (
-                      /* Just show zap count without button (for own posts) */
-                      <div className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 px-2 py-1">
+                  {/* Show zap button and count */}
+                  {hasLightningAddress ? (
+                    <ZapButton
+                      target={event}
+                      className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                    >
+                      <Zap className="h-4 w-4" />
+                      <span className="text-xs">{zapCount}</span>
+                    </ZapButton>
+                  ) : (
+                    <ZapDialog target={event}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                      >
                         <Zap className="h-4 w-4" />
                         <span className="text-xs">{zapCount}</span>
-                      </div>
-                    )
+                      </Button>
+                    </ZapDialog>
                   )}
                 </>
               )}
