@@ -10,10 +10,12 @@ import { NoteContent } from '@/components/NoteContent';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useState, useEffect } from 'react';
-import { useCommunity, useCommunityPosts, CommunityDefinition, CommunityPost } from '@/hooks/useCommunity';
+import { useCommunity, CommunityDefinition, CommunityPost } from '@/hooks/useCommunity';
+import { useCommunityFeed, CommunityFeedPost } from '@/hooks/useCommunityFeed';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { MessageCircle, Settings, RefreshCw, Clock } from 'lucide-react';
 import { CommunityManagement } from '@/components/CommunityManagement';
+import { CreateCommunityPost } from '@/components/CreateCommunityPost';
 
 export default function CommunityPage() {
   const { communityId } = useParams<{ communityId: string }>();
@@ -22,7 +24,7 @@ export default function CommunityPage() {
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const [showCreatePost, setShowCreatePost] = useState(false);
-  const [postContent, setPostContent] = useState('');
+
   const [showManagement, setShowManagement] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -33,45 +35,13 @@ export default function CommunityPage() {
   // Fetch community definition
   const { data: community, isLoading: communityLoading, error, refetch } = useCommunity(communityId);
 
-  // Fetch community posts
-  const { data: posts, isLoading: postsLoading } = useCommunityPosts(
+  // Fetch community posts (approved posts for regular users, all posts for moderators)
+  const { data: posts, isLoading: postsLoading } = useCommunityFeed(
     community?.id,
     community?.author
   );
 
-  const handleCreatePost = async () => {
-    if (!user || !community || !postContent.trim()) return;
 
-    try {
-      // Use kind 1111 for community posts (NIP-72 standard)
-      await createEvent({
-        event: {
-          kind: 1111,
-          content: postContent,
-          tags: [
-            // NIP-72 uppercase tags for community definition
-            ['A', `34550:${community.author}:${community.id}`],
-            ['a', `34550:${community.author}:${community.id}`],
-            ['P', community.author],
-            ['p', community.author],
-            ['K', '34550'],
-            ['k', '34550'],
-
-            // Community categorization using t tags (for discoverability)
-            ['t', 'community'],
-            ['t', 'spookstr'],
-            ['t', community.id],
-            ['t', 'paranormal']
-          ]
-        }
-      });
-
-      setPostContent('');
-      setShowCreatePost(false);
-    } catch (error) {
-      console.error('Failed to create post:', error);
-    }
-  };
 
   const handleRetry = async () => {
     setIsRetrying(true);
@@ -246,31 +216,12 @@ export default function CommunityPage() {
 
         {/* Create Post Form */}
         {showCreatePost && (
-          <Card className="mb-6 border-purple-500/20 bg-black/40 backdrop-blur-sm">
-            <CardContent className="pt-6">
-              <textarea
-                value={postContent}
-                onChange={(e) => setPostContent(e.target.value)}
-                placeholder="Share something with the community..."
-                className="w-full min-h-[100px] p-3 border border-purple-500/30 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 bg-black/20 text-purple-100 placeholder:text-purple-500/50"
-              />
-              <div className="flex justify-end gap-2 mt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowCreatePost(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreatePost}
-                  disabled={!postContent.trim() || !user}
-                  className="bg-purple-500 hover:bg-purple-400 text-black"
-                >
-                  Post
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="mb-6">
+            <CreateCommunityPost
+              community={community}
+              onSuccess={() => setShowCreatePost(false)}
+            />
+          </div>
         )}
 
         {/* Community Posts */}
@@ -303,7 +254,7 @@ export default function CommunityPage() {
   );
 }
 
-function PostCard({ post, onClick }: { post: CommunityPost; onClick: () => void }) {
+function PostCard({ post, onClick }: { post: CommunityFeedPost; onClick: () => void }) {
   const author = useAuthor(post.pubkey);
   const metadata = author.data?.metadata;
 
@@ -335,7 +286,7 @@ function PostCard({ post, onClick }: { post: CommunityPost; onClick: () => void 
               content: post.content,
               created_at: post.created_at,
               tags: post.tags,
-              kind: 1111,
+              kind: post.kind,
               sig: ''
             }}
             className="text-sm"
