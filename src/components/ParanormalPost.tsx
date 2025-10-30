@@ -90,12 +90,27 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const interactionEventId = isRepost && repostedEvent ? repostedEvent.id : event.id;
 
   // Fetch all interaction counts with real-time updates
-  const { data: interactionCounts, isLoading: isLoadingCounts, optimisticUpdate } = useRealtimeInteractions(interactionEventId);
+  const {
+    data: interactionCounts,
+    isLoading: isLoadingCounts,
+    error: interactionError,
+    optimisticUpdate
+  } = useRealtimeInteractions(interactionEventId);
 
   const likeCount = interactionCounts?.likes || 0;
   const repostCount = interactionCounts?.reposts || 0;
   const commentCount = interactionCounts?.comments || 0;
   const zapCount = interactionCounts?.zaps || 0;
+
+  // Log interaction data for debugging (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[ParanormalPost] Interactions for ${interactionEventId.slice(0, 8)}:`, {
+      isLoading: isLoadingCounts,
+      error: interactionError?.message,
+      counts: interactionCounts,
+      totalInteractions: likeCount + repostCount + commentCount + zapCount
+    });
+  }
 
   // Get metadata for the reposter
   const reposterMetadata = author.data?.metadata;
@@ -391,6 +406,65 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
                   <Skeleton className="h-8 w-8" />
                   <Skeleton className="h-8 w-8" />
                   <Skeleton className="h-8 w-8" />
+                </div>
+              ) : interactionError ? (
+                // Error state - show buttons with zero counts and retry option
+                <div className="flex items-center space-x-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLike();
+                    }}
+                    disabled={isLiking}
+                    className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                  >
+                    <Heart className={`h-4 w-4 ${liked ? 'fill-lime-500 text-lime-500' : ''}`} />
+                    <span className="text-xs">?</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => e.stopPropagation()}
+                    disabled={isReposting}
+                    className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                  >
+                    <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
+                    <span className="text-xs">?</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onClick) onClick();
+                    }}
+                    className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    <span className="text-xs">?</span>
+                  </Button>
+                  {hasLightningAddress ? (
+                    <ZapButton
+                      target={event}
+                      className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                    >
+                      <Zap className="h-4 w-4" />
+                      <span className="text-xs">?</span>
+                    </ZapButton>
+                  ) : (
+                    <ZapDialog target={event}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1"
+                      >
+                        <Zap className="h-4 w-4" />
+                        <span className="text-xs">?</span>
+                      </Button>
+                    </ZapDialog>
+                  )}
                 </div>
               ) : (
                 <>

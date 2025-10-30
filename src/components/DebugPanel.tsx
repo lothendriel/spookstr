@@ -29,6 +29,7 @@ interface DebugInfo {
   localStorage: any;
   performance: any;
   relayStats: any;
+  interactionStats: any;
 }
 
 /**
@@ -89,6 +90,25 @@ export function DebugPanel() {
       }, {} as Record<string, number>)
     };
 
+    // Get interaction-specific stats
+    const interactionQueries = queries.filter(q => q.queryKey[0] === 'post-interactions');
+    const batchQueries = queries.filter(q => q.queryKey[0] === 'batch-interactions');
+
+    const interactionStats = {
+      individualQueries: interactionQueries.length,
+      batchQueries: batchQueries.length,
+      individualErrors: interactionQueries.filter(q => q.state.status === 'error').length,
+      batchErrors: batchQueries.filter(q => q.state.status === 'error').length,
+      loadingInteractions: interactionQueries.filter(q => q.state.status === 'pending').length,
+      loadingBatch: batchQueries.filter(q => q.state.status === 'pending').length,
+      sampleInteractionData: interactionQueries.slice(0, 3).map(q => ({
+        id: (q.queryKey[1] as string)?.slice(0, 8) + '...',
+        status: q.state.status,
+        data: q.state.data,
+        error: q.state.error?.message
+      }))
+    };
+
     setDebugInfo({
       user: user ? {
         pubkey: user.pubkey?.slice(0, 8) + '...',
@@ -110,7 +130,8 @@ export function DebugPanel() {
         // This would be populated by relay connection status
         connected: 'N/A',
         errors: 'N/A'
-      }
+      },
+      interactionStats: interactionStats
     });
   };
 
@@ -310,6 +331,76 @@ export function DebugPanel() {
                       ))}
                     </div>
                   </div>
+                </CollapsibleContent>
+              </Collapsible>
+
+              <Separator />
+
+              {/* Interaction Stats */}
+              <Collapsible>
+                <CollapsibleTrigger
+                  className="flex items-center justify-between w-full p-2 hover:bg-muted rounded"
+                  onClick={() => toggleSection('interactions')}
+                >
+                  <div className="flex items-center gap-2">
+                    <Network className="h-4 w-4" />
+                    <span className="font-medium">Interaction Stats</span>
+                    <Badge variant={debugInfo?.interactionStats?.individualErrors > 0 ? "destructive" : "outline"}>
+                      {debugInfo?.interactionStats?.individualQueries || 0} posts
+                    </Badge>
+                  </div>
+                  {expandedSections.has('interactions') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </CollapsibleTrigger>
+                <CollapsibleContent className="px-6 py-2 space-y-3 bg-card border rounded">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-sm font-medium text-foreground">Individual Queries</div>
+                      <div className="text-xs text-muted-foreground">
+                        {debugInfo?.interactionStats?.individualQueries || 0} queries
+                        {debugInfo?.interactionStats?.individualErrors > 0 && (
+                          <span className="text-destructive ml-2">
+                            ({debugInfo?.interactionStats?.individualErrors} errors)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-foreground">Batch Queries</div>
+                      <div className="text-xs text-muted-foreground">
+                        {debugInfo?.interactionStats?.batchQueries || 0} queries
+                        {debugInfo?.interactionStats?.batchErrors > 0 && (
+                          <span className="text-destructive ml-2">
+                            ({debugInfo?.interactionStats?.batchErrors} errors)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-foreground">Loading</div>
+                      <div className="text-xs text-muted-foreground">
+                        {debugInfo?.interactionStats?.loadingInteractions || 0} individual
+                        {debugInfo?.interactionStats?.loadingBatch > 0 && (
+                          <span className="ml-2">
+                            +{debugInfo?.interactionStats?.loadingBatch} batch
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-foreground">Sample Data</div>
+                      <div className="text-xs text-muted-foreground">
+                        {debugInfo?.interactionStats?.sampleInteractionData?.length || 0} posts
+                      </div>
+                    </div>
+                  </div>
+                  {debugInfo?.interactionStats?.sampleInteractionData?.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium text-foreground">Sample Interaction Data:</div>
+                      <pre className="text-xs p-3 rounded overflow-auto text-foreground bg-slate-900 dark:bg-slate-950 border">
+                        {JSON.stringify(debugInfo?.interactionStats?.sampleInteractionData, null, 2)}
+                      </pre>
+                    </div>
+                  )}
                 </CollapsibleContent>
               </Collapsible>
 
