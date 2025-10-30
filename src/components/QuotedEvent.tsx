@@ -5,26 +5,22 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthor } from '@/hooks/useAuthor';
 import { getDisplayName } from '@/lib/getDisplayName';
 import { NoteContent } from '@/components/NoteContent';
-import { useMultiRelayEvent } from '@/hooks/useMultiRelayQuery';
-import { useNostr } from '@nostrify/react';
-import { useQuery } from '@tanstack/react-query';
-import { LiveStreamEvent } from '@/components/LiveStreamEvent';
-import { MarketplaceListing } from '@/components/MarketplaceListing';
-import { LongFormContent } from '@/components/LongFormContent';
+import { useRelayHintQuery } from '@/hooks/useRelayHintQuery';
 import { nip19 } from 'nostr-tools';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import type { NostrEvent } from '@nostrify/nostrify';
+import { LiveStreamEvent } from '@/components/LiveStreamEvent';
+import { MarketplaceListing } from '@/components/MarketplaceListing';
+import { LongFormContent } from '@/components/LongFormContent';
 
 interface QuotedEventProps {
   eventId: string;
   className?: string;
 }
 
-/** Renders a quoted Nostr event by fetching and displaying its content */
+/** Renders a quoted Nostr event by fetching and displaying its content with relay hints */
 export function QuotedEvent({ eventId, className }: QuotedEventProps) {
-  const { nostr } = useNostr();
-
   // Parse the NIP-19 identifier to determine the type and data
   const parsedEvent = useMemo(() => {
     try {
@@ -43,43 +39,44 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
     }
   }, [eventId]);
 
-  // For naddr (addressable events), use a different query
-  const { data: quotedEvent, isLoading, error } = useQuery({
-    queryKey: ['quoted-event', eventId],
-    queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+  // Build appropriate filters based on the event type
+  const filters = useMemo(() => {
+    if (!parsedEvent.success || !parsedEvent.data) {
+      return [];
+    }
 
-      if (!parsedEvent.success || !parsedEvent.data) {
-        throw new Error('Invalid event identifier');
-      }
+    if (parsedEvent.type === 'note') {
+      // Simple event ID
+      return [{ ids: [parsedEvent.data as string], limit: 1 }];
+    } else if (parsedEvent.type === 'nevent') {
+      // Event with optional relay hints
+      const eventData = parsedEvent.data as { id: string; author?: string; relays?: string[] };
+      return [{ ids: [eventData.id], limit: 1 }];
+    } else if (parsedEvent.type === 'naddr') {
+      // Addressable event
+      const naddr = parsedEvent.data as { identifier: string; pubkey: string; kind: number; relays?: string[] };
+      return [{
+        kinds: [naddr.kind],
+        authors: [naddr.pubkey],
+        '#d': [naddr.identifier],
+        limit: 1
+      }];
+    }
 
-      if (parsedEvent.type === 'note') {
-        // Simple event ID
-        const events = await nostr.query([{ ids: [parsedEvent.data as string], limit: 1 }], { signal });
-        return events[0] || null;
-      } else if (parsedEvent.type === 'nevent') {
-        // Event with optional relay hints
-        const eventData = parsedEvent.data as { id: string; author?: string; relays?: string[] };
-        const events = await nostr.query([{ ids: [eventData.id], limit: 1 }], { signal });
-        return events[0] || null;
-      } else if (parsedEvent.type === 'naddr') {
-        // Addressable event
-        const naddr = parsedEvent.data as { identifier: string; pubkey: string; kind: number; relays?: string[] };
-        const events = await nostr.query([{
-          kinds: [naddr.kind],
-          authors: [naddr.pubkey],
-          '#d': [naddr.identifier],
-          limit: 1
-        }], { signal });
-        return events[0] || null;
-      }
+    return [];
+  }, [parsedEvent]);
 
-      throw new Error('Unsupported event type');
-    },
-    enabled: !!eventId && parsedEvent.success,
+  // Use relay hint query for better discovery
+  const { data: events, isLoading, error } = useRelayHintQuery({
+    filters,
+    enabled: !!eventId && parsedEvent.success && filters.length > 0,
     staleTime: 60000, // 1 minute
-    retry: 1
+    retry: 2, // More retries for quoted content
+    maxRelays: 8, // Use more relays for better discovery of quoted content
+    useRelayHints: true,
   });
+
+  const quotedEvent = events?.[0];
 
   if (isLoading) {
     return (

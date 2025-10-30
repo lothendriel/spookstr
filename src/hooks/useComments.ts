@@ -1,6 +1,5 @@
 import { NostrEvent, NostrFilter } from '@nostrify/nostrify';
-import { useNostr } from '@nostrify/react';
-import { useQuery } from '@tanstack/react-query';
+import { useRelayHintQuery } from '@/hooks/useRelayHintQuery';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 
 interface ThreadNode {
@@ -10,38 +9,42 @@ interface ThreadNode {
 }
 
 export function useComments(root: NostrEvent | URL, limit?: number) {
-  const { nostr } = useNostr();
+  const filter: NostrFilter = { kinds: [1, 1111] }; // Kind 1 for regular comments, kind 1111 for community comments
 
-  return useQuery({
-    queryKey: ['comments', root instanceof URL ? root.toString() : root.id, limit],
-    queryFn: async (c) => {
-      const filter: NostrFilter = { kinds: [1, 1111] }; // Kind 1 for regular comments, kind 1111 for community comments
+  if (root instanceof URL) {
+    filter['#r'] = [root.toString()];
+  } else {
+    filter['#e'] = [root.id];
+  }
 
-      if (root instanceof URL) {
-        filter['#r'] = [root.toString()];
-      } else {
-        filter['#e'] = [root.id];
-      }
+  if (typeof limit === 'number') {
+    filter.limit = limit;
+  }
 
-      if (typeof limit === 'number') {
-        filter.limit = limit;
-      }
+  console.log('🔍 [useComments] Query filter:', JSON.stringify(filter, null, 2));
 
-      console.log('🔍 [useComments] Query filter:', JSON.stringify(filter, null, 2));
+  // Use relay hint query for better comment discovery
+  const { data: events, ...queryResult } = useRelayHintQuery({
+    filters: [filter],
+    enabled: !!root,
+    staleTime: 15000, // Comments change frequently
+    retry: 1,
+    maxRelays: 6, // Use more relays for comment discovery
+    useRelayHints: true, // Enable relay hints for better thread discovery
+  });
 
-      // Query for all kind 1 comments that reference this root event
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
-      const events = await nostr.query([filter], { signal });
+  // Process the events into thread structure
+  const processedData = events ? (() => {
 
-      // Filter out NSFW content from comments
-      const filteredEvents = filterNSFWContent(events);
+    // Filter out NSFW content from comments
+    const filteredEvents = filterNSFWContent(events);
 
-      console.log('📥 [useComments] Query returned events:', filteredEvents.length);
-      console.log('📋 [useComments] Root event:', {
-        id: root instanceof URL ? root.toString() : root.id,
-        kind: root instanceof URL ? 'URL' : root.kind,
-        pubkey: root instanceof URL ? 'N/A' : root.pubkey
-      });
+    console.log('📥 [useComments] Query returned events:', filteredEvents.length);
+    console.log('📋 [useComments] Root event:', {
+      id: root instanceof URL ? root.toString() : root.id,
+      kind: root instanceof URL ? 'URL' : root.kind,
+      pubkey: root instanceof URL ? 'N/A' : root.pubkey
+    });
 
       // Helper function to get e tags with their marker (root, reply, mention)
       const getETags = (event: NostrEvent): Array<{ id: string; marker?: string }> => {
@@ -196,20 +199,23 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
       // Get top-level comments (for backward compatibility)
       const topLevelComments = threadTree.map(node => node.event);
 
-      console.log('✅ [useComments] Thread tree built:', {
-        totalEvents: filteredEvents.length,
-        rootNodes: threadTree.length,
-        topLevelComments: topLevelComments.length
-      });
+    console.log('✅ [useComments] Thread tree built:', {
+      totalEvents: filteredEvents.length,
+      rootNodes: threadTree.length,
+      topLevelComments: topLevelComments.length
+    });
 
-      return {
-        allComments: filteredEvents,
-        topLevelComments,
-        threadTree,
-        getDirectReplies,
-        flattenTree
-      };
-    },
-    enabled: !!root,
-  });
+    return {
+      allComments: filteredEvents,
+      topLevelComments,
+      threadTree,
+      getDirectReplies,
+      flattenTree
+    };
+  })() : undefined;
+
+  return {
+    ...queryResult,
+    data: processedData,
+  };
 }

@@ -4,6 +4,7 @@ import { NostrContext } from '@nostrify/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppContext } from '@/hooks/useAppContext';
 import { RelayConfig } from '@/contexts/AppContext';
+import { relayHintCache } from '@/lib/relayHints';
 
 interface NostrProviderProps {
   children: React.ReactNode;
@@ -65,7 +66,7 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
   // Initialize NPool only once
   if (!pool.current) {
-    pool.current = new NPool({
+    const basePool = new NPool({
       open(url: string) {
         return new NRelay1(url);
       },
@@ -116,7 +117,10 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         }
         return relayMap;
       },
-      eventRouter(_event: NostrEvent) {
+      eventRouter(event: NostrEvent) {
+        // Store relay hints from all events passing through the system
+        relayHintCache.storeHints(event);
+
         const writeRelays = getWriteRelays();
 
         // Publish to configured write relays
@@ -134,6 +138,47 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
         return [...allRelays];
       },
     });
+
+    // Create a wrapper that stores relay hints from all query results
+    const originalQuery = basePool.query.bind(basePool);
+    const originalReq = basePool.req.bind(basePool);
+
+    pool.current = {
+      ...basePool,
+
+      // Intercept query method to store relay hints
+      query: async (filters, opts?) => {
+        const events = await originalQuery(filters, opts);
+
+        // Store relay hints from all discovered events
+        for (const event of events) {
+          relayHintCache.storeHints(event);
+        }
+
+        return events;
+      },
+
+      // Intercept req method to store relay hints from subscription results
+      req: (filters, opts) => {
+        const subscription = originalReq(filters, opts);
+
+        // Wrap the subscription to intercept events
+        const originalOn = subscription.on.bind(subscription);
+        subscription.on = (eventName, callback) => {
+          if (eventName === 'event') {
+            const wrappedCallback = (event: NostrEvent) => {
+              // Store relay hints from subscription events
+              relayHintCache.storeHints(event);
+              callback(event);
+            };
+            return originalOn(eventName, wrappedCallback);
+          }
+          return originalOn(eventName, callback);
+        };
+
+        return subscription;
+      },
+    } as typeof basePool;
   }
 
   return (
