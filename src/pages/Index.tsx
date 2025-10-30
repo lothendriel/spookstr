@@ -54,10 +54,12 @@ const Index = () => {
     });
 
     console.log('[Index] Visible post IDs:', ids.map(id => id.slice(0, 8)), '(total:', ids.length, ')');
+    console.log('[Index] BATCH DEBUG: Should be calling useBatchInteractions with:', ids.length, 'IDs');
     return ids;
   }, [posts, postsToShow]);
 
   // Batch fetch interactions for all visible posts
+  console.log('[Index] ABOUT TO CALL BATCH HOOK with', visiblePostIds.length, 'post IDs');
   useBatchInteractions(visiblePostIds);
 
   // Enable real-time updates for visible posts (single shared subscription)
