@@ -34,22 +34,15 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
       console.log(`📝 Found ${allPosts.length} total posts (kind 1111)`);
 
       // Query for all approval events (kind 4550) for this community
-      // Use multiple strategies to find approvals more reliably
-      const approvalQueries = [
+      // Use a single comprehensive query to ensure consistency
+      const approvals = await nostr.query([
         {
           kinds: [4550],
           '#a': [communityTag],
-          limit: 200
-        },
-        // Also search by community author in case some approvals are missing the 'a' tag
-        {
-          kinds: [4550],
-          authors: [communityAuthor],
+          authors: [communityAuthor], // Also filter by author for better reliability
           limit: 200
         }
-      ];
-
-      const approvals = await nostr.query(approvalQueries, { signal });
+      ], { signal });
 
       console.log(`✅ Found ${approvals.length} approval events (kind 4550)`);
 
@@ -95,9 +88,9 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
       return pendingPosts as PendingPost[];
     },
     enabled: !!communityId && !!communityAuthor,
-    refetchInterval: 30000, // Refetch every 30 seconds
-    staleTime: 5000, // Consider data stale after 5 seconds to ensure fresh data after approvals
-    gcTime: 60000 // Keep data in cache for 1 minute
+    refetchInterval: 15000, // Refetch every 15 seconds
+    staleTime: 0, // Always consider data stale to ensure fresh queries
+    gcTime: 30000 // Keep data in cache for 30 seconds only
   });
 }
 
@@ -118,21 +111,15 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
       console.log('🔍 Fetching approved posts for community:', communityTag);
 
       // Query for all approval events (kind 4550) for this community
-      // Use multiple strategies to find approvals more reliably
-      const approvalQueries = [
+      // Use a single comprehensive query to ensure consistency
+      const approvals = await nostr.query([
         {
           kinds: [4550],
           '#a': [communityTag],
-          limit: 200
-        },
-        {
-          kinds: [4550],
-          authors: [communityAuthor],
+          authors: [communityAuthor], // Also filter by author for better reliability
           limit: 200
         }
-      ];
-
-      const approvals = await nostr.query(approvalQueries, { signal });
+      ], { signal });
 
       console.log(`✅ Found ${approvals.length} approval events for approved posts`);
 
@@ -179,8 +166,8 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
         .sort((a, b) => b.event.created_at - a.event.created_at);
     },
     enabled: !!communityId && !!communityAuthor,
-    refetchInterval: 30000,
-    staleTime: 5000, // Consider data stale after 5 seconds to ensure fresh data after approvals
-    gcTime: 60000 // Keep data in cache for 1 minute
+    refetchInterval: 15000, // Refetch every 15 seconds
+    staleTime: 0, // Always consider data stale to ensure fresh queries
+    gcTime: 30000 // Keep data in cache for 30 seconds only
   });
 }

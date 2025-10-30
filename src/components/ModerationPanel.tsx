@@ -101,18 +101,18 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
         setTimeout(async () => {
           console.log('🔄 Force invalidating and refetching moderation data...');
 
-          // Invalidate the cache first
-          await queryClient.invalidateQueries({
-            queryKey: ['pending-posts', community.id, community.author]
+          // Remove all cached data for moderation queries
+          await queryClient.removeQueries({
+            queryKey: ['pending-posts']
           });
-          await queryClient.invalidateQueries({
-            queryKey: ['approved-posts', community.id, community.author]
+          await queryClient.removeQueries({
+            queryKey: ['approved-posts']
           });
 
-          // Then force refetch
+          // Then force refetch with fresh data
           await Promise.all([refetchPending(), refetchApproved()]);
-          console.log('🔄 Cache invalidation and refetch completed');
-        }, 1500); // Wait 1.5 seconds for the approval to propagate
+          console.log('🔄 Cache removal and refetch completed');
+        }, 3000); // Wait 3 seconds for the approval to propagate to all relays
 
         setSelectedPost(null);
         setActionType(null);
