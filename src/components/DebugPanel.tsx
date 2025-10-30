@@ -40,7 +40,7 @@ interface DebugInfo {
 /**
  * Debug Panel component for development-time debugging and inspection.
  * Provides real-time information about app state, caches, and performance.
- * Only available for authorized npubs or in development mode.
+ * Only available for authorized npubs. Hidden for all other users and when logged out.
  */
 export function DebugPanel() {
   const [isVisible, setIsVisible] = useState(false);
@@ -56,13 +56,13 @@ export function DebugPanel() {
 
   // Check if current user is authorized to see the debug panel
   const isAuthorizedUser = userNpub && AUTHORIZED_NPUBS.includes(userNpub);
-  const isDevelopmentMode = !import.meta.env.PROD;
 
-  // Don't render in production unless user is authorized
-  if (import.meta.env.PROD && !isAuthorizedUser) return null;
+  // Hide debug panel completely unless user is authorized with the specific npub
+  // This applies to both development and production environments
+  if (!isAuthorizedUser) return null;
 
-  // Don't show the toggle button if user is not authorized in production
-  const shouldShowToggleButton = isDevelopmentMode || isAuthorizedUser;
+  // Only show the toggle button for authorized users
+  const shouldShowToggleButton = isAuthorizedUser;
 
   // Collect debug information
   const collectDebugInfo = () => {
@@ -183,7 +183,7 @@ export function DebugPanel() {
         >
           <Bug className="h-4 w-4 mr-2" />
           Debug
-          {isAuthorizedUser && <Badge variant="secondary" className="ml-2 text-xs">ADMIN</Badge>}
+          <Badge variant="secondary" className="ml-2 text-xs">ADMIN</Badge>
         </Button>
       </div>
     );
@@ -197,9 +197,7 @@ export function DebugPanel() {
             <CardTitle className="flex items-center gap-2">
               <Bug className="h-5 w-5" />
               Debug Panel
-              <Badge variant={isAuthorizedUser ? "default" : "secondary"}>
-                {isAuthorizedUser ? "ADMIN" : "DEV"}
-              </Badge>
+              <Badge variant="default">ADMIN</Badge>
             </CardTitle>
             <div className="flex items-center gap-2">
               <Button
