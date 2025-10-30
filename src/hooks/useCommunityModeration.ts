@@ -34,12 +34,11 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
       console.log(`📝 Found ${allPosts.length} total posts (kind 1111)`);
 
       // Query for all approval events (kind 4550) for this community
-      // Use a single comprehensive query to ensure consistency
+      // Use a comprehensive query that matches the working approved posts query
       const approvals = await nostr.query([
         {
           kinds: [4550],
           '#a': [communityTag],
-          authors: [communityAuthor], // Also filter by author for better reliability
           limit: 200
         }
       ], { signal });
@@ -111,12 +110,11 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
       console.log('🔍 Fetching approved posts for community:', communityTag);
 
       // Query for all approval events (kind 4550) for this community
-      // Use a single comprehensive query to ensure consistency
+      // Use a comprehensive query that matches the working approved posts query
       const approvals = await nostr.query([
         {
           kinds: [4550],
           '#a': [communityTag],
-          authors: [communityAuthor], // Also filter by author for better reliability
           limit: 200
         }
       ], { signal });
