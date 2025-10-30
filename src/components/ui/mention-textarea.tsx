@@ -155,8 +155,30 @@ const MentionTextarea = React.forwardRef<HTMLTextAreaElement, MentionTextareaPro
       const afterCursor = value.slice(end);
       const newValue = `${beforeCursor}${emojiData.emoji}${afterCursor}`;
 
-      // Update textarea value
+      // Create a synthetic React change event
+      const syntheticEvent = {
+        target: {
+          ...textarea,
+          value: newValue,
+          selectionStart: start + emojiData.emoji.length,
+          selectionEnd: start + emojiData.emoji.length,
+        },
+        currentTarget: textarea,
+        type: 'change',
+        bubbles: true,
+        cancelable: true,
+        preventDefault: () => {},
+        stopPropagation: () => {},
+        nativeEvent: new Event('change', { bubbles: true }),
+      } as React.ChangeEvent<HTMLTextAreaElement>;
+
+      // Update textarea value directly
       textarea.value = newValue;
+
+      // Call the onChange handler with the synthetic event
+      if (onChange) {
+        onChange(syntheticEvent);
+      }
 
       // Position cursor after the emoji
       const newCursorPos = start + emojiData.emoji.length;
@@ -164,10 +186,6 @@ const MentionTextarea = React.forwardRef<HTMLTextAreaElement, MentionTextareaPro
         textarea.setSelectionRange(newCursorPos, newCursorPos);
         textarea.focus();
       }, 0);
-
-      // Trigger change event
-      const event = new Event('input', { bubbles: true });
-      textarea.dispatchEvent(event);
 
       // Close emoji picker
       setEmojiPickerOpen(false);
