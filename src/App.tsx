@@ -34,6 +34,19 @@ import { CompactOfflineIndicator } from '@/components/OfflineIndicator';
 import { useMemoryMonitor } from '@/hooks/useMemoryMonitor';
 import { useAggressiveMemoryCleanup, useMemoryMonitorWithCleanup } from '@/hooks/useAggressiveMemoryCleanup';
 
+/**
+ * Component that handles memory management and cleanup.
+ * This must be wrapped by QueryClientProvider to access the QueryClient.
+ */
+function MemoryManager() {
+  // Enable global memory monitoring and cleanup
+  useMemoryMonitor();
+  useAggressiveMemoryCleanup();
+  useMemoryMonitorWithCleanup();
+
+  return null; // This component doesn't render anything
+}
+
 const head = createHead({
   plugins: [
     InferSeoMetaPlugin(),
@@ -87,11 +100,6 @@ const presetRelays = [
 ];
 
 export function App() {
-  // Enable global memory monitoring and cleanup
-  useMemoryMonitor();
-  useAggressiveMemoryCleanup();
-  useMemoryMonitorWithCleanup();
-
   return (
     <UnheadProvider head={head}>
       <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={presetRelays}>
@@ -105,6 +113,9 @@ export function App() {
                     <Suspense>
                       <AppRouter />
                     </Suspense>
+
+                    {/* Memory management component - must be inside QueryClientProvider */}
+                    <MemoryManager />
 
                     {/* Development-only React Query DevTools */}
                     {ReactQueryDevtools && (
