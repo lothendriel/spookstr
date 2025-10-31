@@ -1,4 +1,5 @@
 import { useNostr } from '@nostrify/react';
+import { NRelay1 } from '@nostrify/nostrify';
 import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { useCurrentUser } from './useCurrentUser';
 import { useCallback, useMemo, useRef, useEffect } from 'react';
@@ -34,6 +35,9 @@ export function useSimpleChat(): SimpleChatHook {
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
 
+  // Spookstr relay URL - hardcoded for reliability
+  const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
+
   // Track last read timestamp
   const lastReadRef = useRef<number>(Date.now());
 
@@ -47,16 +51,30 @@ export function useSimpleChat(): SimpleChatHook {
   } = useInfiniteQuery({
     queryKey: ['simple-chat', SITE_CHAT_D_TAG],
     queryFn: async ({ pageParam, signal }) => {
-      if (!user) return { messages: [], hasMore: false };
+      if (!user) {
+        console.log('🔒 [Simple Chat] No user logged in');
+        return { messages: [], hasMore: false };
+      }
 
       try {
+        console.log('📡 [Simple Chat] Querying messages from Spookstr relay...');
+
+        // Create a combined signal with timeout
+        const timeoutSignal = AbortSignal.timeout(5000);
+        const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+
+        // Connect directly to Spookstr relay for chat messages
+        const spookstrRelay = nostr.relay(SPOOKSTR_RELAY);
+
         // Query for kind 42 messages with our chat tag
-        const events = await nostr.query([{
+        const events = await spookstrRelay.query([{
           kinds: [42], // Simple chat kind
           '#t': [SITE_CHAT_D_TAG], // Site chat identifier
           limit: 20,
           until: pageParam,
-        }], { signal });
+        }], { signal: combinedSignal });
+
+        console.log('📨 [Simple Chat] Found', events.length, 'events');
 
         // Process messages
         const messages: ChatMessage[] = events.map(event => ({
@@ -71,12 +89,18 @@ export function useSimpleChat(): SimpleChatHook {
           index === self.findIndex(m => m.id === msg.id)
         ).sort((a, b) => a.created_at - b.created_at);
 
+        console.log('✅ [Simple Chat] Processed', uniqueMessages.length, 'unique messages');
+
         return {
           messages: uniqueMessages,
           hasMore: uniqueMessages.length >= 20,
         };
       } catch (error) {
-        console.error('Error fetching chat messages:', error);
+        if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+          console.warn('⏰ [Simple Chat] Query timed out');
+        } else {
+          console.error('❌ [Simple Chat] Error fetching chat messages:', error);
+        }
         return { messages: [], hasMore: false };
       }
     },
@@ -87,6 +111,13 @@ export function useSimpleChat(): SimpleChatHook {
     },
     enabled: !!user,
     refetchInterval: 5000, // Refetch every 5 seconds for real-time updates
+    retry: (failureCount, error) => {
+      // Only retry a few times for network errors
+      if (failureCount >= 3) return false;
+      if (error.name === 'AbortError' || error.name === 'TimeoutError') return true;
+      return true;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
   });
 
   // Flatten all pages
@@ -110,28 +141,36 @@ export function useSimpleChat(): SimpleChatHook {
     if (!content.trim()) throw new Error('Message content cannot be empty');
 
     try {
+      console.log('📝 [Simple Chat] Sending message:', content);
+
       // Create simple chat message (kind 42)
       const chatMessage = {
         kind: 42,
-        pubkey: user.pubkey,
-        created_at: Math.floor(Date.now() / 1000),
+        content: content.trim(),
         tags: [
           ['t', SITE_CHAT_D_TAG], // Site chat identifier
         ],
-        content: content.trim(),
+        created_at: Math.floor(Date.now() / 1000),
       };
 
-      // Sign and publish event
+      console.log('🔑 [Simple Chat] Signing event...');
+      // Sign the event
       const signedEvent = await user.signer.signEvent(chatMessage);
-      await nostr.event(signedEvent);
+      console.log('✅ [Simple Chat] Event signed successfully:', signedEvent.id);
+
+      // Publish directly to Spookstr relay using a fresh connection
+      console.log('🚀 [Simple Chat] Publishing to Spookstr relay:', SPOOKSTR_RELAY);
+      const spookstrRelay = new NRelay1(SPOOKSTR_RELAY);
+      await spookstrRelay.event(signedEvent, { signal: AbortSignal.timeout(8000) });
+      console.log('✅ [Simple Chat] Message published successfully!');
 
       // Invalidate query to refresh messages
       queryClient.invalidateQueries({ queryKey: ['simple-chat', SITE_CHAT_D_TAG] });
     } catch (error) {
-      console.error('Error sending simple message:', error);
+      console.error('❌ [Simple Chat] Error sending simple message:', error);
       throw error;
     }
-  }, [user, nostr, queryClient]);
+  }, [user, queryClient]);
 
   // Auto-mark as read when chat is opened
   useEffect(() => {
