@@ -60,7 +60,9 @@ const PARANORMAL_CATEGORIES = [
     name: 'Unexplained',
     icon: '🌌',
     tags: [
-      'cryptic', 'mysterious', 'unexplained'
+      'cryptic', 'mysterious', 'unexplained', 'paranormal', 'ufo', 'supernatural',
+      'ghosts', 'creepy', 'mystery', 'extraterrestrial', 'alienabduction', 'ufology',
+      'conspiracy', 'weird', 'spooky', 'unsolvedmysteries'
     ]
   }
 ];
