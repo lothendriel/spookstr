@@ -1704,15 +1704,18 @@ function extractFacebookId(url: string): string {
   try {
     console.log('📘 Extracting Facebook ID from:', url);
 
-    // Handle various Facebook URL formats
+    // Handle various Facebook URL formats including new pfbid format
     const patterns = [
-      /facebook\.com\/[^\/]+\/posts\/([0-9]+)/,
-      /facebook\.com\/[^\/]+\/activity\/([0-9]+)/,
-      /facebook\.com\/[^\/]+\/photos\/([0-9]+)/,
-      /facebook\.com\/[^\/]+\/videos\/([0-9]+)/,
+      // Traditional numeric IDs
+      /facebook\.com\/[^\/\s]+\/posts\/([0-9]+)/,
+      /facebook\.com\/[^\/\s]+\/activity\/([0-9]+)/,
+      /facebook\.com\/[^\/\s]+\/photos\/([0-9]+)/,
+      /facebook\.com\/[^\/\s]+\/videos\/([0-9]+)/,
       /facebook\.com\/permalink\.php\?story_fbid=([0-9]+)/,
       /facebook\.com\/story\.php\?story_fbid=([0-9]+)/,
-      /facebook\.com\/groups\/[^\/]+\/permalink\/([0-9]+)/,
+      /facebook\.com\/groups\/[^\/\s]+\/permalink\/([0-9]+)/,
+      // New Facebook post ID format (pfbid...)
+      /facebook\.com\/[^\/\s]+\/posts\/(pfbid[0-9A-Za-z]+)/,
     ];
 
     for (const pattern of patterns) {

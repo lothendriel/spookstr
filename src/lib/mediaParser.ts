@@ -46,7 +46,7 @@ const mediaPatterns = {
   spotify: /(?:open\.spotify\.com\/)(track|album|playlist|artist|show|episode)\/([a-zA-Z0-9]+)/gi,
   instagram: /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/(?:p|reel)\/([A-Za-z0-9_-]+)(?:\/?|\?[^\s]*)?/gi,
   twitter: /(?:twitter\.com|x\.com)\/[a-zA-Z0-9_]+\/status\/([0-9]+)/gi,
-  facebook: /https?:\/\/(?:www\.facebook\.com|facebook\.com)\/(?:[^\/]+\/posts\/|[^\/]+\/activity\/|[^\/]+\/photos\/|[^\/]+\/videos\/|permalink\.php\?story_fbid=|story\.php\?story_fbid=|groups\/[^\/]+\/permalink\/)([0-9]+)/gi,
+  facebook: /https?:\/\/(?:www\.facebook\.com|facebook\.com)\/(?:[^\/\s]+\/(?:posts|activity|photos|videos|permalink\.php\?story_fbid=|story\.php\?story_fbid=|groups\/[^\/\s]+\/permalink\/)[^\s]*/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
   // Streaming formats
@@ -1110,15 +1110,18 @@ function extractFacebookId(url: string): string {
   try {
     console.log('📘 Extracting Facebook ID from:', url);
 
-    // Handle various Facebook URL formats
+    // Handle various Facebook URL formats including new pfbid format
     const patterns = [
-      /facebook\.com\/[^\/]+\/posts\/([0-9]+)/,
-      /facebook\.com\/[^\/]+\/activity\/([0-9]+)/,
-      /facebook\.com\/[^\/]+\/photos\/([0-9]+)/,
-      /facebook\.com\/[^\/]+\/videos\/([0-9]+)/,
+      // Traditional numeric IDs
+      /facebook\.com\/[^\/\s]+\/posts\/([0-9]+)/,
+      /facebook\.com\/[^\/\s]+\/activity\/([0-9]+)/,
+      /facebook\.com\/[^\/\s]+\/photos\/([0-9]+)/,
+      /facebook\.com\/[^\/\s]+\/videos\/([0-9]+)/,
       /facebook\.com\/permalink\.php\?story_fbid=([0-9]+)/,
       /facebook\.com\/story\.php\?story_fbid=([0-9]+)/,
-      /facebook\.com\/groups\/[^\/]+\/permalink\/([0-9]+)/,
+      /facebook\.com\/groups\/[^\/\s]+\/permalink\/([0-9]+)/,
+      // New Facebook post ID format (pfbid...)
+      /facebook\.com\/[^\/\s]+\/posts\/(pfbid[0-9A-Za-z]+)/,
     ];
 
     for (const pattern of patterns) {
@@ -1146,6 +1149,8 @@ function detectFacebookPostType(url: string): 'post' | 'video' | 'photo' | 'reel
       return 'photo';
     } else if (url.includes('/reels/')) {
       return 'reel';
+    } else if (url.includes('/posts/')) {
+      return 'post';
     }
 
     // Default to post for other types
