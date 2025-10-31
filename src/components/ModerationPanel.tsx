@@ -112,7 +112,8 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
           event: {
             kind: 4551,
             content: JSON.stringify({
-              deniedEvent: selectedPost,
+              deniedEventId: selectedPost.id,
+              deniedEventPubkey: selectedPost.pubkey,
               reason: 'Denied by moderator',
               timestamp: Math.floor(Date.now() / 1000)
             }),
@@ -163,9 +164,10 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
       setActionType(null);
     } catch (error) {
       console.error(`❌ ${actionType} failed:`, error);
+      console.error('Error details:', error.message, error.stack);
       toast({
         title: `${actionType === 'approve' ? 'Approval' : 'Denial'} Failed`,
-        description: `Failed to ${actionType} post. Please try again.`,
+        description: `Failed to ${actionType} post. Error: ${error.message}`,
         variant: 'destructive',
       });
     }
