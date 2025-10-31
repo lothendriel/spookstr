@@ -11,6 +11,9 @@ interface SimpleChatIconProps {
 }
 
 export function SimpleChatIcon({ className }: SimpleChatIconProps) {
+  // Basic debug log to see if component is called at all
+  console.log('🔍 [Simple Chat Icon] Component function called');
+
   const [isOpen, setIsOpen] = useState(false);
   const { unreadCount, markAsRead } = useSimpleChat();
   const { user } = useCurrentUser();
