@@ -28,8 +28,7 @@ export function EncryptedChatIcon({ className }: EncryptedChatIconProps) {
   };
 
   // Responsive sizes based on screen size
-  const getButtonSize = () => {
-    const width = window.innerWidth;
+  const getButtonSize = (width: number) => {
     if (width < 640) { // Mobile
       return 'h-12 w-12'; // 48px
     } else if (width < 1024) { // Tablet
@@ -39,8 +38,7 @@ export function EncryptedChatIcon({ className }: EncryptedChatIconProps) {
     }
   };
 
-  const getIconSize = () => {
-    const width = window.innerWidth;
+  const getIconSize = (width: number) => {
     if (width < 640) { // Mobile
       return 20; // 20px
     } else if (width < 1024) { // Tablet
@@ -50,13 +48,13 @@ export function EncryptedChatIcon({ className }: EncryptedChatIconProps) {
     }
   };
 
-  const [buttonSize, setButtonSize] = useState(getButtonSize());
-  const [iconSize, setIconSize] = useState(getIconSize());
+  const [buttonSize, setButtonSize] = useState(() => getButtonSize(typeof window !== 'undefined' ? window.innerWidth : 1024));
+  const [iconSize, setIconSize] = useState(() => getIconSize(typeof window !== 'undefined' ? window.innerWidth : 1024));
 
   useEffect(() => {
     const handleResize = () => {
-      setButtonSize(getButtonSize());
-      setIconSize(getIconSize());
+      setButtonSize(getButtonSize(window.innerWidth));
+      setIconSize(getIconSize(window.innerWidth));
     };
 
     window.addEventListener('resize', handleResize);
