@@ -155,7 +155,7 @@ export function SimpleChatModal({ isOpen, onClose }: EncryptedChatModalProps) {
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop } = e.currentTarget;
-    // Load more messages when user scrolls near the top
+    // Load more messages when user scrolls near the top (older messages)
     if (scrollTop < 100 && hasNextPage && !isLoadingMore) {
       fetchNextPage();
     }
@@ -212,14 +212,14 @@ export function SimpleChatModal({ isOpen, onClose }: EncryptedChatModalProps) {
                   </div>
                 )}
 
-                {/* Messages */}
-                {messages.map((msg) => (
+                {/* Messages - display in reverse order so newest appear at bottom */}
+                {[...messages].reverse().map((msg) => (
                   <ChatMessageComponent
                     key={msg.id}
                     message={msg}
                     isOwnMessage={msg.pubkey === user.pubkey}
                   />
-                )).reverse()}
+                ))}
 
                 {/* Scroll anchor */}
                 <div ref={messagesEndRef} />
