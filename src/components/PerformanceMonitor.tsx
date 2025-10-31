@@ -28,7 +28,10 @@ export function PerformanceMonitor() {
 
   useEffect(() => {
     // Only run in development mode
-    if (import.meta.env.PROD) return;
+    if (import.meta.env.PROD) {
+      console.log('🚀 [Performance Monitor] Disabled in production mode');
+      return;
+    }
 
     console.log('🚀 [Performance Monitor] Starting performance tracking...');
 

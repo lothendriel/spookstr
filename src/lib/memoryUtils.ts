@@ -26,11 +26,13 @@ export function addTrackedEventListener(
   options?: AddEventListenerOptions
 ): void {
   const key = `${element.constructor.name}-${event}-${handler.name || 'anonymous'}`;
-  
+
   element.addEventListener(event, handler, options);
   activeEventListeners.set(key, { element, event, handler, options });
-  
-  console.log(`🎯 [Memory Utils] Tracked event listener: ${key}`);
+
+  if (import.meta.env.DEV) {
+    console.log(`🎯 [Memory Utils] Tracked event listener: ${key}`);
+  }
 }
 
 /**
@@ -43,11 +45,13 @@ export function removeTrackedEventListener(
   options?: AddEventListenerOptions
 ): void {
   const key = `${element.constructor.name}-${event}-${handler.name || 'anonymous'}`;
-  
+
   element.removeEventListener(event, handler, options);
   activeEventListeners.delete(key);
-  
-  console.log(`🎯 [Memory Utils] Removed event listener: ${key}`);
+
+  if (import.meta.env.DEV) {
+    console.log(`🎯 [Memory Utils] Removed event listener: ${key}`);
+  }
 }
 
 /**
@@ -56,15 +60,19 @@ export function removeTrackedEventListener(
 export function createTrackedWebSocket(url: string, protocols?: string | string[]): WebSocket {
   const ws = new WebSocket(url, protocols);
   activeWebSockets.add(ws);
-  
-  console.log(`🔌 [Memory Utils] Created WebSocket: ${url}`);
-  
+
+  if (import.meta.env.DEV) {
+    console.log(`🔌 [Memory Utils] Created WebSocket: ${url}`);
+  }
+
   // Auto-remove from tracking when closed
   ws.addEventListener('close', () => {
     activeWebSockets.delete(ws);
-    console.log(`🔌 [Memory Utils] WebSocket closed: ${url}`);
+    if (import.meta.env.DEV) {
+      console.log(`🔌 [Memory Utils] WebSocket closed: ${url}`);
+    }
   });
-  
+
   return ws;
 }
 
@@ -74,15 +82,19 @@ export function createTrackedWebSocket(url: string, protocols?: string | string[
 export function createTrackedAbortController(): AbortController {
   const controller = new AbortController();
   activeAbortControllers.add(controller);
-  
-  console.log(`🛑 [Memory Utils] Created AbortController`);
-  
+
+  if (import.meta.env.DEV) {
+    console.log(`🛑 [Memory Utils] Created AbortController`);
+  }
+
   // Auto-remove from tracking when aborted
   controller.signal.addEventListener('abort', () => {
     activeAbortControllers.delete(controller);
-    console.log(`🛑 [Memory Utils] AbortController aborted`);
+    if (import.meta.env.DEV) {
+      console.log(`🛑 [Memory Utils] AbortController aborted`);
+    }
   });
-  
+
   return controller;
 }
 
@@ -90,10 +102,12 @@ export function createTrackedAbortController(): AbortController {
  * Aggressive cleanup of all tracked resources
  */
 export function performAggressiveCleanup(): void {
-  console.log('🧹 [Memory Utils] Starting aggressive cleanup...');
-  
+  if (import.meta.env.DEV) {
+    console.log('🧹 [Memory Utils] Starting aggressive cleanup...');
+  }
+
   let cleanupCount = 0;
-  
+
   // 1. Clean up event listeners
   const listenerCount = activeEventListeners.size;
   for (const [key, { element, event, handler, options }] of activeEventListeners.entries()) {
@@ -101,12 +115,16 @@ export function performAggressiveCleanup(): void {
       element.removeEventListener(event, handler, options);
       cleanupCount++;
     } catch (error) {
-      console.warn(`🧹 [Memory Utils] Failed to remove event listener ${key}:`, error);
+      if (import.meta.env.DEV) {
+        console.warn(`🧹 [Memory Utils] Failed to remove event listener ${key}:`, error);
+      }
     }
   }
   activeEventListeners.clear();
-  console.log(`🧹 [Memory Utils] Cleaned up ${listenerCount} event listeners`);
-  
+  if (import.meta.env.DEV) {
+    console.log(`🧹 [Memory Utils] Cleaned up ${listenerCount} event listeners`);
+  }
+
   // 2. Clean up WebSockets
   const wsCount = activeWebSockets.size;
   for (const ws of activeWebSockets) {
@@ -116,12 +134,16 @@ export function performAggressiveCleanup(): void {
         cleanupCount++;
       }
     } catch (error) {
-      console.warn('🧹 [Memory Utils] Failed to close WebSocket:', error);
+      if (import.meta.env.DEV) {
+        console.warn('🧹 [Memory Utils] Failed to close WebSocket:', error);
+      }
     }
   }
   activeWebSockets.clear();
-  console.log(`🧹 [Memory Utils] Cleaned up ${wsCount} WebSockets`);
-  
+  if (import.meta.env.DEV) {
+    console.log(`🧹 [Memory Utils] Cleaned up ${wsCount} WebSockets`);
+  }
+
   // 3. Clean up AbortControllers
   const controllerCount = activeAbortControllers.size;
   for (const controller of activeAbortControllers) {
@@ -131,13 +153,19 @@ export function performAggressiveCleanup(): void {
         cleanupCount++;
       }
     } catch (error) {
-      console.warn('🧹 [Memory Utils] Failed to abort controller:', error);
+      if (import.meta.env.DEV) {
+        console.warn('🧹 [Memory Utils] Failed to abort controller:', error);
+      }
     }
   }
   activeAbortControllers.clear();
-  console.log(`🧹 [Memory Utils] Cleaned up ${controllerCount} AbortControllers`);
-  
-  console.log(`🧹 [Memory Utils] Aggressive cleanup completed. Total resources cleaned: ${cleanupCount}`);
+  if (import.meta.env.DEV) {
+    console.log(`🧹 [Memory Utils] Cleaned up ${controllerCount} AbortControllers`);
+  }
+
+  if (import.meta.env.DEV) {
+    console.log(`🧹 [Memory Utils] Aggressive cleanup completed. Total resources cleaned: ${cleanupCount}`);
+  }
 }
 
 /**
@@ -152,13 +180,13 @@ export function getMemoryStats(): {
   if (!('memory' in performance)) {
     return null;
   }
-  
+
   const memory = (performance as any).memory;
   const used = memory.usedJSHeapSize;
   const total = memory.totalJSHeapSize;
   const limit = memory.jsHeapSizeLimit;
   const usagePercent = (used / limit) * 100;
-  
+
   return {
     used: Math.round(used / 1024 / 1024),
     total: Math.round(total / 1024 / 1024),
@@ -173,18 +201,26 @@ export function getMemoryStats(): {
 export function logMemoryUsage(context: string = ''): void {
   const stats = getMemoryStats();
   if (!stats) {
-    console.log(`🧠 [Memory Utils] ${context} Memory API not available`);
+    if (import.meta.env.DEV) {
+      console.log(`🧠 [Memory Utils] ${context} Memory API not available`);
+    }
     return;
   }
-  
-  console.log(`🧠 [Memory Utils] ${context} Usage: ${stats.used}MB/${stats.limit}MB (${stats.usagePercent}%)`);
-  
+
+  if (import.meta.env.DEV) {
+    console.log(`🧠 [Memory Utils] ${context} Usage: ${stats.used}MB/${stats.limit}MB (${stats.usagePercent}%)`);
+  }
+
   if (stats.usagePercent > 80) {
+    if (import.meta.env.DEV) {
     console.warn(`🚨 [Memory Utils] ${context} High memory usage: ${stats.usagePercent}%`);
   }
-  
+  }
+
   if (stats.usagePercent > 90) {
+    if (import.meta.env.DEV) {
     console.error(`🔥 [Memory Utils] ${context} CRITICAL memory usage: ${stats.usagePercent}%`);
+  }
   }
 }
 

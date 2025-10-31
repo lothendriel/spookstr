@@ -66,7 +66,9 @@ export function useSimpleChat(): SimpleChatHook {
       }
 
       try {
-        console.log('📡 [Simple Chat] Querying messages from Spookstr relay...');
+        if (import.meta.env.DEV) {
+          console.log('📡 [Simple Chat] Querying messages from Spookstr relay...');
+        }
 
         // Create a combined signal with timeout
         const timeoutSignal = AbortSignal.timeout(5000);
@@ -83,7 +85,9 @@ export function useSimpleChat(): SimpleChatHook {
           until: pageParam,
         }], { signal: combinedSignal });
 
-        console.log('📨 [Simple Chat] Found', events.length, 'events');
+        if (import.meta.env.DEV) {
+          console.log('📨 [Simple Chat] Found', events.length, 'events');
+        }
 
         // Process messages
         const messages: ChatMessage[] = events.map(event => ({
@@ -98,7 +102,9 @@ export function useSimpleChat(): SimpleChatHook {
           index === self.findIndex(m => m.id === msg.id)
         ).sort((a, b) => a.created_at - b.created_at);
 
-        console.log('✅ [Simple Chat] Processed', uniqueMessages.length, 'unique messages');
+        if (import.meta.env.DEV) {
+          console.log('✅ [Simple Chat] Processed', uniqueMessages.length, 'unique messages');
+        }
 
         return {
           messages: uniqueMessages,
@@ -119,7 +125,7 @@ export function useSimpleChat(): SimpleChatHook {
       return lastPage.messages[lastPage.messages.length - 1].created_at - 1;
     },
     enabled: !!user,
-    refetchInterval: 30000, // Refetch every 30 seconds to reduce memory usage
+    refetchInterval: 120000, // Refetch every 2 minutes to reduce memory usage
     retry: (failureCount, error) => {
       // Only retry a few times for network errors
       if (failureCount >= 3) return false;
@@ -153,7 +159,9 @@ export function useSimpleChat(): SimpleChatHook {
     if (!content.trim()) throw new Error('Message content cannot be empty');
 
     try {
-      console.log('📝 [Simple Chat] Sending message:', content);
+      if (import.meta.env.DEV) {
+        console.log('📝 [Simple Chat] Sending message:', content);
+      }
 
       // Create simple chat message (kind 42)
       const chatMessage = {
@@ -165,21 +173,31 @@ export function useSimpleChat(): SimpleChatHook {
         created_at: Math.floor(Date.now() / 1000),
       };
 
-      console.log('🔑 [Simple Chat] Signing event...');
+      if (import.meta.env.DEV) {
+        console.log('🔑 [Simple Chat] Signing event...');
+      }
       // Sign the event
       const signedEvent = await user.signer.signEvent(chatMessage);
-      console.log('✅ [Simple Chat] Event signed successfully:', signedEvent.id);
+      if (import.meta.env.DEV) {
+        console.log('✅ [Simple Chat] Event signed successfully:', signedEvent.id);
+      }
 
       // Publish directly to Spookstr relay using a fresh connection
-      console.log('🚀 [Simple Chat] Publishing to Spookstr relay:', SPOOKSTR_RELAY);
+      if (import.meta.env.DEV) {
+        console.log('🚀 [Simple Chat] Publishing to Spookstr relay:', SPOOKSTR_RELAY);
+      }
       const spookstrRelay = new NRelay1(SPOOKSTR_RELAY);
       await spookstrRelay.event(signedEvent, { signal: AbortSignal.timeout(8000) });
-      console.log('✅ [Simple Chat] Message published successfully!');
+      if (import.meta.env.DEV) {
+        console.log('✅ [Simple Chat] Message published successfully!');
+      }
 
       // Invalidate query to refresh messages
       queryClient.invalidateQueries({ queryKey: ['simple-chat', SITE_CHAT_D_TAG] });
     } catch (error) {
-      console.error('❌ [Simple Chat] Error sending simple message:', error);
+      if (import.meta.env.DEV) {
+        console.error('❌ [Simple Chat] Error sending simple message:', error);
+      }
       throw error;
     }
   }, [user, queryClient]);

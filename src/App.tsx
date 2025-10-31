@@ -29,20 +29,17 @@ import { SimpleChatIcon } from '@/components/SimpleChatIcon';
 import { PopOutPodcastPlayer } from '@/components/PopOutPodcastPlayer';
 import { PodcastIndicator } from '@/components/PodcastIndicator';
 import { SpookstrProfileSync } from '@/components/SpookstrProfileSync';
-import { PerformanceMonitor } from '@/components/PerformanceMonitor';
+
 import { CompactOfflineIndicator } from '@/components/OfflineIndicator';
-import { useMemoryMonitor } from '@/hooks/useMemoryMonitor';
-import { useAggressiveMemoryCleanup, useMemoryMonitorWithCleanup } from '@/hooks/useAggressiveMemoryCleanup';
+import { useAggressiveMemoryCleanup } from '@/hooks/useAggressiveMemoryCleanup';
 
 /**
  * Component that handles memory management and cleanup.
  * This must be wrapped by QueryClientProvider to access the QueryClient.
  */
 function MemoryManager() {
-  // Enable global memory monitoring and cleanup
-  useMemoryMonitor();
+  // Enable aggressive memory cleanup only
   useAggressiveMemoryCleanup();
-  useMemoryMonitorWithCleanup();
 
   return null; // This component doesn't render anything
 }
@@ -57,8 +54,8 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false, // Individual hooks control their own window focus behavior
-      staleTime: 120000, // 2 minutes default - increased to reduce refetches
-      gcTime: 180000, // 3 minutes - aggressively clean up unused data
+      staleTime: 300000, // 5 minutes default - increased to reduce refetches
+      gcTime: 120000, // 2 minutes - aggressively clean up unused data
       retry: 1, // Reduce retries for faster failure recovery
       refetchOnMount: false, // Prevent unnecessary refetches
       // Enhanced default behavior: No background refetch unless explicitly set
@@ -73,9 +70,9 @@ const queryClient = new QueryClient({
       retryDelay: 1000, // 1 second delay for mutation retries
     },
   },
-  // Configure cache limits to prevent memory bloat
-  maxsize: 100, // Maximum 100 queries in cache
-  cacheTime: 180000, // 3 minutes default cache time
+  // Configure cache limits to prevent memory bloat - much more aggressive
+  maxsize: 50, // Maximum 50 queries in cache (reduced from 100)
+  cacheTime: 120000, // 2 minutes default cache time (reduced from 3 minutes)
 });
 
 const defaultConfig: AppConfig = {
@@ -128,8 +125,7 @@ export function App() {
                       </Suspense>
                     )}
 
-                    {/* Development-only Performance Monitor */}
-                    <PerformanceMonitor />
+
 
                     {/* Offline status indicator */}
                     <CompactOfflineIndicator className="fixed top-4 right-4 z-40" />

@@ -27,7 +27,10 @@ export function useBatchInteractions(eventIds: string[]) {
   const { config } = useAppContext();
   const queryClient = useQueryClient();
 
+  // Debug logging only in development
+if (import.meta.env.DEV) {
   console.log('[Batch Interactions] Hook called with eventIds:', eventIds.map(id => id.slice(0, 8)));
+}
 
   const { data: batchData, isLoading, error } = useQuery({
     queryKey: ['batch-interactions', eventIds.sort().join(',')],
@@ -39,7 +42,9 @@ export function useBatchInteractions(eventIds: string[]) {
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
 
-      console.log('[Batch Interactions] Fetching interactions for', eventIds.length, 'posts');
+      if (import.meta.env.DEV) {
+  console.log('[Batch Interactions] Fetching interactions for', eventIds.length, 'posts');
+}
 
       // Get configured relays for better coverage
       const relays = config.relays?.filter(r => r.mode === 'read' || r.mode === 'both').map(r => r.url) || [config.relayUrl];
@@ -50,7 +55,9 @@ export function useBatchInteractions(eventIds: string[]) {
         relays.unshift(spookstrRelay);
       }
 
-      console.log('[Batch Interactions] Using relays:', relays);
+      if (import.meta.env.DEV) {
+  console.log('[Batch Interactions] Using relays:', relays);
+}
 
       let allEvents: NostrEvent[] = [];
 
@@ -65,7 +72,9 @@ export function useBatchInteractions(eventIds: string[]) {
           }], { signal });
 
           allEvents = events;
-          console.log('[Batch Interactions] Found', events.length, 'interactions from relay group');
+          if (import.meta.env.DEV) {
+  console.log('[Batch Interactions] Found', events.length, 'interactions from relay group');
+}
         } catch (error) {
           console.warn('[Batch Interactions] Relay group query failed, falling back to single relay:', error);
         }
@@ -81,7 +90,9 @@ export function useBatchInteractions(eventIds: string[]) {
           }], { signal });
 
           allEvents = events;
-          console.log('[Batch Interactions] Found', events.length, 'interactions from single relay');
+          if (import.meta.env.DEV) {
+  console.log('[Batch Interactions] Found', events.length, 'interactions from single relay');
+}
         } catch (error) {
           console.error('[Batch Interactions] Single relay query failed:', error);
           allEvents = [];
@@ -97,7 +108,9 @@ export function useBatchInteractions(eventIds: string[]) {
       }
 
       const deduplicatedEvents = Array.from(uniqueEvents.values());
-      console.log('[Batch Interactions] After deduplication:', deduplicatedEvents.length, 'unique interactions');
+      if (import.meta.env.DEV) {
+  console.log('[Batch Interactions] After deduplication:', deduplicatedEvents.length, 'unique interactions');
+}
 
       // Group interactions by event ID
       const countsMap: Record<string, InteractionCounts> = {};
@@ -149,22 +162,24 @@ export function useBatchInteractions(eventIds: string[]) {
         }
       }
 
-      console.log('[Batch Interactions] Summary:', {
-        totalEvents: deduplicatedEvents.length,
-        likes: likeCount,
-        reposts: repostCount,
-        zaps: zapCount,
-        comments: commentCount,
-        postsWithInteractions: Object.values(countsMap).filter(c =>
-          c.likes > 0 || c.reposts > 0 || c.zaps > 0 || c.comments > 0
-        ).length
-      });
+      if (import.meta.env.DEV) {
+        console.log('[Batch Interactions] Summary:', {
+          totalEvents: deduplicatedEvents.length,
+          likes: likeCount,
+          reposts: repostCount,
+          zaps: zapCount,
+          comments: commentCount,
+          postsWithInteractions: Object.values(countsMap).filter(c =>
+            c.likes > 0 || c.reposts > 0 || c.zaps > 0 || c.comments > 0
+          ).length
+        });
+      }
 
       return countsMap;
     },
     enabled: eventIds.length > 0,
-    staleTime: 60000, // 1 minute - reduced frequency for better memory management
-    gcTime: 300000, // 5 minutes - reduced cache time to save memory
+    staleTime: 180000, // 3 minutes - reduced frequency for better memory management
+    gcTime: 240000, // 4 minutes - reduced cache time to save memory
     refetchOnMount: true, // Always refetch on mount to get fresh data
     refetchOnWindowFocus: true, // Refetch on window focus to get latest counts
     // Enhanced caching: Smart background refresh for active content
@@ -174,10 +189,12 @@ export function useBatchInteractions(eventIds: string[]) {
 
       // Background refresh every 3 minutes for interaction counts
       // Reduced frequency to save memory while keeping data reasonably fresh
-      return 180000; // 3 minutes
+      return 300000; // 5 minutes
     },
     retry: (failureCount, error) => {
+      if (import.meta.env.DEV) {
       console.log('[Batch Interactions] Retry attempt:', failureCount, 'Error:', error);
+    }
       return failureCount < 3; // Retry up to 3 times
     },
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff capped at 10s
@@ -187,45 +204,55 @@ export function useBatchInteractions(eventIds: string[]) {
   useEffect(() => {
     if (!batchData) return;
 
-    console.log('[Batch Interactions] Updating individual caches for', Object.keys(batchData).length, 'posts');
-    console.log('[Batch Interactions] All batch data:',
-      Object.entries(batchData).map(([id, counts]) => ({
-        id: id.slice(0, 8),
-        likes: counts.likes,
-        reposts: counts.reposts,
-        zaps: counts.zaps,
-        comments: counts.comments,
-        total: counts.likes + counts.reposts + counts.zaps + counts.comments
-      }))
-    );
-
-    // Log detailed counts for debugging
-    const postsWithInteractions = Object.entries(batchData).filter(([_, counts]) =>
-      counts.likes > 0 || counts.reposts > 0 || counts.zaps > 0 || counts.comments > 0
-    );
-
-    if (postsWithInteractions.length > 0) {
-      console.log('[Batch Interactions] Posts with interactions:',
-        postsWithInteractions.map(([id, counts]) => ({
+    if (import.meta.env.DEV) {
+      console.log('[Batch Interactions] Updating individual caches for', Object.keys(batchData).length, 'posts');
+    }
+    if (import.meta.env.DEV) {
+      console.log('[Batch Interactions] All batch data:',
+        Object.entries(batchData).map(([id, counts]) => ({
           id: id.slice(0, 8),
           likes: counts.likes,
           reposts: counts.reposts,
           zaps: counts.zaps,
-          comments: counts.comments
+          comments: counts.comments,
+          total: counts.likes + counts.reposts + counts.zaps + counts.comments
         }))
       );
     }
 
+    // Log detailed counts for debugging (development only)
+    if (import.meta.env.DEV) {
+      const postsWithInteractions = Object.entries(batchData).filter(([_, counts]) =>
+        counts.likes > 0 || counts.reposts > 0 || counts.zaps > 0 || counts.comments > 0
+      );
+
+      if (postsWithInteractions.length > 0) {
+        console.log('[Batch Interactions] Posts with interactions:',
+          postsWithInteractions.map(([id, counts]) => ({
+            id: id.slice(0, 8),
+            likes: counts.likes,
+            reposts: counts.reposts,
+            zaps: counts.zaps,
+            comments: counts.comments
+          }))
+        );
+      }
+    }
+
     for (const [eventId, counts] of Object.entries(batchData)) {
       queryClient.setQueryData(['post-interactions', eventId], counts);
-      console.log(`[Batch Interactions] Set cache for ${eventId.slice(0, 8)}:`, counts);
+      if (import.meta.env.DEV) {
+        console.log(`[Batch Interactions] Set cache for ${eventId.slice(0, 8)}:`, counts);
+      }
     }
   }, [batchData, queryClient]);
 
   // Log errors for debugging
   useEffect(() => {
     if (error) {
+      if (import.meta.env.DEV) {
       console.error('[Batch Interactions] Error fetching interactions:', error);
+    }
     }
   }, [error]);
 

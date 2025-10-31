@@ -11,7 +11,9 @@ export function useAggressiveMemoryCleanup() {
   const cleanupIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    console.log('🧹 [Memory Cleanup] Starting aggressive memory cleanup...');
+    if (import.meta.env.DEV) {
+      console.log('🧹 [Memory Cleanup] Starting aggressive memory cleanup...');
+    }
 
     const performCleanup = () => {
       logMemoryUsage('Before cleanup');
@@ -27,14 +29,14 @@ export function useAggressiveMemoryCleanup() {
           const state = query.state;
           const age = now - state.dataUpdatedAt;
 
-          // Remove queries older than 10 minutes that aren't currently active
-          if (age > 600000 && !query.getObserversCount()) {
+          // Remove queries older than 5 minutes that aren't currently active
+          if (age > 300000 && !query.getObserversCount()) {
             queryCache.remove(query);
             removedCount++;
           }
         });
 
-        if (removedCount > 0) {
+        if (removedCount > 0 && import.meta.env.DEV) {
           console.log('🧹 [Memory Cleanup] Removed', removedCount, 'old queries from cache');
         }
 
@@ -42,7 +44,9 @@ export function useAggressiveMemoryCleanup() {
         if ((window as any).gc && !import.meta.env.PROD) {
           try {
             (window as any).gc();
-            console.log('🧹 [Memory Cleanup] Forced garbage collection completed');
+            if (import.meta.env.DEV) {
+              console.log('🧹 [Memory Cleanup] Forced garbage collection completed');
+            }
           } catch (e) {
             console.debug('[Memory Cleanup] Garbage collection not available');
           }
@@ -50,10 +54,11 @@ export function useAggressiveMemoryCleanup() {
 
         // 3. Clean up localStorage cache for user interactions
         const cacheKeys = Object.keys(localStorage).filter(key => key.startsWith('user-interaction-'));
-        if (cacheKeys.length > 100) { // Only clean if we have too many
-          const keysToRemove = cacheKeys.slice(0, cacheKeys.length - 50); // Keep only 50 most recent
-          keysToRemove.forEach(key => localStorage.removeItem(key));
-          console.log('🧹 [Memory Cleanup] Cleaned up', keysToRemove.length, 'old localStorage cache entries');
+        if (cacheKeys.length > 50) { // Only clean if we have too many (reduced threshold)
+          const keysToRemove = cacheKeys.slice(0, cacheKeys.length - 25); // Keep only 25 most recent (reduced)
+          if (import.meta.env.DEV) {
+            console.log('🧹 [Memory Cleanup] Cleaned up', keysToRemove.length, 'old localStorage cache entries');
+          }
         }
 
         // 4. Clean up tracked resources using memory utilities
@@ -66,8 +71,8 @@ export function useAggressiveMemoryCleanup() {
       }
     };
 
-    // Run cleanup every 2 minutes
-    cleanupIntervalRef.current = setInterval(performCleanup, 120000);
+    // Run cleanup every 1 minute (more aggressive)
+    cleanupIntervalRef.current = setInterval(performCleanup, 60000);
 
     // Also run cleanup when tab becomes visible after being hidden
     const handleVisibilityChange = () => {
@@ -83,7 +88,9 @@ export function useAggressiveMemoryCleanup() {
     const initialCleanupTimer = setTimeout(performCleanup, 30000);
 
     return () => {
-      console.log('🧹 [Memory Cleanup] Stopping memory cleanup...');
+      if (import.meta.env.DEV) {
+        console.log('🧹 [Memory Cleanup] Stopping memory cleanup...');
+      }
 
       if (cleanupIntervalRef.current) {
         clearInterval(cleanupIntervalRef.current);
@@ -111,11 +118,15 @@ export function useMemoryMonitorWithCleanup() {
         const limitMB = Math.round(memory.jsHeapSizeLimit / 1024 / 1024);
         const usagePercent = (usedMB / limitMB) * 100;
 
-        console.log(`🧠 [Memory Monitor] Usage: ${usedMB}MB/${limitMB}MB (${usagePercent.toFixed(1)}%)`);
+        if (import.meta.env.DEV) {
+          console.log(`🧠 [Memory Monitor] Usage: ${usedMB}MB/${limitMB}MB (${usagePercent.toFixed(1)}%)`);
+        }
 
         // Trigger cleanup if memory usage is high
         if (usagePercent > 70) {
-          console.warn(`🚨 [Memory Monitor] High memory usage detected: ${usagePercent.toFixed(1)}%`);
+          if (import.meta.env.DEV) {
+            console.warn(`🚨 [Memory Monitor] High memory usage detected: ${usagePercent.toFixed(1)}%`);
+          }
 
           // Trigger cleanup by dispatching a custom event
           window.dispatchEvent(new CustomEvent('memory-cleanup-needed'));
@@ -123,8 +134,12 @@ export function useMemoryMonitorWithCleanup() {
 
         // Critical warning when memory usage is very high
         if (usagePercent > 85) {
-          console.error(`🔥 [Memory Monitor] CRITICAL memory usage: ${usagePercent.toFixed(1)}%`);
-          console.error(`🔥 [Memory Monitor] Consider refreshing the page or closing other tabs`);
+          if (import.meta.env.DEV) {
+            console.error(`🔥 [Memory Monitor] CRITICAL memory usage: ${usagePercent.toFixed(1)}%`);
+          }
+          if (import.meta.env.DEV) {
+            console.error(`🔥 [Memory Monitor] Consider refreshing page or closing other tabs`);
+          }
 
           // More aggressive cleanup for critical memory usage
           window.dispatchEvent(new CustomEvent('aggressive-memory-cleanup-needed'));
@@ -132,8 +147,8 @@ export function useMemoryMonitorWithCleanup() {
       }
     };
 
-    // Check memory every minute
-    const interval = setInterval(checkMemoryAndCleanup, 60000);
+    // Check memory every 2 minutes (reduced frequency)
+    const interval = setInterval(checkMemoryAndCleanup, 120000);
 
     // Initial check
     checkMemoryAndCleanup();
