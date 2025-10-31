@@ -53,21 +53,27 @@ export function useEncryptedChat(): EncryptedChatHook {
       if (!user) return { messages: [], hasMore: false };
 
       try {
+        console.log('[EncryptedChat] Starting chat query for user:', user.pubkey);
+
         // Query for gift-wrapped messages (kind 1059) that are p-tagged to our user
+        console.log('[EncryptedChat] Querying for messages sent to user...');
         const events = await nostr.query([{
           kinds: [1059], // Gift wrap
           '#p': [user.pubkey],
           limit: 20,
           until: pageParam,
         }], { signal });
+        console.log('[EncryptedChat] Found messages sent to user:', events.length);
 
         // Also query for messages we sent (to include in the chat)
+        console.log('[EncryptedChat] Querying for messages sent by user...');
         const sentEvents = await nostr.query([{
           kinds: [1059],
           authors: [user.pubkey],
           limit: 10,
           until: pageParam,
         }], { signal });
+        console.log('[EncryptedChat] Found messages sent by user:', sentEvents.length);
 
         const allEvents = [...events, ...sentEvents].sort((a, b) => b.created_at - a.created_at);
 
