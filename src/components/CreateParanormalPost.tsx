@@ -11,22 +11,58 @@ import { useToast } from '@/hooks/useToast';
 import { extractMentions } from '@/lib/mentions';
 import { Ghost, Send, Upload, Image, Video, Music, X, RadioTower } from 'lucide-react';
 
-const PARANORMAL_TAGS = [
-  'paranormal',
-  'cryptids',
-  'bigfoot',
-  'ufo',
-  'ufos',
-  'supernatural',
-  'ghosts',
-  'aliens',
-  'conspiracy',
-  'unexplained',
-  'mysterious',
-  'occult',
-  'haunted',
-  'sightings',
-  'extraterrestrial'
+const PARANORMAL_CATEGORIES = [
+  {
+    id: 'ufos-aliens',
+    name: 'UFOs & Aliens',
+    icon: '🛸',
+    tags: [
+      'ufo', 'ufos', 'alien', 'aliens', 'extraterrestrial', 'ufosighting',
+      'ufosightings', 'alienlife', 'spaceship', 'flyingsaucer', 'disclosure',
+      'abduction', 'mufon', 'greys', 'anunnaki', 'ufovideo', 'ufocatcher', 'cropcircles'
+    ]
+  },
+  {
+    id: 'cryptids',
+    name: 'Cryptids',
+    icon: '🐾',
+    tags: [
+      'cryptids', 'bigfoot', 'sasquatch', 'cryptid', 'cryptozoology', 'mothman',
+      'yeti', 'chupacabra', 'wendigo', 'skunkape', 'yowie', 'dogman',
+      'beastofbrayroad', 'jerseydevil', 'urbanlegends', 'mysteriouscreatures',
+      'cryptidart', 'cryptidcommunity', 'cryptidsighting', 'bigfootsighting',
+      'sasquatchsighting', 'bigfootisreal', 'findingbigfoot', 'bigfootart'
+    ]
+  },
+  {
+    id: 'ghosts-spirits',
+    name: 'Ghosts & Spirits',
+    icon: '👻',
+    tags: [
+      'paranormal', 'haunted', 'ghost', 'ghosts', 'paranormalactivity', 'ghosthunting',
+      'spirit', 'spirits', 'ghoststories', 'paranormalinvestigation', 'ghostadventures',
+      'hauntedhouse', 'hauntedplaces', 'ghosthunter'
+    ]
+  },
+  {
+    id: 'supernatural',
+    name: 'Supernatural',
+    icon: '🔮',
+    tags: [
+      'supernatural', 'horror', 'scary', 'creepy', 'spooky', 'halloween', 'mystery',
+      'occult', 'witchcraft', 'witch', 'wicca', 'tarot', 'tarotreading', 'occultart',
+      'darkart', 'esoteric', 'hermeticism', 'ceremonialmagic', 'occultism', 'spirituality',
+      'mysticism', 'occultsymbols', 'occultbooks', 'shadowwork', 'ritual', 'grimoire', 'magick'
+    ]
+  },
+  {
+    id: 'unexplained',
+    name: 'Unexplained',
+    icon: '🌌',
+    tags: [
+      'cryptic', 'mysterious', 'unexplained'
+    ]
+  }
 ];
 
 interface CreateParanormalPostProps {
@@ -39,17 +75,13 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
   const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
   const { toast } = useToast();
   const [content, setContent] = useState('');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [uploadedFiles, setUploadedFiles] = useState<Array<{tags: string[]; file: File}>>([]);
   const [postToSpookstr2Only, setPostToSpookstr2Only] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleTagToggle = (tag: string) => {
-    setSelectedTags(prev =>
-      prev.includes(tag)
-        ? prev.filter(t => t !== tag)
-        : [...prev, tag]
-    );
+  const handleCategorySelect = (categoryId: string) => {
+    setSelectedCategory(prev => prev === categoryId ? '' : categoryId);
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -116,11 +148,13 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
 
   const handleSubmit = () => {
     // Prevent double submission
-    if (!user || !content.trim() || selectedTags.length === 0 || isSubmitting) return;
+    if (!user || !content.trim() || !selectedCategory || isSubmitting) return;
 
     setIsSubmitting(true);
 
-    const tags = selectedTags.map(tag => ['t', tag]);
+    // Get all tags from the selected category
+    const category = PARANORMAL_CATEGORIES.find(cat => cat.id === selectedCategory);
+    const tags = category ? category.tags.map(tag => ['t', tag]) : [];
 
     // Add mention tags (p tags for mentioned users)
     const mentionTags = extractMentions(content.trim());
@@ -129,7 +163,8 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
     // Add uploaded file tags (NIP-94)
     console.log('=== POST SUBMISSION ===');
     console.log('Content:', content.trim());
-    console.log('Selected tags:', selectedTags);
+    console.log('Selected category:', selectedCategory);
+    console.log('Category tags:', category?.tags || []);
     console.log('Mention tags:', mentionTags);
     console.log('Uploaded files:', uploadedFiles);
     console.log('Uploaded files count:', uploadedFiles.length);
@@ -184,7 +219,7 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
       onSuccess: () => {
         // Reset form state
         setContent('');
-        setSelectedTags([]);
+        setSelectedCategory('');
         setUploadedFiles([]);
         setPostToSpookstr2Only(false);
         setIsSubmitting(false);
@@ -346,41 +381,75 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
         </div>
 
         <div>
-          <p className="text-sm text-lime-500/80 mb-2">
-            Select at least one paranormal category (required):
+          <p className="text-sm text-lime-500/80 mb-3">
+            Choose a paranormal category for your post (required):
           </p>
-          <div className="flex flex-wrap gap-2">
-            {PARANORMAL_TAGS.map((tag) => (
-              <Badge
-                key={tag}
-                variant={selectedTags.includes(tag) ? "default" : "outline"}
-                className={`transition-all ${
+
+          <div className="space-y-3 mb-4">
+            {PARANORMAL_CATEGORIES.map((category) => (
+              <div
+                key={category.id}
+                onClick={() => !formDisabled && handleCategorySelect(category.id)}
+                className={`relative p-4 border rounded-lg cursor-pointer transition-all ${
                   formDisabled
                     ? "cursor-not-allowed opacity-50"
-                    : "cursor-pointer"
+                    : "hover:border-lime-400/60"
                 } ${
-                  selectedTags.includes(tag)
-                    ? "bg-lime-500 text-black border-lime-500"
-                    : "border-lime-500/50 text-lime-400 hover:border-lime-400 hover:text-lime-300"
+                  selectedCategory === category.id
+                    ? "border-lime-500 bg-lime-500/10"
+                    : "border-lime-500/20 bg-black/20"
                 }`}
-                onClick={() => !formDisabled && handleTagToggle(tag)}
               >
-                #{tag}
-              </Badge>
+                <div className="flex items-start space-x-3">
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                    selectedCategory === category.id
+                      ? "border-lime-500 bg-lime-500"
+                      : "border-lime-500/50"
+                  }`}>
+                    {selectedCategory === category.id && (
+                      <div className="w-2 h-2 bg-black rounded-full" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-1">
+                      <span className="text-lg">{category.icon}</span>
+                      <h3 className="font-semibold text-lime-300">{category.name}</h3>
+                    </div>
+                    <p className="text-xs text-lime-500/70 mb-2">
+                      Includes {category.tags.length} hashtag{category.tags.length === 1 ? '' : 's'}
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {category.tags.slice(0, 8).map((tag) => (
+                        <span
+                          key={tag}
+                          className="text-xs text-lime-500/60 bg-black/30 px-2 py-0.5 rounded"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                      {category.tags.length > 8 && (
+                        <span className="text-xs text-lime-500/40 bg-black/30 px-2 py-0.5 rounded">
+                          +{category.tags.length - 8} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
 
-          <div className="mt-3">
+          <div className="mt-4">
             <p className="text-xs text-lime-500/60 text-center">
-              {selectedTags.length > 0
-                ? `${selectedTags.length} categor${selectedTags.length === 1 ? 'y' : 'ies'} selected`
-                : 'Select at least one category'
+              {selectedCategory
+                ? `Category: ${PARANORMAL_CATEGORIES.find(cat => cat.id === selectedCategory)?.name}`
+                : 'Please select a category'
               }
             </p>
 
             <Button
               onClick={handleSubmit}
-              disabled={!content.trim() || selectedTags.length === 0 || formDisabled}
+              disabled={!content.trim() || !selectedCategory || formDisabled}
               className="bg-lime-500 hover:bg-lime-400 text-black font-semibold w-full mt-2"
             >
               <Send className="h-4 w-4 mr-2" />
