@@ -234,7 +234,7 @@ export function useEncryptedChat(): EncryptedChatHook {
       // Encrypt the seal for the gift wrap
       giftWrap.content = await user.signer.nip44.encrypt(user.pubkey, JSON.stringify(signedSeal));
 
-      await publishEvent(giftWrap);
+      await publishEvent({ event: giftWrap });
 
       // Invalidate query to refresh messages
       queryClient.invalidateQueries({ queryKey: ['encrypted-chat', SITE_CHAT_D_TAG] });
