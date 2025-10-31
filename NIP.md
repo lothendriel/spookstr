@@ -62,7 +62,7 @@ Replies within communities follow **NIP-22** uppercase/lowercase tag patterns:
     ["E", "<root-post-id>"],
     ["P", "<community-author>"],
     ["K", "34550"],
-    
+
     // Lowercase: Immediate parent (post or comment being replied to)
     ["e", "<parent-id>"],
     ["p", "<parent-author>"],
@@ -82,6 +82,23 @@ Moderator approvals follow standard NIP-72 structure:
   "tags": [
     ["a", "34550:<community-author>:<community-id>"],
     ["e", "<approved-post-id>"],
+    ["p", "<post-author>"],
+    ["k", "<original-post-kind>"]
+  ]
+}
+```
+
+### Community Post Denial (Kind 4551)
+
+Moderator denials use a custom kind for tracking denied posts:
+
+```json
+{
+  "kind": 4551,
+  "content": "{\"deniedEvent\":<denied-event>,\"reason\":\"<reason>\",\"timestamp\":<unix-timestamp>}",
+  "tags": [
+    ["a", "34550:<community-author>:<community-id>"],
+    ["e", "<denied-post-id>"],
     ["p", "<post-author>"],
     ["k", "<original-post-kind>"]
   ]

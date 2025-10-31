@@ -10,7 +10,7 @@ import { genUserName } from '@/lib/genUserName';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
-import { usePendingPosts, useApprovedPosts } from '@/hooks/useCommunityModeration';
+import { usePendingPosts, useApprovedPosts, useModerationActions } from '@/hooks/useCommunityModeration';
 import { CommunityDefinition } from '@/hooks/useCommunity';
 import { Shield, CheckCircle, XCircle, MessageSquare, Clock, Eye } from 'lucide-react';
 import { NostrEvent } from '@nostrify/nostrify';
@@ -28,6 +28,7 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
   const queryClient = useQueryClient();
   const { data: pendingPosts, isLoading: loadingPending, refetch: refetchPending } = usePendingPosts(community.id, community.author);
   const { data: approvedPosts, isLoading: loadingApproved, refetch: refetchApproved } = useApprovedPosts(community.id, community.author);
+  const { data: moderationActions, refetch: refetchActions } = useModerationActions(community.id, community.author);
   const { mutateAsync: createEvent, isPending: isPublishing } = useNostrPublish();
   const { toast } = useToast();
 
@@ -61,12 +62,11 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
   const confirmAction = async () => {
     if (!selectedPost || !actionType) return;
 
-    if (actionType === 'approve') {
-      try {
-        // Create approval event (kind 4550) according to NIP-72
-        const communityTag = `34550:${community.author}:${community.id}`;
-        const postKindTag = selectedPost.tags.find(tag => tag[0] === 'k')?.[1] || '1111';
+    const communityTag = `34550:${community.author}:${community.id}`;
+    const postKindTag = selectedPost.tags.find(tag => tag[0] === 'k')?.[1] || '1111';
 
+    try {
+      if (actionType === 'approve') {
         console.log('🔐 Creating approval event for:', selectedPost.id);
         console.log('📋 Approval event details:', {
           kind: 4550,
@@ -76,6 +76,7 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
           postKind: postKindTag
         });
 
+        // Create approval event (kind 4550) according to NIP-72
         await createEvent({
           event: {
             kind: 4550,
@@ -96,46 +97,77 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
           title: 'Post Approved',
           description: 'The post has been approved and is now visible to the community.',
         });
+      } else {
+        console.log('❌ Creating denial event for:', selectedPost.id);
+        console.log('📋 Denial event details:', {
+          kind: 4551,
+          communityTag,
+          postId: selectedPost.id,
+          postAuthor: selectedPost.pubkey,
+          postKind: postKindTag
+        });
 
-        // Invalidate queries to force refetch with fresh data
-        setTimeout(async () => {
-          console.log('🔄 Force invalidating and refetching moderation data...');
+        // Create denial event (kind 4551) - custom kind for post denials
+        await createEvent({
+          event: {
+            kind: 4551,
+            content: JSON.stringify({
+              deniedEvent: selectedPost,
+              reason: 'Denied by moderator',
+              timestamp: Math.floor(Date.now() / 1000)
+            }),
+            tags: [
+              ['a', communityTag], // Community reference
+              ['e', selectedPost.id], // Post being denied
+              ['p', selectedPost.pubkey], // Post author (for notifications)
+              ['k', postKindTag] // Original post kind
+            ],
+            created_at: Math.floor(Date.now() / 1000)
+          }
+        });
 
-          // Remove all cached data for moderation queries
-          await queryClient.removeQueries({
-            queryKey: ['pending-posts']
-          });
-          await queryClient.removeQueries({
-            queryKey: ['approved-posts']
-          });
+        console.log('❌ Denial event created successfully');
 
-          // Then force refetch with fresh data
-          await Promise.all([refetchPending(), refetchApproved()]);
-          console.log('🔄 Cache removal and refetch completed');
-        }, 3000); // Wait 3 seconds for the approval to propagate to all relays
-
-        setSelectedPost(null);
-        setActionType(null);
-      } catch (error) {
-        console.error('❌ Approval failed:', error);
         toast({
-          title: 'Approval Failed',
-          description: 'Failed to approve post. Please try again.',
-          variant: 'destructive',
+          title: 'Post Denied',
+          description: 'The post has been denied and removed from the community.',
         });
       }
-    } else {
-      // For deny, we just don't create an approval event
-      // The post remains invisible to users who only see approved content
-      toast({
-        title: 'Post Denied',
-        description: 'The post has been denied and will remain hidden from the community.',
-      });
 
-      // No need to wait for denial since no event is created
-      await refetchPending();
+      // Invalidate all moderation-related queries to force refetch with fresh data
+      setTimeout(async () => {
+        console.log('🔄 Force invalidating and refetching all moderation data...');
+
+        // Remove all cached data for moderation queries
+        await queryClient.removeQueries({
+          queryKey: ['pending-posts']
+        });
+        await queryClient.removeQueries({
+          queryKey: ['approved-posts']
+        });
+        await queryClient.removeQueries({
+          queryKey: ['moderation-actions']
+        });
+
+        // Also invalidate community feed queries to ensure approved posts appear
+        await queryClient.removeQueries({
+          queryKey: ['community-feed']
+        });
+
+        // Then force refetch with fresh data
+        await Promise.all([refetchPending(), refetchApproved(), refetchActions()]);
+        console.log('🔄 All moderation cache removal and refetch completed');
+      }, 4000); // Wait 4 seconds for the event to propagate to all relays
+
       setSelectedPost(null);
       setActionType(null);
+    } catch (error) {
+      console.error(`❌ ${actionType} failed:`, error);
+      toast({
+        title: `${actionType === 'approve' ? 'Approval' : 'Denial'} Failed`,
+        description: `Failed to ${actionType} post. Please try again.`,
+        variant: 'destructive',
+      });
     }
   };
 
