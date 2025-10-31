@@ -475,6 +475,8 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
           type: 'minds',
           url: cleanUrl,
           title: `Minds ${mindsPostType.charAt(0).toUpperCase() + mindsPostType.slice(1)}`,
+          description: 'Click to view this Minds post',
+          siteName: 'Minds',
           metadata: {
             postId: mindsPostId,
             postType: mindsPostType
