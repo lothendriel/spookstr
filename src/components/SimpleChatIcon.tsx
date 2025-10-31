@@ -11,19 +11,9 @@ interface SimpleChatIconProps {
 }
 
 export function SimpleChatIcon({ className }: SimpleChatIconProps) {
-  // Basic debug log to see if component is called at all
-  console.log('🔍 [Simple Chat Icon] Component function called');
-
   const [isOpen, setIsOpen] = useState(false);
   const { unreadCount, markAsRead } = useSimpleChat();
   const { user } = useCurrentUser();
-
-  // Debug logging for SimpleChatIcon
-  console.log('🎯 [Simple Chat Icon] Component render:', {
-    userPubkey: user?.pubkey?.slice(0, 8),
-    unreadCount,
-    isOpen,
-  });
 
   // Responsive sizes based on screen size
   const getButtonSize = (width: number) => {

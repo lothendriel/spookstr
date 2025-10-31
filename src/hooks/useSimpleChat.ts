@@ -38,9 +38,6 @@ export function useSimpleChat(): SimpleChatHook {
   // Spookstr relay URL - hardcoded for reliability
   const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
 
-  // Debug log when hook is called
-  console.log('🔧 [Simple Chat] Hook initialized for user:', user?.pubkey?.slice(0, 8));
-
   // Track last read timestamp per user
   const lastReadRef = useRef<Record<string, number>>({});
 
@@ -140,29 +137,13 @@ export function useSimpleChat(): SimpleChatHook {
   // Calculate unread count
   const unreadCount = useMemo(() => {
     const lastRead = getLastReadTime();
-    const unread = allMessages.filter(msg => msg.created_at > lastRead).length;
-
-    // Debug logging for unread count
-    console.log('📊 [Simple Chat] Unread count calculation:', {
-      userPubkey: user?.pubkey?.slice(0, 8),
-      totalMessages: allMessages.length,
-      lastRead: new Date(lastRead).toISOString(),
-      unreadCount: unread,
-      unreadMessages: allMessages.filter(msg => msg.created_at > lastRead).map(msg => ({
-        id: msg.id.slice(0, 8),
-        created_at: new Date(msg.created_at * 1000).toISOString(),
-      }))
-    });
-
-    return unread;
-  }, [allMessages, getLastReadTime, user?.pubkey]);
+    return allMessages.filter(msg => msg.created_at > lastRead).length;
+  }, [allMessages, getLastReadTime]);
 
   // Mark messages as read
   const markAsRead = useCallback(() => {
     if (user) {
-      const now = Date.now();
-      lastReadRef.current[user.pubkey] = now;
-      console.log('👀 [Simple Chat] Marked messages as read for user:', user.pubkey.slice(0, 8), 'at:', new Date(now).toISOString());
+      lastReadRef.current[user.pubkey] = Date.now();
     }
   }, [user]);
 
@@ -218,16 +199,12 @@ export function useSimpleChat(): SimpleChatHook {
     if (user) {
       // Initialize last read time for this user if not already set
       if (!lastReadRef.current[user.pubkey]) {
-        const now = Date.now();
-        lastReadRef.current[user.pubkey] = now;
-        console.log('👤 [Simple Chat] Initialized last read time for new user:', user.pubkey.slice(0, 8), 'at:', new Date(now).toISOString());
-      } else {
-        console.log('🔄 [Simple Chat] User switched to:', user.pubkey.slice(0, 8), 'existing last read:', new Date(lastReadRef.current[user.pubkey]).toISOString());
+        lastReadRef.current[user.pubkey] = Date.now();
       }
     }
   }, [user]);
 
-  const result = {
+  return {
     messages: allMessages,
     isLoading,
     isLoadingMore,
@@ -237,14 +214,4 @@ export function useSimpleChat(): SimpleChatHook {
     unreadCount,
     markAsRead,
   };
-
-  // Debug log when returning values
-  console.log('📤 [Simple Chat] Hook returning:', {
-    user: user?.pubkey?.slice(0, 8),
-    unreadCount: result.unreadCount,
-    totalMessages: result.messages.length,
-    isLoading: result.isLoading,
-  });
-
-  return result;
 }
