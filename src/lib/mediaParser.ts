@@ -46,7 +46,7 @@ const mediaPatterns = {
   spotify: /(?:open\.spotify\.com\/)(track|album|playlist|artist|show|episode)\/([a-zA-Z0-9]+)/gi,
   instagram: /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/(?:p|reel)\/([A-Za-z0-9_-]+)(?:\/?|\?[^\s]*)?/gi,
   twitter: /(?:twitter\.com|x\.com)\/[a-zA-Z0-9_]+\/status\/([0-9]+)/gi,
-  facebook: /https?:\/\/(?:www\.facebook\.com|facebook\.com)\/(?:[^\/\s]+\/(?:posts|activity|photos|videos|permalink\.php\?story_fbid=|story\.php\?story_fbid=|groups\/[^\/\s]+\/permalink\/)[^\s]*/gi,
+  facebook: /https?:\/\/(?:www\.facebook\.com|facebook\.com)\/[^\/\s]+\/(?:posts|activity|photos|videos|permalink\.php\?story_fbid=|story\.php\?story_fbid=|groups\/[^\/\s]+\/permalink\/)[^\s]*/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
   // Streaming formats
