@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 import { nip19 } from 'nostr-tools';
-import { feedLogger, perfLogger } from '@/lib/devLogger';
 import {
   shouldAppearInMainFeed,
   getContentType,
@@ -208,9 +207,10 @@ export function useParanormalFeed() {
   return useQuery({
     queryKey: ['paranormal-feed'],
     queryFn: async (c) => {
-      return await perfLogger.timeAsync('Feed Query', async () => {
+      const start = performance.now();
+      try {
         const PARANORMAL_TAGS = getParanormalTags();
-        feedLogger.info('Starting paranormal feed query', { tagCount: PARANORMAL_TAGS.length });
+        console.log('Starting paranormal feed query', { tagCount: PARANORMAL_TAGS.length });
 
         const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
@@ -227,7 +227,7 @@ export function useParanormalFeed() {
           }
         ], { signal });
 
-        feedLogger.info('Raw events fetched', { count: events.length });
+        console.log('Raw events fetched', { count: events.length });
 
         // CRITICAL: Filter out replies and community content to prevent cross-contamination
         let filteredEvents = filterForMainFeed(events);
@@ -235,33 +235,33 @@ export function useParanormalFeed() {
         // Log excluded events for debugging
         const excludedEvents = events.filter(event => !shouldAppearInMainFeed(event));
         if (excludedEvents.length > 0) {
-          feedLogger.debug('Events excluded from main feed', {
+          console.debug('Events excluded from main feed', {
             count: excludedEvents.length,
             types: excludedEvents.map(e => getContentType(e))
           });
         }
 
-        feedLogger.debug('After reply/community filter', {
+        console.debug('After reply/community filter', {
           count: filteredEvents.length,
           filtered: events.length - filteredEvents.length
         });
 
         // Filter out NSFW content
         filteredEvents = filterNSFWContent(filteredEvents);
-        feedLogger.debug('After NSFW filter', { count: filteredEvents.length, filtered: events.length - filteredEvents.length });
+        console.debug('After NSFW filter', { count: filteredEvents.length, filtered: events.length - filteredEvents.length });
 
         // Filter out blocked users
         filteredEvents = filterFunctions.filterBlockedUsersCached(filteredEvents);
-        feedLogger.debug('After blocked users filter', { count: filteredEvents.length });
+        console.debug('After blocked users filter', { count: filteredEvents.length });
 
         // Filter reposts to only include those with paranormal tags
         filteredEvents = filterFunctions.filterRepostsByTagsCached(filteredEvents);
-        feedLogger.debug('After repost tag filter', { count: filteredEvents.length });
+        console.debug('After repost tag filter', { count: filteredEvents.length });
 
         // Sort by created_at (newest first)
         filteredEvents.sort((a, b) => b.created_at - a.created_at);
 
-        feedLogger.info('Feed query completed', {
+        console.log('Feed query completed', {
           finalCount: filteredEvents.length,
           kinds: filteredEvents.reduce((acc, e) => {
             acc[e.kind] = (acc[e.kind] || 0) + 1;
@@ -270,7 +270,10 @@ export function useParanormalFeed() {
         });
 
         return filteredEvents;
-      });
+      } finally {
+        const duration = performance.now() - start;
+        console.log(`Feed Query completed in ${duration.toFixed(2)}ms`);
+      }
     },
     refetchOnWindowFocus: false,
     staleTime: 60000, // 1 minute - consider data fresh for this period

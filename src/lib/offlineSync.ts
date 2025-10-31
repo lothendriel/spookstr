@@ -1,6 +1,6 @@
 /**
  * Offline Sync Manager
- * 
+ *
  * Handles synchronization between offline storage and online Nostr relays:
  * - Background sync when online
  * - Conflict detection and resolution
@@ -10,9 +10,6 @@
 
 import type { NostrEvent } from '@nostrify/nostrify';
 import { offlineStorage, type OfflineAction, type OfflineEvent } from './offlineStorage';
-import { devLogger } from './devLogger';
-
-const syncLogger = devLogger.scope('sync');
 
 export interface SyncStatus {
   isOnline: boolean;
@@ -63,7 +60,7 @@ class OfflineSyncManager {
    */
   init(nostrClient: any): void {
     this.nostrClient = nostrClient;
-    syncLogger.info('Sync manager initialized with Nostr client');
+    console.log('Sync manager initialized with Nostr client');
   }
 
   /**
@@ -72,7 +69,7 @@ class OfflineSyncManager {
   private setupEventListeners(): void {
     window.addEventListener('online', this.handleOnline.bind(this));
     window.addEventListener('offline', this.handleOffline.bind(this));
-    
+
     // Listen for background sync events from service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', this.handleServiceWorkerMessage.bind(this));
@@ -83,7 +80,7 @@ class OfflineSyncManager {
    * Handle online event
    */
   private handleOnline(): void {
-    syncLogger.info('Device came online, starting sync');
+    console.log('Device came online, starting sync');
     this.syncStatus.isOnline = true;
     this.notifyListeners();
     this.sync();
@@ -93,7 +90,7 @@ class OfflineSyncManager {
    * Handle offline event
    */
   private handleOffline(): void {
-    syncLogger.info('Device went offline');
+    console.log('Device went offline');
     this.syncStatus.isOnline = false;
     this.syncStatus.isSyncing = false;
     this.notifyListeners();
@@ -104,7 +101,7 @@ class OfflineSyncManager {
    */
   private handleServiceWorkerMessage(event: MessageEvent): void {
     if (event.data.type === 'BACKGROUND_SYNC_COMPLETE') {
-      syncLogger.info('Background sync completed via service worker');
+      console.log('Background sync completed via service worker');
       this.updateSyncStats();
     }
   }
@@ -121,7 +118,7 @@ class OfflineSyncManager {
       }
     }, this.options.backgroundSyncInterval);
 
-    syncLogger.info(`Background sync started (interval: ${this.options.backgroundSyncInterval}ms)`);
+    console.log(`Background sync started (interval: ${this.options.backgroundSyncInterval}ms)`);
   }
 
   /**
@@ -131,7 +128,7 @@ class OfflineSyncManager {
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
-      syncLogger.info('Background sync stopped');
+      console.log('Background sync stopped');
     }
   }
 
@@ -148,14 +145,14 @@ class OfflineSyncManager {
     this.notifyListeners();
 
     try {
-      syncLogger.info('Starting full sync');
-      
+      console.log('Starting full sync');
+
       // Get pending actions
       const pendingActions = await offlineStorage.getPendingActions();
       this.syncStatus.pendingActions = pendingActions.length;
 
       if (pendingActions.length === 0) {
-        syncLogger.info('No pending actions to sync');
+        console.log('No pending actions to sync');
         this.syncStatus.syncProgress = 100;
         this.syncStatus.lastSync = Date.now();
         return;
@@ -173,10 +170,10 @@ class OfflineSyncManager {
       }
 
       this.syncStatus.lastSync = Date.now();
-      syncLogger.info(`Sync completed: ${completed} actions processed`);
+      console.log(`Sync completed: ${completed} actions processed`);
 
     } catch (error) {
-      syncLogger.error('Sync failed', error);
+      console.error('Sync failed', error);
     } finally {
       this.syncStatus.isSyncing = false;
       this.syncStatus.syncProgress = 100;
@@ -198,7 +195,7 @@ class OfflineSyncManager {
    */
   private async processAction(action: OfflineAction): Promise<void> {
     try {
-      syncLogger.debug(`Processing action: ${action.type} (${action.id})`);
+      console.debug(`Processing action: ${action.type} (${action.id})`);
 
       switch (action.type) {
         case 'publish':
@@ -216,10 +213,10 @@ class OfflineSyncManager {
 
       // Mark as completed
       await offlineStorage.completeAction(action.id);
-      syncLogger.info(`Action completed: ${action.type} (${action.id})`);
+      console.log(`Action completed: ${action.type} (${action.id})`);
 
     } catch (error) {
-      syncLogger.error(`Action failed: ${action.type} (${action.id})`, error);
+      console.error(`Action failed: ${action.type} (${action.id})`, error);
       await offlineStorage.failAction(action.id, error instanceof Error ? error.message : 'Unknown error');
     }
   }
@@ -229,7 +226,7 @@ class OfflineSyncManager {
    */
   private async syncPublishAction(action: OfflineAction): Promise<void> {
     const eventData = action.data;
-    
+
     // Check for conflicts with remote data
     const remoteEvents = await this.nostrClient.query([
       { ids: [eventData.id] }
@@ -238,20 +235,20 @@ class OfflineSyncManager {
     if (remoteEvents.length > 0) {
       // Event already exists remotely, resolve conflict
       const resolvedEvent = await offlineStorage.resolveConflict(eventData, remoteEvents[0]);
-      
+
       if (resolvedEvent.conflict_resolution === 'local') {
         // Publish the local version
         await this.nostrClient.event(resolvedEvent);
-        syncLogger.info(`Conflict resolved: Published local version of ${eventData.id}`);
+        console.log(`Conflict resolved: Published local version of ${eventData.id}`);
       } else {
         // Update local storage with remote/merged version
         await offlineStorage.storeEvents([resolvedEvent]);
-        syncLogger.info(`Conflict resolved: Updated local version of ${eventData.id}`);
+        console.log(`Conflict resolved: Updated local version of ${eventData.id}`);
       }
     } else {
       // No conflict, publish normally
       await this.nostrClient.event(eventData);
-      syncLogger.info(`Published event: ${eventData.id}`);
+      console.log(`Published event: ${eventData.id}`);
     }
   }
 
@@ -260,11 +257,11 @@ class OfflineSyncManager {
    */
   private async syncInteractionAction(action: OfflineAction): Promise<void> {
     const eventData = action.data;
-    
+
     // For interactions, we generally don't need conflict resolution
     // Just publish the interaction event
     await this.nostrClient.event(eventData);
-    syncLogger.info(`Published interaction: ${eventData.kind} for ${eventData.tags.find(t => t[0] === 'e')?.[1]}`);
+    console.log(`Published interaction: ${eventData.kind} for ${eventData.tags.find(t => t[0] === 'e')?.[1]}`);
   }
 
   /**
@@ -272,7 +269,7 @@ class OfflineSyncManager {
    */
   private async syncDeleteAction(action: OfflineAction): Promise<void> {
     const { eventId, reason } = action.data;
-    
+
     // Create a kind 5 deletion event
     const deleteEvent = {
       kind: 5,
@@ -282,7 +279,7 @@ class OfflineSyncManager {
     };
 
     await this.nostrClient.event(deleteEvent);
-    syncLogger.info(`Published deletion event for: ${eventId}`);
+    console.log(`Published deletion event for: ${eventId}`);
   }
 
   /**
@@ -290,9 +287,9 @@ class OfflineSyncManager {
    */
   async queueAction(type: OfflineAction['type'], data: any): Promise<string> {
     const actionId = await offlineStorage.queueAction({ type, data });
-    
-    syncLogger.info(`Queued offline action: ${type} (${actionId})`);
-    
+
+    console.log(`Queued offline action: ${type} (${actionId})`);
+
     // Trigger background sync if online
     if (this.syncStatus.isOnline && 'serviceWorker' in navigator) {
       navigator.serviceWorker.ready.then(registration => {
@@ -311,7 +308,7 @@ class OfflineSyncManager {
    */
   async cacheEvents(events: NostrEvent[]): Promise<void> {
     await offlineStorage.storeEvents(events);
-    syncLogger.debug(`Cached ${events.length} events for offline access`);
+    console.debug(`Cached ${events.length} events for offline access`);
   }
 
   /**
@@ -319,7 +316,7 @@ class OfflineSyncManager {
    */
   async getCachedEvents(filters: any): Promise<OfflineEvent[]> {
     const events = await offlineStorage.getEvents(filters);
-    syncLogger.debug(`Retrieved ${events.length} cached events`);
+    console.debug(`Retrieved ${events.length} cached events`);
     return events;
   }
 
@@ -333,7 +330,7 @@ class OfflineSyncManager {
       this.syncStatus.failedActions = actions.filter(a => a.status === 'failed').length;
       this.notifyListeners();
     } catch (error) {
-      syncLogger.error('Failed to update sync stats', error);
+      console.error('Failed to update sync stats', error);
     }
   }
 
@@ -353,7 +350,7 @@ class OfflineSyncManager {
    */
   onSyncStatusChange(listener: (status: SyncStatus) => void): () => void {
     this.syncListeners.push(listener);
-    
+
     // Return unsubscribe function
     return () => {
       const index = this.syncListeners.indexOf(listener);
@@ -371,7 +368,7 @@ class OfflineSyncManager {
       try {
         listener({ ...this.syncStatus });
       } catch (error) {
-        syncLogger.error('Error in sync status listener', error);
+        console.error('Error in sync status listener', error);
       }
     });
   }
@@ -390,8 +387,8 @@ class OfflineSyncManager {
     if (!this.syncStatus.isOnline) {
       throw new Error('Cannot sync while offline');
     }
-    
-    syncLogger.info('Force sync requested');
+
+    console.log('Force sync requested');
     await this.sync();
   }
 
@@ -401,7 +398,7 @@ class OfflineSyncManager {
   async reset(): Promise<void> {
     this.stopBackgroundSync();
     await offlineStorage.clearAll();
-    
+
     this.syncStatus = {
       isOnline: navigator.onLine,
       isSyncing: false,
@@ -410,11 +407,11 @@ class OfflineSyncManager {
       failedActions: 0,
       syncProgress: 0,
     };
-    
+
     this.notifyListeners();
     this.startBackgroundSync();
-    
-    syncLogger.info('Sync manager reset');
+
+    console.log('Sync manager reset');
   }
 
   /**
@@ -423,8 +420,8 @@ class OfflineSyncManager {
   async optimize(): Promise<void> {
     await offlineStorage.cleanup();
     const stats = await offlineStorage.getStats();
-    
-    syncLogger.info('Storage optimized', {
+
+    console.log('Storage optimized', {
       events: stats.events,
       actions: stats.actions,
       profiles: stats.profiles,
@@ -438,11 +435,11 @@ class OfflineSyncManager {
   dispose(): void {
     this.stopBackgroundSync();
     this.syncListeners = [];
-    
+
     window.removeEventListener('online', this.handleOnline.bind(this));
     window.removeEventListener('offline', this.handleOffline.bind(this));
-    
-    syncLogger.info('Sync manager disposed');
+
+    console.log('Sync manager disposed');
   }
 }
 
