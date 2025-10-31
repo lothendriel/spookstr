@@ -38,6 +38,9 @@ export function useSimpleChat(): SimpleChatHook {
   // Spookstr relay URL - hardcoded for reliability
   const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
 
+  // Debug log when hook is called
+  console.log('🔧 [Simple Chat] Hook initialized for user:', user?.pubkey?.slice(0, 8));
+
   // Track last read timestamp per user
   const lastReadRef = useRef<Record<string, number>>({});
 
@@ -224,7 +227,7 @@ export function useSimpleChat(): SimpleChatHook {
     }
   }, [user]);
 
-  return {
+  const result = {
     messages: allMessages,
     isLoading,
     isLoadingMore,
@@ -234,4 +237,14 @@ export function useSimpleChat(): SimpleChatHook {
     unreadCount,
     markAsRead,
   };
+
+  // Debug log when returning values
+  console.log('📤 [Simple Chat] Hook returning:', {
+    user: user?.pubkey?.slice(0, 8),
+    unreadCount: result.unreadCount,
+    totalMessages: result.messages.length,
+    isLoading: result.isLoading,
+  });
+
+  return result;
 }
