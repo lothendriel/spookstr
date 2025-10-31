@@ -1,6 +1,6 @@
 /**
  * Offline-enabled Nostr Hook
- *
+ * 
  * Extends the standard useNostr hook with offline capabilities:
  * - Automatic caching of query results
  * - Offline-first data retrieval
@@ -14,6 +14,9 @@ import { useNostr } from '@nostrify/react';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { useOfflineSync, type SyncStatus } from '@/lib/offlineSync';
 import { useOfflineStorage } from '@/lib/offlineStorage';
+import { devLogger } from '@/lib/devLogger';
+
+const offlineLogger = devLogger.scope('offline');
 
 interface OfflineNostrQuery {
   queryKey: any[];
@@ -48,7 +51,7 @@ export function useOfflineNostrQuery<T = NostrEvent[]>({
   const { nostr } = useNostr();
   const { getCachedEvents, cacheEvents } = useOfflineSync();
   const queryClient = useQueryClient();
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ 
     isOnline: navigator.onLine,
     isSyncing: false,
     lastSync: null,
@@ -68,7 +71,7 @@ export function useOfflineNostrQuery<T = NostrEvent[]>({
     queryKey: ['offline-nostr', ...queryKey],
     queryFn: async ({ signal: querySignal }) => {
       const signal = AbortSignal.any([
-        querySignal,
+        querySignal, 
         options.signal || new AbortController().signal,
         AbortSignal.timeout(10000)
       ]);
@@ -76,21 +79,21 @@ export function useOfflineNostrQuery<T = NostrEvent[]>({
       try {
         if (syncStatus.isOnline) {
           // Online: Query from network and cache results
-          console.log('Querying online', { filters: filters.length });
-
+          offlineLogger.info('Querying online', { filters: filters.length });
+          
           const events = await nostr.query(filters, { signal });
-
+          
           // Cache events for offline access
           if (events.length > 0) {
             await cacheEvents(events);
-            console.debug(`Cached ${events.length} events`);
+            offlineLogger.debug(`Cached ${events.length} events`);
           }
-
+          
           return events as T;
         } else {
           // Offline: Return cached data
-          console.log('Querying offline cache', { filters: filters.length });
-
+          offlineLogger.info('Querying offline cache', { filters: filters.length });
+          
           // Convert filters to offline storage format
           const offlineFilters = filters.reduce((acc, filter) => {
             return {
@@ -106,13 +109,13 @@ export function useOfflineNostrQuery<T = NostrEvent[]>({
           }, {});
 
           const cachedEvents = await getCachedEvents(offlineFilters);
-          console.log(`Retrieved ${cachedEvents.length} cached events`);
-
+          offlineLogger.info(`Retrieved ${cachedEvents.length} cached events`);
+          
           return cachedEvents as T;
         }
       } catch (error) {
-        console.error('Query failed, trying cache', error);
-
+        offlineLogger.error('Query failed, trying cache', error);
+        
         // On error, try to return cached data
         const offlineFilters = filters.reduce((acc, filter) => {
           return {
@@ -125,10 +128,10 @@ export function useOfflineNostrQuery<T = NostrEvent[]>({
 
         const cachedEvents = await getCachedEvents(offlineFilters);
         if (cachedEvents.length > 0) {
-          console.log(`Fallback to cache: ${cachedEvents.length} events`);
+          offlineLogger.info(`Fallback to cache: ${cachedEvents.length} events`);
           return cachedEvents as T;
         }
-
+        
         throw error;
       }
     },
@@ -153,7 +156,7 @@ export function useOfflineNostrPublish() {
   const { nostr } = useNostr();
   const { queueAction } = useOfflineSync();
   const queryClient = useQueryClient();
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ 
     isOnline: navigator.onLine,
     isSyncing: false,
     lastSync: null,
@@ -173,21 +176,21 @@ export function useOfflineNostrPublish() {
     mutationFn: async (eventData: Partial<NostrEvent>) => {
       if (syncStatus.isOnline) {
         // Online: Publish immediately
-        console.log('Publishing online', { kind: eventData.kind });
+        offlineLogger.info('Publishing online', { kind: eventData.kind });
         const result = await nostr.event(eventData);
-
+        
         // Cache the published event
         if (result) {
           const { sync } = useOfflineSync();
           await sync.cacheEvents([result]);
         }
-
+        
         return result;
       } else {
         // Offline: Queue for later
-        console.log('Queuing for offline publish', { kind: eventData.kind });
+        offlineLogger.info('Queuing for offline publish', { kind: eventData.kind });
         const actionId = await queueAction('publish', eventData);
-
+        
         // Create a temporary event with offline ID for immediate UI update
         const tempEvent: NostrEvent = {
           id: `offline-${actionId}`,
@@ -209,13 +212,13 @@ export function useOfflineNostrPublish() {
       }
     },
     onSuccess: (data) => {
-      console.log('Publish successful', { id: data?.id, online: syncStatus.isOnline });
-
+      offlineLogger.info('Publish successful', { id: data?.id, online: syncStatus.isOnline });
+      
       // Invalidate relevant queries to trigger refetch
       queryClient.invalidateQueries({ queryKey: ['offline-nostr'] });
     },
     onError: (error) => {
-      console.error('Publish failed', error);
+      offlineLogger.error('Publish failed', error);
     },
   });
 }
@@ -227,7 +230,7 @@ export function useOfflineNostrInteraction() {
   const { nostr } = useNostr();
   const { queueAction } = useOfflineSync();
   const queryClient = useQueryClient();
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ 
     isOnline: navigator.onLine,
     isSyncing: false,
     lastSync: null,
@@ -278,17 +281,17 @@ export function useOfflineNostrInteraction() {
 
       if (syncStatus.isOnline) {
         // Online: Publish immediately
-        console.log(`Publishing ${type} online`, { targetId: targetEvent.id });
+        offlineLogger.info(`Publishing ${type} online`, { targetId: targetEvent.id });
         return await nostr.event(eventData);
       } else {
         // Offline: Queue for later
-        console.log(`Queuing ${type} for offline`, { targetId: targetEvent.id });
+        offlineLogger.info(`Queuing ${type} for offline`, { targetId: targetEvent.id });
         const actionId = await queueAction('interaction', eventData);
-
+        
         // Optimistic update - increment interaction count in UI
         queryClient.setQueryData(['post-interactions', targetEvent.id], (oldData: any) => {
           if (!oldData) return { likes: 0, reposts: 0, comments: 0, zaps: 0 };
-
+          
           const newData = { ...oldData };
           switch (type) {
             case 'like':
@@ -308,19 +311,19 @@ export function useOfflineNostrInteraction() {
       }
     },
     onSuccess: (data, variables) => {
-      console.log(`${variables.type} successful`, {
-        id: data?.id,
-        online: syncStatus.isOnline
+      offlineLogger.info(`${variables.type} successful`, { 
+        id: data?.id, 
+        online: syncStatus.isOnline 
       });
     },
     onError: (error, variables) => {
-      console.error(`${variables.type} failed`, error);
-
+      offlineLogger.error(`${variables.type} failed`, error);
+      
       // Revert optimistic update on error
       if (!syncStatus.isOnline) {
         queryClient.setQueryData(['post-interactions', variables.targetEvent.id], (oldData: any) => {
           if (!oldData) return { likes: 0, reposts: 0, comments: 0, zaps: 0 };
-
+          
           const newData = { ...oldData };
           switch (variables.type) {
             case 'like':
@@ -344,7 +347,7 @@ export function useOfflineNostrInteraction() {
  * Hook to get current offline status and sync information
  */
 export function useOfflineStatus() {
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ 
     isOnline: navigator.onLine,
     isSyncing: false,
     lastSync: null,
@@ -384,7 +387,7 @@ export function useOfflineStats() {
         const newStats = await storage.getStats();
         setStats(newStats);
       } catch (error) {
-        console.error('Failed to get storage stats', error);
+        offlineLogger.error('Failed to get storage stats', error);
       }
     };
 

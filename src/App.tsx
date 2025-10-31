@@ -29,7 +29,10 @@ import { EncryptedChatIcon } from '@/components/EncryptedChatIcon';
 import { PopOutPodcastPlayer } from '@/components/PopOutPodcastPlayer';
 import { PodcastIndicator } from '@/components/PodcastIndicator';
 import { SpookstrProfileSync } from '@/components/SpookstrProfileSync';
+import { PerformanceMonitor } from '@/components/PerformanceMonitor';
+import { DebugPanel } from '@/components/DebugPanel';
 import { CompactOfflineIndicator } from '@/components/OfflineIndicator';
+import { useMemoryMonitor } from '@/hooks/useMemoryMonitor';
 
 const head = createHead({
   plugins: [
@@ -79,6 +82,9 @@ const presetRelays = [
 ];
 
 export function App() {
+  // Enable global memory monitoring
+  useMemoryMonitor();
+
   return (
     <UnheadProvider head={head}>
       <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={presetRelays}>
@@ -104,7 +110,11 @@ export function App() {
                       </Suspense>
                     )}
 
+                    {/* Development-only Performance Monitor */}
+                    <PerformanceMonitor />
 
+                    {/* Development-only Debug Panel */}
+                    <DebugPanel />
 
                     {/* Offline status indicator */}
                     <CompactOfflineIndicator className="fixed top-4 right-4 z-40" />

@@ -6,6 +6,9 @@
  */
 
 import { useState, useEffect } from 'react';
+import { devLogger } from './devLogger';
+
+const swLogger = devLogger.scope('sw');
 
 export interface ServiceWorkerState {
   isSupported: boolean;
@@ -29,7 +32,7 @@ class ServiceWorkerManager {
    */
   async register(): Promise<ServiceWorkerRegistration | null> {
     if (!this.state.isSupported) {
-      console.warn('Service workers not supported');
+      swLogger.warn('Service workers not supported');
       return null;
     }
 
@@ -42,7 +45,7 @@ class ServiceWorkerManager {
       this.state.registration = registration;
       this.state.isRegistered = true;
 
-      console.log('Service worker registered successfully');
+      swLogger.info('Service worker registered successfully');
 
       // Set up event listeners
       this.setupEventListeners(registration);
@@ -54,7 +57,7 @@ class ServiceWorkerManager {
       return registration;
 
     } catch (error) {
-      console.error('Service worker registration failed', error);
+      swLogger.error('Service worker registration failed', error);
       return null;
     }
   }
@@ -68,21 +71,21 @@ class ServiceWorkerManager {
       const newWorker = registration.installing;
       if (!newWorker) return;
 
-      console.log('New service worker version found');
+      swLogger.info('New service worker version found');
 
       newWorker.addEventListener('statechange', () => {
         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
           // New version is ready to activate
           this.state.isUpdateAvailable = true;
           this.notifyListeners();
-          console.log('New service worker version ready');
+          swLogger.info('New service worker version ready');
         }
       });
     });
 
     // Listen for controller changes (new SW activated)
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      console.log('Service worker controller changed - reloading page');
+      swLogger.info('Service worker controller changed - reloading page');
       window.location.reload();
     });
 
@@ -96,23 +99,23 @@ class ServiceWorkerManager {
    * Handle messages from service worker
    */
   private handleServiceWorkerMessage(data: any): void {
-    console.debug('Received message from service worker', data);
+    swLogger.debug('Received message from service worker', data);
 
     switch (data.type) {
       case 'CACHE_UPDATED':
-        console.log('Cache updated by service worker');
+        swLogger.info('Cache updated by service worker');
         break;
       case 'OFFLINE_MODE':
-        console.log('App is now in offline mode');
+        swLogger.info('App is now in offline mode');
         break;
       case 'ONLINE_MODE':
-        console.log('App is now in online mode');
+        swLogger.info('App is now in online mode');
         break;
       case 'SYNC_COMPLETE':
-        console.log('Background sync completed');
+        swLogger.info('Background sync completed');
         break;
       default:
-        console.debug('Unknown message type from service worker', data.type);
+        swLogger.debug('Unknown message type from service worker', data.type);
     }
   }
 
@@ -125,9 +128,9 @@ class ServiceWorkerManager {
 
     try {
       await reg.update();
-      console.debug('Checked for service worker updates');
+      swLogger.debug('Checked for service worker updates');
     } catch (error) {
-      console.error('Failed to check for service worker updates', error);
+      swLogger.error('Failed to check for service worker updates', error);
     }
   }
 
@@ -137,7 +140,7 @@ class ServiceWorkerManager {
   async activateUpdate(): Promise<void> {
     const registration = this.state.registration;
     if (!registration || !registration.waiting) {
-      console.warn('No waiting service worker to activate');
+      swLogger.warn('No waiting service worker to activate');
       return;
     }
 
@@ -147,7 +150,7 @@ class ServiceWorkerManager {
     this.state.isUpdateAvailable = false;
     this.notifyListeners();
 
-    console.log('Activating new service worker version');
+    swLogger.info('Activating new service worker version');
   }
 
   /**
@@ -155,12 +158,12 @@ class ServiceWorkerManager {
    */
   async postMessage(message: any): Promise<void> {
     if (!this.state.registration || !navigator.serviceWorker.controller) {
-      console.warn('No active service worker to send message to');
+      swLogger.warn('No active service worker to send message to');
       return;
     }
 
     navigator.serviceWorker.controller.postMessage(message);
-    console.debug('Sent message to service worker', message);
+    swLogger.debug('Sent message to service worker', message);
   }
 
   /**
@@ -169,15 +172,15 @@ class ServiceWorkerManager {
   async registerBackgroundSync(tag: string): Promise<void> {
     const registration = this.state.registration;
     if (!registration || !('sync' in registration)) {
-      console.warn('Background sync not supported');
+      swLogger.warn('Background sync not supported');
       return;
     }
 
     try {
       await registration.sync.register(tag);
-      console.log(`Registered background sync: ${tag}`);
+      swLogger.info(`Registered background sync: ${tag}`);
     } catch (error) {
-      console.error(`Failed to register background sync: ${tag}`, error);
+      swLogger.error(`Failed to register background sync: ${tag}`, error);
     }
   }
 
@@ -186,22 +189,22 @@ class ServiceWorkerManager {
    */
   async setupNotifications(): Promise<boolean> {
     if (!this.state.registration || !('showNotification' in ServiceWorkerRegistration.prototype)) {
-      console.warn('Notifications not supported');
+      swLogger.warn('Notifications not supported');
       return false;
     }
 
     try {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
-        console.warn('Notification permission denied');
+        swLogger.warn('Notification permission denied');
         return false;
       }
 
-      console.log('Notification permission granted');
+      swLogger.info('Notification permission granted');
       return true;
 
     } catch (error) {
-      console.error('Failed to request notification permission', error);
+      swLogger.error('Failed to request notification permission', error);
       return false;
     }
   }
@@ -223,9 +226,9 @@ class ServiceWorkerManager {
         ...options,
       });
 
-      console.log(`Showed notification: ${title}`);
+      swLogger.info(`Showed notification: ${title}`);
     } catch (error) {
-      console.error('Failed to show notification', error);
+      swLogger.error('Failed to show notification', error);
     }
   }
 
@@ -239,9 +242,9 @@ class ServiceWorkerManager {
         cacheNames.map(cacheName => caches.delete(cacheName))
       );
 
-      console.log(`Cleared ${cacheNames.length} caches`);
+      swLogger.info(`Cleared ${cacheNames.length} caches`);
     } catch (error) {
-      console.error('Failed to clear caches', error);
+      swLogger.error('Failed to clear caches', error);
     }
   }
 
@@ -261,7 +264,7 @@ class ServiceWorkerManager {
 
       return stats;
     } catch (error) {
-      console.error('Failed to get cache stats', error);
+      swLogger.error('Failed to get cache stats', error);
       return [];
     }
   }
@@ -272,7 +275,7 @@ class ServiceWorkerManager {
   async unregister(): Promise<boolean> {
     const registration = this.state.registration;
     if (!registration) {
-      console.warn('No service worker registration to unregister');
+      swLogger.warn('No service worker registration to unregister');
       return false;
     }
 
@@ -283,11 +286,11 @@ class ServiceWorkerManager {
       this.state.registration = null;
       this.notifyListeners();
 
-      console.log('Service worker unregistered successfully');
+      swLogger.info('Service worker unregistered successfully');
       return result;
 
     } catch (error) {
-      console.error('Failed to unregister service worker', error);
+      swLogger.error('Failed to unregister service worker', error);
       return false;
     }
   }
@@ -315,7 +318,7 @@ class ServiceWorkerManager {
       try {
         listener({ ...this.state });
       } catch (error) {
-        console.error('Error in service worker state listener', error);
+        swLogger.error('Error in service worker state listener', error);
       }
     });
   }
@@ -360,6 +363,6 @@ export function useServiceWorker() {
 if (typeof window !== 'undefined' && import.meta.env.PROD) {
   // Only auto-register in production
   serviceWorkerManager.register().then(() => {
-    console.log('Service worker auto-registration completed');
+    swLogger.info('Service worker auto-registration completed');
   });
 }
