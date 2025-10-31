@@ -13,7 +13,7 @@ import { Send, Ghost, MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-interface EncryptedChatModalProps {
+interface SimpleChatProps {
   isOpen: boolean;
   onClose: () => void;
 }
@@ -109,7 +109,7 @@ function ChatMessageSkeleton() {
   );
 }
 
-export function SimpleChatModal({ isOpen, onClose }: EncryptedChatModalProps) {
+export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
   const { user } = useCurrentUser();
   const {
     messages,
@@ -212,7 +212,7 @@ export function SimpleChatModal({ isOpen, onClose }: EncryptedChatModalProps) {
                   </div>
                 )}
 
-                {/* Messages */}
+                {/* Messages - oldest to newest (newest at bottom) */}
                 {messages.map((msg) => (
                   <ChatMessageComponent
                     key={msg.id}
@@ -221,7 +221,7 @@ export function SimpleChatModal({ isOpen, onClose }: EncryptedChatModalProps) {
                   />
                 ))}
 
-                {/* Scroll anchor */}
+                {/* Scroll anchor - this keeps us scrolled to the bottom */}
                 <div ref={messagesEndRef} />
               </div>
             )}
@@ -234,7 +234,7 @@ export function SimpleChatModal({ isOpen, onClose }: EncryptedChatModalProps) {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Type your encrypted message..."
+                placeholder="Type your message..."
                 disabled={isSending}
                 className="flex-1 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-purple-500"
               />

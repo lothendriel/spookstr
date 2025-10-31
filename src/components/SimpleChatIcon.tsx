@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, MessageSquare } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSimpleChat } from '@/hooks/useSimpleChat';
-import { SimpleChatModal } from './EncryptedChatModal';
+import { SimpleChat } from './SimpleChat';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 
-interface EncryptedChatIconProps {
+interface SimpleChatIconProps {
   className?: string;
 }
 
-export function SimpleChatIcon({ className }: EncryptedChatIconProps) {
+export function SimpleChatIcon({ className }: SimpleChatIconProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { unreadCount, markAsRead } = useSimpleChat();
   const { user } = useCurrentUser();
@@ -123,7 +123,7 @@ export function SimpleChatIcon({ className }: EncryptedChatIconProps) {
       </Button>
 
       {/* Chat Modal */}
-      <SimpleChatModal
+      <SimpleChat
         isOpen={isOpen}
         onClose={handleClose}
       />

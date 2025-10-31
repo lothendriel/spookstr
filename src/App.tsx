@@ -25,7 +25,7 @@ const ReactQueryDevtools = import.meta.env.DEV
   : null;
 
 import { ScrollToTop } from '@/components/ScrollToTop';
-import { SimpleChatIcon } from '@/components/EncryptedChatIcon';
+import { SimpleChatIcon } from '@/components/SimpleChatIcon';
 import { PopOutPodcastPlayer } from '@/components/PopOutPodcastPlayer';
 import { PodcastIndicator } from '@/components/PodcastIndicator';
 import { SpookstrProfileSync } from '@/components/SpookstrProfileSync';
