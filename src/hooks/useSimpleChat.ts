@@ -140,18 +140,16 @@ export function useSimpleChat(): SimpleChatHook {
     const unread = allMessages.filter(msg => msg.created_at > lastRead).length;
 
     // Debug logging for unread count
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📊 [Simple Chat] Unread count calculation:', {
-        userPubkey: user?.pubkey?.slice(0, 8),
-        totalMessages: allMessages.length,
-        lastRead: new Date(lastRead).toISOString(),
-        unreadCount: unread,
-        unreadMessages: allMessages.filter(msg => msg.created_at > lastRead).map(msg => ({
-          id: msg.id.slice(0, 8),
-          created_at: new Date(msg.created_at * 1000).toISOString(),
-        }))
-      });
-    }
+    console.log('📊 [Simple Chat] Unread count calculation:', {
+      userPubkey: user?.pubkey?.slice(0, 8),
+      totalMessages: allMessages.length,
+      lastRead: new Date(lastRead).toISOString(),
+      unreadCount: unread,
+      unreadMessages: allMessages.filter(msg => msg.created_at > lastRead).map(msg => ({
+        id: msg.id.slice(0, 8),
+        created_at: new Date(msg.created_at * 1000).toISOString(),
+      }))
+    });
 
     return unread;
   }, [allMessages, getLastReadTime, user?.pubkey]);
