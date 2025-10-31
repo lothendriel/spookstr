@@ -25,6 +25,7 @@ const ReactQueryDevtools = import.meta.env.DEV
   : null;
 
 import { ScrollToTop } from '@/components/ScrollToTop';
+import { EncryptedChatIcon } from '@/components/EncryptedChatIcon';
 import { PopOutPodcastPlayer } from '@/components/PopOutPodcastPlayer';
 import { PodcastIndicator } from '@/components/PodcastIndicator';
 import { SpookstrProfileSync } from '@/components/SpookstrProfileSync';
@@ -126,6 +127,9 @@ export function App() {
 
                     {/* Podcast indicator for background playing */}
                     <PodcastIndicator />
+
+                    {/* Encrypted chat icon - positioned above scroll to top */}
+                    <EncryptedChatIcon />
 
                     {/* Scroll to top button */}
                     <ScrollToTop />
