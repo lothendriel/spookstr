@@ -15,6 +15,13 @@ export function SimpleChatIcon({ className }: SimpleChatIconProps) {
   const { unreadCount, markAsRead } = useSimpleChat();
   const { user } = useCurrentUser();
 
+  // Debug logging for SimpleChatIcon
+  console.log('🎯 [Simple Chat Icon] Component render:', {
+    userPubkey: user?.pubkey?.slice(0, 8),
+    unreadCount,
+    isOpen,
+  });
+
   // Responsive sizes based on screen size
   const getButtonSize = (width: number) => {
     if (width < 640) { // Mobile
