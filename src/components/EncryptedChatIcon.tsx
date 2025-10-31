@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -70,42 +70,42 @@ export function EncryptedChatIcon({ className }: EncryptedChatIconProps) {
         className={cn(
           // Fixed positioning - positioned above scroll to top
           'fixed bottom-24 right-6 z-50',
-          
+
           // Responsive sizing
           buttonSize,
-          
+
           // Smooth transitions
           'transition-all duration-300 ease-in-out',
-          
+
           // Visual styling - using purple for mystical/spooky theme
           'bg-purple-600 hover:bg-purple-700',
           'text-white hover:text-white',
           'shadow-lg hover:shadow-xl',
           'rounded-full',
-          
+
           // Border effects
           'border-2 border-purple-400/30 hover:border-purple-400/50',
-          
+
           // Focus states
           'focus:outline-none focus:ring-2 focus:ring-purple-400/50 focus:ring-offset-2',
-          
+
           // Animation for new messages
           unreadCount > 0 && 'animate-pulse',
-          
+
           className
         )}
         aria-label="Open encrypted chat"
       >
         <div className="relative">
-          <MessageCircle 
+          <MessageCircle
             className={cn(
               'transition-transform duration-200',
               'hover:scale-110'
-            )} 
-            size={iconSize} 
+            )}
+            size={iconSize}
             strokeWidth={3}
           />
-          
+
           {/* Unread message indicator */}
           {unreadCount > 0 && (
             <div className={cn(
@@ -125,9 +125,9 @@ export function EncryptedChatIcon({ className }: EncryptedChatIconProps) {
       </Button>
 
       {/* Chat Modal */}
-      <EncryptedChatModal 
-        isOpen={isOpen} 
-        onClose={handleClose} 
+      <EncryptedChatModal
+        isOpen={isOpen}
+        onClose={handleClose}
       />
     </>
   );

@@ -36,7 +36,7 @@ export function useEncryptedChat(): EncryptedChatHook {
   const { user } = useCurrentUser();
   const { mutateAsync: publishEvent } = useNostrPublish();
   const queryClient = useQueryClient();
-  
+
   // Track last read timestamp
   const lastReadRef = useRef<number>(Date.now());
 
@@ -73,25 +73,65 @@ export function useEncryptedChat(): EncryptedChatHook {
 
         // Decrypt and process messages
         const messages: ChatMessage[] = [];
-        
+
         for (const event of allEvents) {
           try {
+            // Skip if content is empty or not a string
+            if (!event.content || typeof event.content !== 'string') continue;
+
             // Decrypt the gift wrap to get the seal
-            const sealEvent = JSON.parse(await user.signer.nip44.decrypt(user.pubkey, event.content)) as Event;
-            
+            let sealContent: string;
+            try {
+              sealContent = await user.signer.nip44.decrypt(user.pubkey, event.content);
+            } catch (decryptError) {
+              // Skip messages that can't be decrypted (likely not for us)
+              continue;
+            }
+
+            // Parse the seal event
+            let sealEvent: Event;
+            try {
+              sealEvent = JSON.parse(sealContent) as Event;
+            } catch (parseError) {
+              console.warn('Failed to parse seal event:', parseError);
+              continue;
+            }
+
             // Verify the seal is from the expected sender
             if (sealEvent.kind !== 13) continue; // Must be a seal
-            
+
+            // Skip if seal content is empty or not a string
+            if (!sealEvent.content || typeof sealEvent.content !== 'string') continue;
+
             // Decrypt the seal content to get the actual chat message
-            const chatEvent = JSON.parse(await user.signer.nip44.decrypt(sealEvent.pubkey, sealEvent.content)) as UnsignedEvent;
-            
+            let chatEventContent: string;
+            try {
+              chatEventContent = await user.signer.nip44.decrypt(sealEvent.pubkey, sealEvent.content);
+            } catch (chatDecryptError) {
+              console.warn('Failed to decrypt chat event content:', chatDecryptError);
+              continue;
+            }
+
+            // Parse the chat event
+            let chatEvent: UnsignedEvent;
+            try {
+              chatEvent = JSON.parse(chatEventContent) as UnsignedEvent;
+            } catch (chatParseError) {
+              console.warn('Failed to parse chat event:', chatParseError);
+              continue;
+            }
+
             // Verify this is our site chat message
             const dTag = chatEvent.tags.find(([name]) => name === 'd')?.[1];
             if (dTag !== SITE_CHAT_D_TAG) continue;
-            
+
             // Only process kind 14 (chat messages)
             if (chatEvent.kind !== 14) continue;
-            
+
+            // Validate required fields
+            if (!chatEvent.content || typeof chatEvent.content !== 'string') continue;
+            if (!sealEvent.pubkey) continue;
+
             messages.push({
               id: event.id,
               pubkey: sealEvent.pubkey, // Original sender
@@ -99,12 +139,14 @@ export function useEncryptedChat(): EncryptedChatHook {
               created_at: event.created_at,
             });
           } catch (error) {
-            console.warn('Failed to decrypt chat message:', error);
+            // Silently skip any messages that don't match our expected format
+            // This prevents noise from other kinds of encrypted messages
+            continue;
           }
         }
 
         // Remove duplicates and sort
-        const uniqueMessages = messages.filter((msg, index, self) => 
+        const uniqueMessages = messages.filter((msg, index, self) =>
           index === self.findIndex(m => m.id === msg.id)
         ).sort((a, b) => b.created_at - a.created_at);
 
@@ -144,8 +186,14 @@ export function useEncryptedChat(): EncryptedChatHook {
   // Send encrypted message
   const sendMessage = useCallback(async (content: string) => {
     if (!user) throw new Error('User not authenticated');
+    if (!content.trim()) throw new Error('Message content cannot be empty');
 
     try {
+      // Validate user has NIP-44 capability
+      if (!user.signer.nip44) {
+        throw new Error('NIP-44 encryption not available. Please update your Nostr signer.');
+      }
+
       // Create the unsigned chat message
       const chatMessage: UnsignedEvent = {
         kind: 14,
@@ -154,7 +202,7 @@ export function useEncryptedChat(): EncryptedChatHook {
         tags: [
           ['d', SITE_CHAT_D_TAG], // Site chat identifier
         ],
-        content,
+        content: content.trim(),
       };
 
       // Create the seal (kind 13)
@@ -163,15 +211,14 @@ export function useEncryptedChat(): EncryptedChatHook {
         pubkey: user.pubkey,
         created_at: Math.floor(Date.now() / 1000) - Math.floor(Math.random() * 172800), // Random time up to 2 days ago
         tags: [],
-        content: await user.signer.nip44.encrypt(user.pubkey, JSON.stringify(chatMessage)),
+        content: '', // Will be encrypted below
       };
+
+      // Encrypt the chat message for the seal
+      seal.content = await user.signer.nip44.encrypt(user.pubkey, JSON.stringify(chatMessage));
 
       // Sign the seal
       const signedSeal = await user.signer.signEvent(seal);
-
-      // Get all online users (simplified - in real implementation you'd track active users)
-      // For now, we'll just send to ourselves and the relay will broadcast
-      // In a full implementation, you'd maintain a list of active participants
 
       // Create and publish gift wrap (kind 1059)
       const giftWrap: UnsignedEvent = {
@@ -181,8 +228,11 @@ export function useEncryptedChat(): EncryptedChatHook {
         tags: [
           ['p', user.pubkey], // Send to ourselves
         ],
-        content: await user.signer.nip44.encrypt(user.pubkey, JSON.stringify(signedSeal)),
+        content: '', // Will be encrypted below
       };
+
+      // Encrypt the seal for the gift wrap
+      giftWrap.content = await user.signer.nip44.encrypt(user.pubkey, JSON.stringify(signedSeal));
 
       await publishEvent(giftWrap);
 

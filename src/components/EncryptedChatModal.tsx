@@ -39,8 +39,8 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
 
   const displayName = metadata?.display_name || metadata?.name || 'Anonymous';
   const displayPicture = metadata?.picture;
-  const timeAgo = formatDistanceToNow(new Date(message.created_at * 1000), { 
-    addSuffix: true 
+  const timeAgo = formatDistanceToNow(new Date(message.created_at * 1000), {
+    addSuffix: true
   });
 
   return (
@@ -82,8 +82,8 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
 
         <Card className={cn(
           'px-3 py-2',
-          isOwnMessage 
-            ? 'bg-purple-600 text-white' 
+          isOwnMessage
+            ? 'bg-purple-600 text-white'
             : 'bg-gray-800 text-gray-100'
         )}>
           <CardContent className="p-0">
@@ -111,15 +111,15 @@ function ChatMessageSkeleton() {
 
 export function EncryptedChatModal({ isOpen, onClose }: EncryptedChatModalProps) {
   const { user } = useCurrentUser();
-  const { 
-    messages, 
-    isLoading, 
-    isLoadingMore, 
-    hasNextPage, 
-    fetchNextPage, 
-    sendMessage 
+  const {
+    messages,
+    isLoading,
+    isLoadingMore,
+    hasNextPage,
+    fetchNextPage,
+    sendMessage
   } = useEncryptedChat();
-  
+
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -165,7 +165,10 @@ export function EncryptedChatModal({ isOpen, onClose }: EncryptedChatModalProps)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl h-[80vh] max-h-[600px] p-0 flex flex-col bg-gray-900 border-purple-500/20">
+      <DialogContent
+        className="max-w-2xl h-[80vh] max-h-[600px] p-0 flex flex-col bg-gray-900 border-purple-500/20"
+        aria-describedby="chat-description"
+      >
         <DialogHeader className="p-4 pb-0">
           <DialogTitle className="flex items-center gap-2 text-purple-400">
             <Ghost className="h-5 w-5" />
@@ -175,15 +178,15 @@ export function EncryptedChatModal({ isOpen, onClose }: EncryptedChatModalProps)
               <Users className="h-4 w-4 text-blue-400" />
             </div>
           </DialogTitle>
-          <p className="text-sm text-gray-400 mt-1">
+          <p id="chat-description" className="text-sm text-gray-400 mt-1">
             End-to-end encrypted chat for Spookstr community members
           </p>
         </DialogHeader>
 
         {/* Messages Area */}
         <div className="flex-1 flex flex-col min-h-0">
-          <ScrollArea 
-            className="flex-1 px-4 py-2" 
+          <ScrollArea
+            className="flex-1 px-4 py-2"
             ref={scrollAreaRef}
             onScroll={handleScroll}
           >
