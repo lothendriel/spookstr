@@ -15,18 +15,6 @@ export function EncryptedChatIcon({ className }: EncryptedChatIconProps) {
   const { unreadCount, markAsRead } = useEncryptedChat();
   const { user } = useCurrentUser();
 
-  // Only show if user is logged in
-  if (!user) return null;
-
-  const handleOpen = () => {
-    setIsOpen(true);
-    markAsRead();
-  };
-
-  const handleClose = () => {
-    setIsOpen(false);
-  };
-
   // Responsive sizes based on screen size
   const getButtonSize = (width: number) => {
     if (width < 640) { // Mobile
@@ -60,6 +48,18 @@ export function EncryptedChatIcon({ className }: EncryptedChatIconProps) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Only show if user is logged in
+  if (!user) return null;
+
+  const handleOpen = () => {
+    setIsOpen(true);
+    markAsRead();
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+  };
 
   return (
     <>
