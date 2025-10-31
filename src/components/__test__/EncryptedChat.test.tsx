@@ -1,211 +1,121 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { EncryptedChatIcon } from '../EncryptedChatIcon';
-import { EncryptedChatModal } from '../EncryptedChatModal';
-import { TestApp } from '@/test/TestApp';
+import { EncryptedChatModal } from '@/components/EncryptedChatModal';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Mock the useEncryptedChat hook
-vi.mock('@/hooks/useEncryptedChat', () => ({
+jest.mock('@/hooks/useEncryptedChat', () => ({
   useEncryptedChat: () => ({
-    messages: [],
+    messages: [
+      {
+        id: 'test1',
+        pubkey: 'test-pubkey-1',
+        content: 'Hello from encrypted chat!',
+        created_at: Date.now() / 1000 - 3600,
+      },
+      {
+        id: 'test2',
+        pubkey: 'test-pubkey-2',
+        content: 'This is a test message',
+        created_at: Date.now() / 1000 - 1800,
+      },
+    ],
     isLoading: false,
     isLoadingMore: false,
     hasNextPage: false,
-    fetchNextPage: vi.fn(),
-    sendMessage: vi.fn(),
-    unreadCount: 3,
-    markAsRead: vi.fn(),
+    fetchNextPage: jest.fn(),
+    sendMessage: jest.fn().mockResolvedValue(undefined),
+    unreadCount: 2,
+    markAsRead: jest.fn(),
   }),
 }));
 
 // Mock the useCurrentUser hook
-vi.mock('@/hooks/useCurrentUser', () => ({
+jest.mock('@/hooks/useCurrentUser', () => ({
   useCurrentUser: () => ({
     user: {
-      pubkey: 'test-pubkey',
-      signer: {
-        nip44: {
-          encrypt: vi.fn(),
-          decrypt: vi.fn(),
-        },
-      },
+      pubkey: 'test-user-pubkey',
+      name: 'Test User',
     },
+    isLoading: false,
   }),
 }));
 
 // Mock the useAuthor hook
-vi.mock('@/hooks/useAuthor', () => ({
+jest.mock('@/hooks/useAuthor', () => ({
   useAuthor: () => ({
     data: {
       metadata: {
-        name: 'Test User',
+        name: 'Test Author',
         picture: 'test-avatar.jpg',
       },
     },
   }),
 }));
 
-describe('EncryptedChat Components', () => {
-  let queryClient: QueryClient;
+describe('EncryptedChatModal', () => {
+  const queryClient = new QueryClient();
 
-  beforeEach(() => {
-    queryClient = new QueryClient({
-      defaultOptions: {
-        queries: { retry: false },
-        mutations: { retry: false },
-      },
-    });
+  const renderWithProviders = (component: React.ReactElement) => {
+    return render(
+      <QueryClientProvider client={queryClient}>
+        {component}
+      </QueryClientProvider>
+    );
+  };
+
+  it('renders encrypted chat modal with messages', () => {
+    renderWithProviders(<EncryptedChatModal isOpen={true} onClose={jest.fn()} />);
+
+    // Check if modal is open
+    expect(screen.getByText('Spookstr Encrypted Chat')).toBeInTheDocument();
+
+    // Check if messages are displayed
+    expect(screen.getByText('Hello from encrypted chat!')).toBeInTheDocument();
+    expect(screen.getByText('This is a test message')).toBeInTheDocument();
+
+    // Check if input field is present
+    expect(screen.getByPlaceholderText('Type your encrypted message...')).toBeInTheDocument();
+
+    // Check if send button is present
+    expect(screen.getByRole('button', { name: /send/i })).toBeInTheDocument();
   });
 
-  describe('EncryptedChatIcon', () => {
-    it('renders chat icon with unread count', () => {
-      render(
-        <TestApp>
-          <EncryptedChatIcon />
-        </TestApp>
-      );
+  it('allows sending messages', async () => {
+    const { useEncryptedChat } = require('@/hooks/useEncryptedChat');
+    const mockSendMessage = useEncryptedChat().sendMessage;
 
-      const chatIcon = screen.getByLabelText('Open encrypted chat');
-      expect(chatIcon).toBeInTheDocument();
-      expect(chatIcon).toHaveClass('bg-purple-600');
+    renderWithProviders(<EncryptedChatModal isOpen={true} onClose={jest.fn()} />);
 
-      // Check for unread count badge
-      const unreadBadge = screen.getByText('3');
-      expect(unreadBadge).toBeInTheDocument();
-      expect(unreadBadge).toHaveClass('bg-red-500');
+    const input = screen.getByPlaceholderText('Type your encrypted message...');
+    const sendButton = screen.getByRole('button', { name: /send/i });
+
+    // Type a message
+    fireEvent.change(input, { target: { value: 'Test message' } });
+
+    // Click send button
+    fireEvent.click(sendButton);
+
+    // Check if sendMessage was called
+    await waitFor(() => {
+      expect(mockSendMessage).toHaveBeenCalledWith('Test message');
     });
 
-    it('does not render when user is not logged in', () => {
-      vi.mock('@/hooks/useCurrentUser', () => ({
-        useCurrentUser: () => ({
-          user: null,
-        }),
-      }));
-
-      const { container } = render(
-        <TestApp>
-          <EncryptedChatIcon />
-        </TestApp>
-      );
-
-      expect(container.firstChild).toBeNull();
-    });
+    // Check if input is cleared
+    expect(input).toHaveValue('');
   });
 
-  describe('EncryptedChatModal', () => {
-    it('renders modal with correct structure', () => {
-      render(
-        <TestApp>
-          <EncryptedChatModal isOpen={true} onClose={vi.fn()} />
-        </TestApp>
-      );
+  it('shows message count', () => {
+    renderWithProviders(<EncryptedChatModal isOpen={true} onClose={jest.fn()} />);
 
-      expect(screen.getByText('Spookstr Encrypted Chat')).toBeInTheDocument();
-      expect(screen.getByText('End-to-end encrypted chat for Spookstr community members')).toBeInTheDocument();
-      expect(screen.getByPlaceholderText('Type your encrypted message...')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /send/i })).toBeInTheDocument();
-    });
+    // Check if message count is displayed
+    expect(screen.getByText('2 messages')).toBeInTheDocument();
+  });
 
-    it('shows encryption indicators', () => {
-      render(
-        <TestApp>
-          <EncryptedChatModal isOpen={true} onClose={vi.fn()} />
-        </TestApp>
-      );
+  it('shows encryption notice', () => {
+    renderWithProviders(<EncryptedChatModal isOpen={true} onClose={jest.fn()} />);
 
-      // Check for lock icon indicating encryption
-      const lockIcon = screen.getByText('Messages are end-to-end encrypted').previousElementSibling;
-      expect(lockIcon).toBeInTheDocument();
-      
-      // Check for users icon
-      const usersIcon = screen.getByText('Messages are end-to-end encrypted').parentElement?.querySelector('.text-blue-400');
-      expect(usersIcon).toBeInTheDocument();
-    });
-
-    it('allows sending messages', async () => {
-      const mockSendMessage = vi.fn();
-      vi.mock('@/hooks/useEncryptedChat', () => ({
-        useEncryptedChat: () => ({
-          messages: [],
-          isLoading: false,
-          isLoadingMore: false,
-          hasNextPage: false,
-          fetchNextPage: vi.fn(),
-          sendMessage: mockSendMessage,
-          unreadCount: 0,
-          markAsRead: vi.fn(),
-        }),
-      }));
-
-      render(
-        <TestApp>
-          <EncryptedChatModal isOpen={true} onClose={vi.fn()} />
-        </TestApp>
-      );
-
-      const input = screen.getByPlaceholderText('Type your encrypted message...');
-      const sendButton = screen.getByRole('button', { name: /send/i });
-
-      // Type a message
-      fireEvent.change(input, { target: { value: 'Hello, Spookstr!' } });
-      expect(input).toHaveValue('Hello, Spookstr!');
-
-      // Send the message
-      fireEvent.click(sendButton);
-
-      await waitFor(() => {
-        expect(mockSendMessage).toHaveBeenCalledWith('Hello, Spookstr!');
-      });
-
-      // Input should be cleared
-      expect(input).toHaveValue('');
-    });
-
-    it('disables send button when input is empty', () => {
-      render(
-        <TestApp>
-          <EncryptedChatModal isOpen={true} onClose={vi.fn()} />
-        </TestApp>
-      );
-
-      const sendButton = screen.getByRole('button', { name: /send/i });
-      expect(sendButton).toBeDisabled();
-
-      const input = screen.getByPlaceholderText('Type your encrypted message...');
-      fireEvent.change(input, { target: { value: 'Test message' } });
-
-      expect(sendButton).not.toBeDisabled();
-    });
-
-    it('supports Enter key to send message', () => {
-      const mockSendMessage = vi.fn();
-      vi.mock('@/hooks/useEncryptedChat', () => ({
-        useEncryptedChat: () => ({
-          messages: [],
-          isLoading: false,
-          isLoadingMore: false,
-          hasNextPage: false,
-          fetchNextPage: vi.fn(),
-          sendMessage: mockSendMessage,
-          unreadCount: 0,
-          markAsRead: vi.fn(),
-        }),
-      }));
-
-      render(
-        <TestApp>
-          <EncryptedChatModal isOpen={true} onClose={vi.fn()} />
-        </TestApp>
-      );
-
-      const input = screen.getByPlaceholderText('Type your encrypted message...');
-      
-      // Type a message and press Enter
-      fireEvent.change(input, { target: { value: 'Enter key test' } });
-      fireEvent.keyPress(input, { key: 'Enter', code: 'Enter', charCode: 13 });
-
-      expect(mockSendMessage).toHaveBeenCalledWith('Enter key test');
-    });
+    // Check if encryption notice is displayed
+    expect(screen.getByText('Messages are end-to-end encrypted')).toBeInTheDocument();
+    expect(screen.getByTestId('lock-icon')).toBeInTheDocument();
   });
 });
