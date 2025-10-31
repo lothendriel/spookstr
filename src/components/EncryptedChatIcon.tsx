@@ -2,17 +2,17 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { MessageCircle, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEncryptedChat } from '@/hooks/useEncryptedChat';
-import { EncryptedChatModal } from './EncryptedChatModal';
+import { useSimpleChat } from '@/hooks/useSimpleChat';
+import { SimpleChatModal } from './EncryptedChatModal';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 interface EncryptedChatIconProps {
   className?: string;
 }
 
-export function EncryptedChatIcon({ className }: EncryptedChatIconProps) {
+export function SimpleChatIcon({ className }: EncryptedChatIconProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const { unreadCount, markAsRead } = useEncryptedChat();
+  const { unreadCount, markAsRead } = useSimpleChat();
   const { user } = useCurrentUser();
 
   // Responsive sizes based on screen size
@@ -92,7 +92,7 @@ export function EncryptedChatIcon({ className }: EncryptedChatIconProps) {
 
           className
         )}
-        aria-label="Open encrypted chat"
+        aria-label="Open site-wide chat"
       >
         <div className="relative">
           <MessageCircle
@@ -123,7 +123,7 @@ export function EncryptedChatIcon({ className }: EncryptedChatIconProps) {
       </Button>
 
       {/* Chat Modal */}
-      <EncryptedChatModal
+      <SimpleChatModal
         isOpen={isOpen}
         onClose={handleClose}
       />

@@ -6,10 +6,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
-import { useEncryptedChat } from '@/hooks/useEncryptedChat';
+import { useSimpleChat } from '@/hooks/useSimpleChat';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { Send, Ghost, Lock, Users } from 'lucide-react';
+import { Send, Ghost, MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -109,7 +109,7 @@ function ChatMessageSkeleton() {
   );
 }
 
-export function EncryptedChatModal({ isOpen, onClose }: EncryptedChatModalProps) {
+export function SimpleChatModal({ isOpen, onClose }: EncryptedChatModalProps) {
   const { user } = useCurrentUser();
   const {
     messages,
@@ -118,7 +118,7 @@ export function EncryptedChatModal({ isOpen, onClose }: EncryptedChatModalProps)
     hasNextPage,
     fetchNextPage,
     sendMessage
-  } = useEncryptedChat();
+  } = useSimpleChat();
 
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -172,14 +172,13 @@ export function EncryptedChatModal({ isOpen, onClose }: EncryptedChatModalProps)
         <DialogHeader className="p-4 pb-0">
           <DialogTitle className="flex items-center gap-2 text-purple-400">
             <Ghost className="h-5 w-5" />
-            Spookstr Encrypted Chat
+            Spookstr Site-wide Chat
             <div className="flex items-center gap-1 ml-auto">
-              <Lock className="h-4 w-4 text-green-400" />
-              <Users className="h-4 w-4 text-blue-400" />
+              <MessageSquare className="h-4 w-4 text-green-400" />
             </div>
           </DialogTitle>
           <p id="chat-description" className="text-sm text-gray-400 mt-1">
-            End-to-end encrypted chat for Spookstr community members
+            Simple site-wide chat for Spookstr community members
           </p>
         </DialogHeader>
 
@@ -248,8 +247,8 @@ export function EncryptedChatModal({ isOpen, onClose }: EncryptedChatModalProps)
               </Button>
             </div>
             <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-              <Lock className="h-3 w-3" />
-              <span>Messages are end-to-end encrypted</span>
+              <MessageSquare className="h-3 w-3" />
+              <span>Simple site-wide chat</span>
               <span className="ml-auto">
                 {messages.length} messages
               </span>
