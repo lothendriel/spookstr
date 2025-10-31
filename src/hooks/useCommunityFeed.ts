@@ -43,8 +43,8 @@ export function useCommunityFeed(communityId?: string, communityAuthor?: string)
       console.log(`👤 User is moderator: ${isModerator}`);
 
       if (isModerator) {
-        // Moderators see all posts (approved and pending)
-        console.log('🛡️ Loading all posts for moderator');
+        // Moderators see all posts EXCEPT denied ones (only approved and pending)
+        console.log('🛡️ Loading posts for moderator (excluding denied)');
 
         const allPosts = await nostr.query([
           {
@@ -56,11 +56,39 @@ export function useCommunityFeed(communityId?: string, communityAuthor?: string)
 
         console.log(`📝 Found ${allPosts.length} total posts for moderator`);
 
-        // Filter out NSFW content
-        let filteredPosts = filterNSFWContent(allPosts);
+        // Query for denial events to filter them out
+        const denials = await nostr.query([
+          {
+            kinds: [4551],
+            '#a': [communityTag],
+            limit: 200
+          }
+        ], { signal });
 
-        // CRITICAL: Ensure only valid community content is included
-        filteredPosts = filteredPosts.filter(event => {
+        console.log(`❌ Found ${denials.length} denial events`);
+
+        // Create set of denied event IDs
+        const deniedEventIds = new Set<string>();
+        denials.forEach(denial => {
+          const eTags = denial.tags.filter(tag => tag[0] === 'e');
+          eTags.forEach(eTag => {
+            if (eTag[1]) {
+              deniedEventIds.add(eTag[1]);
+            }
+          });
+        });
+
+        console.log(`🚫 Filtering out ${deniedEventIds.size} denied posts`);
+
+        // Filter out NSFW content AND denied posts
+        let filteredPosts = filterNSFWContent(allPosts).filter(event => {
+          // Exclude denied posts
+          if (deniedEventIds.has(event.id)) {
+            console.log(`🚫 Excluding denied post: ${event.id.substring(0, 8)}...`);
+            return false;
+          }
+
+          // CRITICAL: Ensure only valid community content is included
           const isValidCommunity = isCommunityContent(event);
           const isValidEvent = validateCommunityEvent(event);
           const contentType = getContentType(event);
@@ -86,7 +114,7 @@ export function useCommunityFeed(communityId?: string, communityAuthor?: string)
           return true;
         });
 
-        console.log(`✅ Validated ${filteredPosts.length} community posts for display`);
+        console.log(`✅ Validated ${filteredPosts.length} community posts for display (excluding denied)`);
 
         const sortedPosts = filteredPosts.sort((a, b) => b.created_at - a.created_at);
 
