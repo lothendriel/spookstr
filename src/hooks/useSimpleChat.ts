@@ -32,7 +32,7 @@ const SITE_CHAT_D_TAG = 'spookstr-site-chat-v1';
 export function useSimpleChat(): SimpleChatHook {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
-  const { mutateAsync: publishEvent } = useNostrPublish();
+
   const queryClient = useQueryClient();
 
   // Track last read timestamp
