@@ -1,7 +1,7 @@
 import { type NostrEvent } from '@nostrify/nostrify';
 
 export interface MediaItem {
-  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'hls' | 'dash' | 'imdb' | 'instagram' | 'twitter' | 'facebook';
+  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'hls' | 'dash' | 'imdb' | 'instagram' | 'twitter' | 'facebook' | 'minds';
   url: string;
   alt?: string;
   title?: string;
@@ -30,6 +30,9 @@ export interface MediaItem {
     // Facebook-specific metadata
     postId?: string;
     postType?: 'post' | 'video' | 'photo' | 'reel';
+    // Minds-specific metadata
+    postId?: string;
+    postType?: 'post' | 'video' | 'image';
   };
 }
 
@@ -47,6 +50,7 @@ const mediaPatterns = {
   instagram: /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/(?:p|reel)\/([A-Za-z0-9_-]+)(?:\/?|\?[^\s]*)?/gi,
   twitter: /(?:twitter\.com|x\.com)\/[a-zA-Z0-9_]+\/status\/([0-9]+)/gi,
   facebook: /https?:\/\/(?:www\.facebook\.com|facebook\.com)\/[^\/\s]+\/(?:posts|activity|photos|videos|permalink\.php\?story_fbid=|story\.php\?story_fbid=|groups\/[^\/\s]+\/permalink\/)[^\s]*/gi,
+  minds: /https?:\/\/(?:www\.minds\.com|minds\.com)\/(?:newsfeed|groups\/[^\/\s]+|[^\/\s]+)\/([0-9]+)/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
   // Streaming formats
@@ -121,7 +125,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   }
 
   // Process other media types in order of precedence
-  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'instagram', 'twitter', 'facebook', 'imdb', 'genericCDN'];
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'instagram', 'twitter', 'facebook', 'minds', 'imdb', 'genericCDN'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -461,6 +465,19 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
           metadata: {
             postId: facebookPostId,
             postType: facebookPostType
+          }
+        };
+
+      case 'minds':
+        const mindsPostId = extractMindsId(cleanUrl);
+        const mindsPostType = detectMindsPostType(cleanUrl);
+        return {
+          type: 'minds',
+          url: cleanUrl,
+          title: `Minds ${mindsPostType.charAt(0).toUpperCase() + mindsPostType.slice(1)}`,
+          metadata: {
+            postId: mindsPostId,
+            postType: mindsPostType
           }
         };
 
@@ -1157,6 +1174,53 @@ function detectFacebookPostType(url: string): 'post' | 'video' | 'photo' | 'reel
     return 'post';
   } catch (error) {
     console.warn('Failed to detect Facebook post type from:', url, error);
+    return 'post';
+  }
+}
+
+// Helper function to extract Minds post ID from URL
+function extractMindsId(url: string): string {
+  try {
+    console.log('🧠 Extracting Minds ID from:', url);
+
+    // Handle various Minds URL formats
+    const patterns = [
+      /minds\.com\/newsfeed\/([0-9]+)/,
+      /minds\.com\/groups\/[^\/\s]+\/([0-9]+)/,
+      /minds\.com\/[^\/\s]+\/([0-9]+)/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        console.log('✅ Minds ID extracted:', match[1], 'using pattern:', pattern);
+        return match[1];
+      }
+    }
+
+    console.warn('❌ No Minds ID found in URL:', url);
+  } catch (error) {
+    console.warn('Failed to extract Minds ID from:', url, error);
+  }
+
+  return '';
+}
+
+// Helper function to detect Minds post type
+function detectMindsPostType(url: string): 'post' | 'video' | 'image' {
+  try {
+    if (url.includes('/videos/')) {
+      return 'video';
+    } else if (url.includes('/images/')) {
+      return 'image';
+    } else if (url.includes('/newsfeed/')) {
+      return 'post';
+    }
+
+    // Default to post for other types
+    return 'post';
+  } catch (error) {
+    console.warn('Failed to detect Minds post type from:', url, error);
     return 'post';
   }
 }
