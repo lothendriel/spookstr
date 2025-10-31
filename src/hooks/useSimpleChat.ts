@@ -119,7 +119,7 @@ export function useSimpleChat(): SimpleChatHook {
       return lastPage.messages[lastPage.messages.length - 1].created_at - 1;
     },
     enabled: !!user,
-    refetchInterval: 5000, // Refetch every 5 seconds for real-time updates
+    refetchInterval: 30000, // Refetch every 30 seconds to reduce memory usage
     retry: (failureCount, error) => {
       // Only retry a few times for network errors
       if (failureCount >= 3) return false;

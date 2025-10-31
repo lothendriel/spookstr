@@ -167,10 +167,10 @@ async function createSharedSubscription(
   try {
     console.log('[Realtime Updates] Starting subscription for', eventIds.length, 'posts');
 
-    // First, fetch historical data to ensure we have correct baseline counts
+    // Fetch historical data with reduced scope to save memory
     await fetchHistoricalInteractions(nostr, eventIds, queryClient, config, abortController.signal);
 
-    // Setup batch flush interval - more frequent for better responsiveness
+    // Setup batch flush interval - reduced frequency for better memory management
     flushTimerRef.current = setInterval(() => {
       if (updateQueueRef.current.size === 0) return;
 
@@ -204,9 +204,9 @@ async function createSharedSubscription(
 
       console.log('[Realtime Updates] Processed', updateCount, 'batched updates');
       updateQueueRef.current.clear();
-    }, 1000); // Process every second for better responsiveness
+    }, 3000); // Process every 3 seconds to reduce memory pressure
 
-    // Get configured relays for better coverage
+    // Get configured relays - limit to 2 relays to reduce memory overhead
     const relays = config.relays?.filter((r: any) => r.mode === 'read' || r.mode === 'both').map((r: any) => r.url) || [config.relayUrl];
 
     // Always include Spookstr relay for better interaction discovery
@@ -215,18 +215,21 @@ async function createSharedSubscription(
       relays.unshift(spookstrRelay);
     }
 
-    // Create filter for subscription - get events from the last 5 minutes to catch recent interactions
-    const fiveMinutesAgo = Math.floor((Date.now() - 300000) / 1000);
+    // Limit to 2 relays maximum to reduce memory usage
+    const limitedRelays = relays.slice(0, 2);
+
+    // Create filter for subscription - get events from the last 2 minutes to reduce memory usage
+    const twoMinutesAgo = Math.floor((Date.now() - 120000) / 1000);
     const filters: NostrFilter[] = [{
       kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
       '#e': eventIds,
-      since: fiveMinutesAgo, // Get recent events to ensure we don't miss anything
+      since: twoMinutesAgo, // Reduced from 5 minutes to 2 minutes to save memory
     }];
 
-    console.log('[Realtime Updates] Listening for real-time updates from', relays.length, 'relays');
+    console.log('[Realtime Updates] Listening for real-time updates from', limitedRelays.length, 'relays');
 
-    // Use relay group for better coverage
-    const relayGroup = nostr.group(relays.slice(0, 3)); // Use top 3 relays
+    // Use relay group with limited relays for better memory management
+    const relayGroup = nostr.group(limitedRelays); // Use only 2 relays
 
     // Use async iteration to process events as they arrive
     for await (const msg of relayGroup.req(filters, { signal: abortController.signal })) {
@@ -329,13 +332,13 @@ async function fetchHistoricalInteractions(
     const filters: NostrFilter[] = [{
       kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
       '#e': eventIds,
-      limit: 2000, // Fetch historical interactions
+      limit: 1000, // Reduced from 2000 to 1000 to save memory
     }];
 
     let historicalEvents: NostrEvent[] = [];
 
     try {
-      const relayGroup = nostr.group(relays.slice(0, 3));
+      const relayGroup = nostr.group(limitedRelays);
       historicalEvents = await relayGroup.query(filters, { signal });
     } catch (error) {
       console.warn('[Realtime Updates] Historical query failed with relay group, trying single relay:', error);

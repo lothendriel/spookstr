@@ -273,16 +273,16 @@ export function useParanormalFeed() {
       });
     },
     refetchOnWindowFocus: false,
-    staleTime: 60000, // 1 minute - consider data fresh for this period
-    gcTime: 300000, // 5 minutes - reduced from 10 minutes to save memory
+    staleTime: 120000, // 2 minutes - increased to reduce refetches
+    gcTime: 180000, // 3 minutes - aggressively clean up unused data
     retry: 1,
-    // Enhanced caching: Background refetch every 5 minutes when tab is active
+    // Enhanced caching: Background refetch every 10 minutes when tab is active
     refetchInterval: (data, query) => {
       // Only refetch if the tab is visible and we have existing data
       if (document.hidden || !data) return false;
 
-      // Refetch every 5 minutes for active users
-      return 300000; // 5 minutes
+      // Refetch every 10 minutes for active users - reduced frequency
+      return 600000; // 10 minutes
     },
     // Refetch when the tab becomes visible if data is older than 2 minutes
     refetchOnWindowFocus: (query) => {
@@ -328,15 +328,15 @@ export function useParanormalReplies(noteId: string) {
     },
     enabled: !!noteId,
     refetchOnWindowFocus: false,
-    staleTime: 60000, // 1 minute - replies don't change as frequently as main feed
-    gcTime: 300000, // 5 minutes - keep replies cached for reasonable time
+    staleTime: 180000, // 3 minutes - replies don't change as frequently as main feed
+    gcTime: 180000, // 3 minutes - aggressively clean up reply data
     // Enhanced caching: Background refetch for active conversations
     refetchInterval: (data, query) => {
       // Only refetch if tab is visible and we have data
       if (document.hidden || !data || !noteId) return false;
 
-      // Refetch every 2 minutes for active conversation threads
-      return 120000; // 2 minutes
+      // Refetch every 5 minutes for active conversation threads - reduced frequency
+      return 300000; // 5 minutes
     },
   });
 }

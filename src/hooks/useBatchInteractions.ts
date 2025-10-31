@@ -54,14 +54,14 @@ export function useBatchInteractions(eventIds: string[]) {
 
       let allEvents: NostrEvent[] = [];
 
-      // Try to query from multiple relays for better coverage
+      // Try to query from multiple relays with limited scope for memory efficiency
       if (relays.length > 1) {
         try {
-          const relayGroup = nostr.group(relays.slice(0, 3)); // Use top 3 relays
+          const relayGroup = nostr.group(relays.slice(0, 2)); // Use top 2 relays only
           const events = await relayGroup.query([{
             kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
             '#e': eventIds,
-            limit: 1000, // Increased limit to handle more interactions
+            limit: 500, // Reduced limit to save memory
           }], { signal });
 
           allEvents = events;
@@ -77,7 +77,7 @@ export function useBatchInteractions(eventIds: string[]) {
           const events = await nostr.query([{
             kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
             '#e': eventIds,
-            limit: 1000, // Increased limit to handle more interactions
+            limit: 500, // Reduced limit to save memory
           }], { signal });
 
           allEvents = events;
@@ -163,8 +163,8 @@ export function useBatchInteractions(eventIds: string[]) {
       return countsMap;
     },
     enabled: eventIds.length > 0,
-    staleTime: 30000, // 30 seconds - more frequent updates for better user experience
-    gcTime: 600000, // 10 minutes - keep interaction data cached longer
+    staleTime: 60000, // 1 minute - reduced frequency for better memory management
+    gcTime: 300000, // 5 minutes - reduced cache time to save memory
     refetchOnMount: true, // Always refetch on mount to get fresh data
     refetchOnWindowFocus: true, // Refetch on window focus to get latest counts
     // Enhanced caching: Smart background refresh for active content
@@ -172,9 +172,9 @@ export function useBatchInteractions(eventIds: string[]) {
       // Only refetch if tab is visible and we have data and event IDs
       if (document.hidden || !data || eventIds.length === 0) return false;
 
-      // Background refresh every 60 seconds for interaction counts
-      // This ensures users see updated likes/zaps/comments without manual refresh
-      return 60000; // 1 minute
+      // Background refresh every 3 minutes for interaction counts
+      // Reduced frequency to save memory while keeping data reasonably fresh
+      return 180000; // 3 minutes
     },
     retry: (failureCount, error) => {
       console.log('[Batch Interactions] Retry attempt:', failureCount, 'Error:', error);

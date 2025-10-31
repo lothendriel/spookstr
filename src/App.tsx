@@ -32,6 +32,7 @@ import { SpookstrProfileSync } from '@/components/SpookstrProfileSync';
 import { PerformanceMonitor } from '@/components/PerformanceMonitor';
 import { CompactOfflineIndicator } from '@/components/OfflineIndicator';
 import { useMemoryMonitor } from '@/hooks/useMemoryMonitor';
+import { useAggressiveMemoryCleanup, useMemoryMonitorWithCleanup } from '@/hooks/useAggressiveMemoryCleanup';
 
 const head = createHead({
   plugins: [
@@ -43,20 +44,25 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false, // Individual hooks control their own window focus behavior
-      staleTime: 60000, // 1 minute default - individual hooks override as needed
-      gcTime: 300000, // 5 minutes - reduced from 10 minutes to save memory
+      staleTime: 120000, // 2 minutes default - increased to reduce refetches
+      gcTime: 180000, // 3 minutes - aggressively clean up unused data
       retry: 1, // Reduce retries for faster failure recovery
       refetchOnMount: false, // Prevent unnecessary refetches
       // Enhanced default behavior: No background refetch unless explicitly set
       refetchInterval: false, // Individual hooks control their own intervals
       // Better error retry strategy
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff capped at 5s
+      // Memory optimization: Limit cache size
+      structuralSharing: true, // Reduce memory by sharing reference structures
     },
     mutations: {
       retry: 1, // Single retry for mutations
       retryDelay: 1000, // 1 second delay for mutation retries
     },
   },
+  // Configure cache limits to prevent memory bloat
+  maxsize: 100, // Maximum 100 queries in cache
+  cacheTime: 180000, // 3 minutes default cache time
 });
 
 const defaultConfig: AppConfig = {
@@ -81,8 +87,10 @@ const presetRelays = [
 ];
 
 export function App() {
-  // Enable global memory monitoring
+  // Enable global memory monitoring and cleanup
   useMemoryMonitor();
+  useAggressiveMemoryCleanup();
+  useMemoryMonitorWithCleanup();
 
   return (
     <UnheadProvider head={head}>
