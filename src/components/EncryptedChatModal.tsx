@@ -219,7 +219,7 @@ export function SimpleChatModal({ isOpen, onClose }: EncryptedChatModalProps) {
                     message={msg}
                     isOwnMessage={msg.pubkey === user.pubkey}
                   />
-                )).reverse()}
+                ))}
 
                 {/* Scroll anchor */}
                 <div ref={messagesEndRef} />

@@ -66,10 +66,10 @@ export function useSimpleChat(): SimpleChatHook {
           created_at: event.created_at,
         }));
 
-        // Remove duplicates and sort in chronological order (oldest first)
+        // Remove duplicates and sort in reverse chronological order (newest first)
         const uniqueMessages = messages.filter((msg, index, self) =>
           index === self.findIndex(m => m.id === msg.id)
-        ).sort((a, b) => a.created_at - b.created_at);
+        ).sort((a, b) => b.created_at - a.created_at);
 
         return {
           messages: uniqueMessages,
