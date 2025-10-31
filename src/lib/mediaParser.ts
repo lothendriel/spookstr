@@ -1,7 +1,7 @@
 import { type NostrEvent } from '@nostrify/nostrify';
 
 export interface MediaItem {
-  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'hls' | 'dash' | 'imdb' | 'instagram' | 'twitter';
+  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'hls' | 'dash' | 'imdb' | 'instagram' | 'twitter' | 'facebook';
   url: string;
   alt?: string;
   title?: string;
@@ -27,6 +27,9 @@ export interface MediaItem {
     type?: string;
     year?: string;
     rating?: string;
+    // Facebook-specific metadata
+    postId?: string;
+    postType?: 'post' | 'video' | 'photo' | 'reel';
   };
 }
 
@@ -43,6 +46,7 @@ const mediaPatterns = {
   spotify: /(?:open\.spotify\.com\/)(track|album|playlist|artist|show|episode)\/([a-zA-Z0-9]+)/gi,
   instagram: /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/(?:p|reel)\/([A-Za-z0-9_-]+)(?:\/?|\?[^\s]*)?/gi,
   twitter: /(?:twitter\.com|x\.com)\/[a-zA-Z0-9_]+\/status\/([0-9]+)/gi,
+  facebook: /https?:\/\/(?:www\.facebook\.com|facebook\.com)\/(?:[^\/]+\/posts\/|[^\/]+\/activity\/|[^\/]+\/photos\/|[^\/]+\/videos\/|permalink\.php\?story_fbid=|story\.php\?story_fbid=|groups\/[^\/]+\/permalink\/)([0-9]+)/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
   // Streaming formats
@@ -60,13 +64,13 @@ const mediaPatterns = {
   genericStreaming: /https?:\/\/[^\s]+\/(?:stream|manifest|playlist|master)\/[^\s]+(?:\.(?:m3u8|mpd|dash))(?:\?[^\s]*)?/gi,
   // Common image hosting services that often serve images without extensions
   // This pattern catches domains that are known to serve media content
-  imageHosting: /https?:\/\/(?:i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|cdn\.bsky\.app|image\.nostr\.build|nostr\.build|void\.cat|cdn\.satellite\.earth|media\.tenor\.com|media\.giphy\.com|media\.witter\.cz|files\.mastodon\.social|media\.mas\.to)\/[^\s]+/gi,
+  imageHosting: /https?:\/\/(?:i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|cdn\.bsky\.app|image\.nostr\.build|nostr\.build|void\.cat|cdn\.satellite\.earth|media\.tenor\.com|media\.giphy\.com|media\.witter\.cz|files\.mastodon\.social|media\.mas\.to|scontent\.facebook\.com|external\.facebook\.com|lookaside\.fbsbx\.com)\/[^\s]+/gi,
   // Generic CDN/media URLs - catches URLs with media-like path structures
   // This pattern looks for URLs containing common media path segments like /media/, /attachments/, /files/, etc
   genericCDN: /https?:\/\/[^\s]+\/(?:media|attachments|files|assets|images|static|uploads|content|cdn-cgi|mediaproxy)(?:_attachments)?\/[^\s]+/gi,
   // IMDB links for special preview handling
   imdb: /https?:\/\/(?:www\.)?imdb\.com\/(?:title|name)\/(?:[a-z0-9]+)(?:\/[^\s]*)?/gi,
-  website: /https?:\/\/(?:www\.)?(?!www\.youtube\.com|youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|cdn\.bsky\.app|image\.nostr\.build|nostr\.build|void\.cat|cdn\.satellite\.earth|media\.tenor\.com|media\.giphy\.com|media\.witter\.cz|files\.mastodon\.social|media\.mas\.to|blossom\.primal\.net|media\.channels\.im|cdn\.masto\.host|media\.pubeurope\.com|o\.mastodon\.nz|social\.anoxinon\.de|imdb\.com|instagram\.com|twitter\.com|x\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|jpe|jp|j|png|pn|p|gif|gi|g|webp|svg|bmp|avif|ico|tiff?|tif|psd|heic?|heif|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
+  website: /https?:\/\/(?:www\.)?(?!www\.youtube\.com|youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropbox\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|cdn\.bsky\.app|image\.nostr\.build|nostr\.build|void\.cat|cdn\.satellite\.earth|media\.tenor\.com|media\.giphy\.com|media\.witter\.cz|files\.mastodon\.social|media\.mas\.to|blossom\.primal\.net|media\.channels\.im|cdn\.masto\.host|media\.pubeurope\.com|o\.mastodon\.nz|social\.anoxinon\.de|imdb\.com|instagram\.com|twitter\.com|x\.com|facebook\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|jpe|jp|j|png|pn|p|gif|gi|g|webp|svg|bmp|avif|ico|tiff?|tif|psd|heic?|heif|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
 };
 
 // Helper function to normalize URLs (ensure HTTPS and consistent format)
@@ -117,7 +121,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   }
 
   // Process other media types in order of precedence
-  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'instagram', 'twitter', 'imdb', 'genericCDN'];
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'instagram', 'twitter', 'facebook', 'imdb', 'genericCDN'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -444,6 +448,19 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
           title: 'Twitter Post',
           metadata: {
             tweetId
+          }
+        };
+
+      case 'facebook':
+        const facebookPostId = extractFacebookId(cleanUrl);
+        const facebookPostType = detectFacebookPostType(cleanUrl);
+        return {
+          type: 'facebook',
+          url: cleanUrl,
+          title: `Facebook ${facebookPostType.charAt(0).toUpperCase() + facebookPostType.slice(1)}`,
+          metadata: {
+            postId: facebookPostId,
+            postType: facebookPostType
           }
         };
 
@@ -1086,6 +1103,57 @@ function extractTwitterId(url: string): string {
   }
 
   return '';
+}
+
+// Helper function to extract Facebook post ID from URL
+function extractFacebookId(url: string): string {
+  try {
+    console.log('📘 Extracting Facebook ID from:', url);
+
+    // Handle various Facebook URL formats
+    const patterns = [
+      /facebook\.com\/[^\/]+\/posts\/([0-9]+)/,
+      /facebook\.com\/[^\/]+\/activity\/([0-9]+)/,
+      /facebook\.com\/[^\/]+\/photos\/([0-9]+)/,
+      /facebook\.com\/[^\/]+\/videos\/([0-9]+)/,
+      /facebook\.com\/permalink\.php\?story_fbid=([0-9]+)/,
+      /facebook\.com\/story\.php\?story_fbid=([0-9]+)/,
+      /facebook\.com\/groups\/[^\/]+\/permalink\/([0-9]+)/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        console.log('✅ Facebook ID extracted:', match[1], 'using pattern:', pattern);
+        return match[1];
+      }
+    }
+
+    console.warn('❌ No Facebook ID found in URL:', url);
+  } catch (error) {
+    console.warn('Failed to extract Facebook ID from:', url, error);
+  }
+
+  return '';
+}
+
+// Helper function to detect Facebook post type
+function detectFacebookPostType(url: string): 'post' | 'video' | 'photo' | 'reel' {
+  try {
+    if (url.includes('/videos/')) {
+      return 'video';
+    } else if (url.includes('/photos/')) {
+      return 'photo';
+    } else if (url.includes('/reels/')) {
+      return 'reel';
+    }
+
+    // Default to post for other types
+    return 'post';
+  } catch (error) {
+    console.warn('Failed to detect Facebook post type from:', url, error);
+    return 'post';
+  }
 }
 
 // Placeholder data for IMDB links (actual data will be fetched asynchronously by the component)

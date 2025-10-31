@@ -1430,6 +1430,75 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
           </div>
         );
 
+      case 'facebook':
+        const facebookPostId = extractFacebookId(media.url);
+
+        if (!facebookPostId) {
+          return (
+            <Card className="bg-lime-500/5 border-lime-500/20 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-lime-500/20 rounded-lg flex items-center justify-center">
+                      <ExternalLink className="h-6 w-6 text-lime-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-lime-100">
+                      Invalid Facebook URL
+                    </p>
+                    <p className="text-xs text-lime-500/60 truncate max-w-xs">
+                      {media.url}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-lime-500/30 text-lime-400 hover:bg-lime-500/10"
+                  onClick={() => window.open(media.url, '_blank')}
+                >
+                  Open
+                </Button>
+              </div>
+            </Card>
+          );
+        }
+
+        // Facebook embed using their official embed API
+        return (
+          <div className="relative rounded-lg overflow-hidden bg-white group">
+            {/* Facebook embed iframe */}
+            <div className="relative" style={{ paddingBottom: '100%' }}>
+              <iframe
+                className="absolute top-0 left-0 w-full h-full rounded-lg border-0"
+                src={`https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(media.url)}&show_text=true&width=500`}
+                title="Facebook Post"
+                frameBorder="0"
+                scrolling="no"
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                allowFullScreen
+                onError={(e) => {
+                  console.warn('Facebook embed failed to load:', e);
+                }}
+              />
+            </div>
+
+            {/* External link button */}
+            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 text-white hover:bg-white/20 bg-black/60 backdrop-blur-sm"
+                onClick={() => window.open(media.url, '_blank')}
+                title="View on Facebook"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+
       case 'link':
         return <LinkPreview media={media} />;
 
@@ -1625,6 +1694,38 @@ function extractTwitterId(url: string): string {
     console.warn('❌ No Twitter ID found in URL:', url);
   } catch (error) {
     console.warn('Failed to extract Twitter ID from:', url, error);
+  }
+
+  return '';
+}
+
+// Helper function to extract Facebook post ID from URL
+function extractFacebookId(url: string): string {
+  try {
+    console.log('📘 Extracting Facebook ID from:', url);
+
+    // Handle various Facebook URL formats
+    const patterns = [
+      /facebook\.com\/[^\/]+\/posts\/([0-9]+)/,
+      /facebook\.com\/[^\/]+\/activity\/([0-9]+)/,
+      /facebook\.com\/[^\/]+\/photos\/([0-9]+)/,
+      /facebook\.com\/[^\/]+\/videos\/([0-9]+)/,
+      /facebook\.com\/permalink\.php\?story_fbid=([0-9]+)/,
+      /facebook\.com\/story\.php\?story_fbid=([0-9]+)/,
+      /facebook\.com\/groups\/[^\/]+\/permalink\/([0-9]+)/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        console.log('✅ Facebook ID extracted:', match[1], 'using pattern:', pattern);
+        return match[1];
+      }
+    }
+
+    console.warn('❌ No Facebook ID found in URL:', url);
+  } catch (error) {
+    console.warn('Failed to extract Facebook ID from:', url, error);
   }
 
   return '';
