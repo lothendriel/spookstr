@@ -97,6 +97,7 @@ export function useRobustQuotedEvent(
       }
 
       // Strategy 4: Last resort - try the default nostr instance with longer timeout
+      console.log('🚨 DEBUG: Reached Strategy 4!');
       console.log('📡 Strategy 4: Trying fallback with extended timeout...');
       const fallbackResult = await tryFallbackWithTimeout(filter, c.signal);
       if (fallbackResult) {
