@@ -94,6 +94,8 @@ export function NIP19Page() {
   const { nip19: identifier } = useParams<{ nip19: string }>();
   const { nostr } = useNostr();
 
+  console.log('🔍 NIP19Page: Component rendering with identifier:', identifier);
+
   if (!identifier) {
     return <NotFound />;
   }

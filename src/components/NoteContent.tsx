@@ -213,6 +213,12 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
           parts.push(
             <NostrMention key={`mention-${keyCounter++}`} pubkey={pubkey} />
           );
+        } else if (decoded.type === 'nprofile') {
+          const profileData = decoded.data as { pubkey: string; relays?: string[] };
+          console.log('🔍 NoteContent: Rendering nprofile mention:', nostrId);
+          parts.push(
+            <NostrMention key={`mention-${keyCounter++}`} pubkey={profileData.pubkey} />
+          );
         } else {
           // For note, nevent, naddr types, render as quoted event
           console.log('🔍 NoteContent: Rendering QuotedEvent for:', nostrId);
