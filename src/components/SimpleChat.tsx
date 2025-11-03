@@ -100,16 +100,21 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
             {/* Media attachments */}
             {message.mediaTags && message.mediaTags.length > 0 && (
               <div className="space-y-2">
-                {message.mediaTags
-                  .filter(tag => tag[0] === 'url') // Only process url tags
-                  .map((urlTag, index) => {
+                {(() => {
+                  console.log('🖼️ [Simple Chat] Processing media tags for message:', message.id, message.mediaTags);
+                  const urlTags = message.mediaTags.filter(tag => tag[0] === 'url');
+                  console.log('🔗 [Simple Chat] Found URL tags:', urlTags);
+
+                  return urlTags.map((urlTag, index) => {
                     const mediaUrl = urlTag[1];
+                    console.log('🎯 [Simple Chat] Processing URL:', mediaUrl);
 
                     // Find corresponding imeta tag for this URL
                     const imetaTag = message.mediaTags?.find(tag =>
                       tag[0] === 'imeta' &&
                       tag.some(item => item.startsWith(`url ${mediaUrl}`))
                     );
+                    console.log('🏷️ [Simple Chat] Found imeta tag for URL:', imetaTag);
 
                     // Extract media type from imeta tag
                     let mediaType = 'image'; // Default to image
@@ -117,6 +122,7 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
                       const typeItem = imetaTag.find(item => item.startsWith('m '));
                       if (typeItem) {
                         mediaType = typeItem.substring(2); // Remove 'm ' prefix
+                        console.log('📁 [Simple Chat] Detected media type:', mediaType);
                       }
                     }
 
@@ -130,7 +136,8 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
                         />
                       </div>
                     );
-                  })}
+                  });
+                })()}
               </div>
             )}
           </CardContent>
@@ -224,9 +231,12 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
       // Upload media files if any
       let finalMediaTags = [...mediaTags];
       if (mediaFiles.length > 0) {
+        console.log('📤 [Simple Chat] Uploading', mediaFiles.length, 'files:', mediaFiles.map(f => f.name));
         const uploadPromises = mediaFiles.map(file => uploadFile(file));
         const uploadedTags = await Promise.all(uploadPromises);
-        finalMediaTags = [...finalMediaTags, ...uploadedTags];
+        console.log('✅ [Simple Chat] Upload complete, received tags:', uploadedTags);
+        finalMediaTags = [...finalMediaTags, ...uploadedTags.flat()];
+        console.log('🏷️ [Simple Chat] Final media tags:', finalMediaTags);
       }
 
       await sendMessage(message.trim(), finalMediaTags);
@@ -235,7 +245,7 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
       setMediaTags([]);
     } catch (error) {
       // Rate limiting errors are handled by the disabled state and countdown
-      console.error('Failed to send message:', error);
+      console.error('❌ [Simple Chat] Failed to send message:', error);
     } finally {
       setIsSending(false);
     }

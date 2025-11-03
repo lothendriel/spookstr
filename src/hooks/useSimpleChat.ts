@@ -114,13 +114,19 @@ export function useSimpleChat(): SimpleChatHook {
             }
           });
 
-          return {
+          const processedMessage = {
             id: event.id,
             pubkey: event.pubkey,
             content: event.content,
             created_at: event.created_at,
             mediaTags: mediaTags.length > 0 ? mediaTags : undefined,
           };
+
+          if (mediaTags.length > 0) {
+            console.log('📸 [Simple Chat] Message with media:', processedMessage.id, 'Tags:', mediaTags);
+          }
+
+          return processedMessage;
         });
 
         // Remove duplicates and sort in chronological order (oldest first, newest last)
