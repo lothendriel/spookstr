@@ -56,7 +56,27 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     rootMargin: '200px', // Start loading 200px before visible
   });
 
-  // Extract quoted event IDs from content for prefetching
+  // Check if this is a repost (kind 6 or 16)
+  const isRepost = event.kind === 6 || event.kind === 16;
+
+  // For reposts, try to parse the reposted event from content
+  let repostedEvent: NostrEvent | null = null;
+  let displayEvent = event;
+
+  if (isRepost && event.content) {
+    try {
+      const parsed = JSON.parse(event.content);
+      if (parsed.id && parsed.pubkey && parsed.created_at && parsed.kind !== undefined) {
+        repostedEvent = parsed as NostrEvent;
+        displayEvent = repostedEvent; // Show reposted content
+      }
+    } catch (e) {
+      // If parsing fails, fall back to showing repost event itself
+      console.warn('Failed to parse repost content:', e);
+    }
+  }
+
+  // Extract quoted event IDs from content for prefetching (after displayEvent is defined)
   const quotedEventIds = useMemo(() => {
     if (!inView || !displayEvent.content) return [];
 
@@ -82,26 +102,6 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
       prefetchAll();
     }
   }, [inView, quotedEventIds, prefetchAll]);
-
-  // Check if this is a repost (kind 6 or 16)
-  const isRepost = event.kind === 6 || event.kind === 16;
-
-  // For reposts, try to parse the reposted event from content
-  let repostedEvent: NostrEvent | null = null;
-  let displayEvent = event;
-
-  if (isRepost && event.content) {
-    try {
-      const parsed = JSON.parse(event.content);
-      if (parsed.id && parsed.pubkey && parsed.created_at && parsed.kind !== undefined) {
-        repostedEvent = parsed as NostrEvent;
-        displayEvent = repostedEvent; // Show reposted content
-      }
-    } catch (e) {
-      // If parsing fails, fall back to showing repost event itself
-      console.warn('Failed to parse repost content:', e);
-    }
-  }
 
   const author = useAuthor(inView ? event.pubkey : undefined);
   const repostedAuthor = useAuthor(inView && repostedEvent ? repostedEvent.pubkey : undefined);
