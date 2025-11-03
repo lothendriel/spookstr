@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
@@ -41,11 +41,48 @@ export interface RelayDiscoveryState {
 /**
  * Advanced relay discovery hook that implements the full discovery pipeline:
  * 1. Fetch user's existing relays and contacts (NIP-02)
- * 2. Analyze contacts' relay preferences (NIP-65)  
+ * 2. Analyze contacts' relay preferences (NIP-65)
  * 3. Scan recent notes for relay hints
  * 4. Test discovered relays for connectivity
  * 5. Rank relays by relevance and reliability
  */
+// localStorage keys for caching discovery results
+const DISCOVERY_CACHE_KEY = 'spookstr-relay-discovery';
+const DISCOVERY_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+// Load cached discovery state from localStorage
+const loadCachedDiscovery = (): RelayDiscoveryState | null => {
+  try {
+    const cached = localStorage.getItem(DISCOVERY_CACHE_KEY);
+    if (!cached) return null;
+
+    const { data, timestamp } = JSON.parse(cached);
+
+    // Check if cache is expired
+    if (Date.now() - timestamp > DISCOVERY_CACHE_TTL) {
+      localStorage.removeItem(DISCOVERY_CACHE_KEY);
+      return null;
+    }
+
+    return data;
+  } catch {
+    return null;
+  }
+};
+
+// Save discovery state to localStorage
+const saveCachedDiscovery = (state: RelayDiscoveryState) => {
+  try {
+    const cacheData = {
+      data: state,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(DISCOVERY_CACHE_KEY, JSON.stringify(cacheData));
+  } catch (error) {
+    console.warn('Failed to cache discovery state:', error);
+  }
+};
+
 export function useRelayDiscovery() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
@@ -54,42 +91,53 @@ export function useRelayDiscovery() {
   const { data: userRelays } = useUserRelays(user?.pubkey);
   const queryClient = useQueryClient();
 
-  const [discoveryState, setDiscoveryState] = useState<RelayDiscoveryState>({
-    isDiscovering: false,
-    discoveredRelays: [],
-    stats: {
-      totalDiscovered: 0,
-      reachableCount: 0,
-      unreachableCount: 0,
-      contactsAnalyzed: 0,
-      eventsScanned: 0,
-      hintsFound: 0,
-      discoveryProgress: 0,
-    },
-  });
+  // Initialize state with cached data if available
+  const cachedState = loadCachedDiscovery();
+  const [discoveryState, setDiscoveryState] = useState<RelayDiscoveryState>(() =>
+    cachedState || {
+      isDiscovering: false,
+      discoveredRelays: [],
+      stats: {
+        totalDiscovered: 0,
+        reachableCount: 0,
+        unreachableCount: 0,
+        contactsAnalyzed: 0,
+        eventsScanned: 0,
+        hintsFound: 0,
+        discoveryProgress: 0,
+      },
+    }
+  );
+
+  // Save state to localStorage whenever it changes (but not during discovery)
+  useEffect(() => {
+    if (!discoveryState.isDiscovering && discoveryState.discoveredRelays.length > 0) {
+      saveCachedDiscovery(discoveryState);
+    }
+  }, [discoveryState]);
 
   // Get user's current relay URLs for filtering
   const getCurrentRelayUrls = useCallback((): string[] => {
     const relayUrls = new Set<string>();
-    
+
     // Add configured relays
     if (config.relays?.length) {
       config.relays.forEach(relay => relayUrls.add(relay.url));
     }
-    
+
     // Add main relay URL
     if (config.relayUrl) {
       relayUrls.add(config.relayUrl);
     }
-    
+
     // Add NIP-65 relays
     if (userRelays?.length) {
       userRelays.forEach(relay => relayUrls.add(relay.url));
     }
-    
+
     // Always include Spookstr relay
     relayUrls.add('wss://spookstr2.nostr1.com');
-    
+
     return Array.from(relayUrls);
   }, [config.relays, config.relayUrl, userRelays]);
 
@@ -98,17 +146,17 @@ export function useRelayDiscovery() {
     try {
       const startTime = Date.now();
       const relay = nostr.relay(url);
-      
+
       // Try a simple query with short timeout
       const signal = AbortSignal.timeout(3000);
       await relay.query([{ kinds: [1], limit: 1 }], { signal });
-      
+
       const latency = Date.now() - startTime;
       return { reachable: true, latency };
     } catch (error) {
-      return { 
-        reachable: false, 
-        error: error instanceof Error ? error.message : 'Connection failed' 
+      return {
+        reachable: false,
+        error: error instanceof Error ? error.message : 'Connection failed'
       };
     }
   };
@@ -119,7 +167,7 @@ export function useRelayDiscovery() {
 
     try {
       const signal = AbortSignal.timeout(10000);
-      
+
       // Fetch NIP-65 relay lists for contacts
       const relayListEvents = await nostr.query([
         {
@@ -134,14 +182,14 @@ export function useRelayDiscovery() {
       // Count relay usage across contacts
       for (const event of relayListEvents) {
         const relayTags = event.tags.filter(([name]) => name === 'r');
-        
+
         for (const [, relayUrl] of relayTags) {
           if (!relayUrl) continue;
-          
+
           if (!relayCount.has(relayUrl)) {
             relayCount.set(relayUrl, { count: 0, contacts: new Set() });
           }
-          
+
           const entry = relayCount.get(relayUrl)!;
           entry.contacts.add(event.pubkey);
           entry.count = entry.contacts.size;
@@ -168,7 +216,7 @@ export function useRelayDiscovery() {
   const discoverFromRecentNotes = async (): Promise<DiscoveredRelay[]> => {
     try {
       const signal = AbortSignal.timeout(8000);
-      
+
       // Fetch recent notes from current relays
       const recentEvents = await nostr.query([
         {
@@ -184,17 +232,17 @@ export function useRelayDiscovery() {
       for (const event of recentEvents) {
         const hints = extractRelayHints(event);
         const eventTime = event.created_at * 1000;
-        
+
         for (const hint of hints) {
           if (!relayHints.has(hint)) {
             relayHints.set(hint, { count: 0, lastSeen: 0 });
           }
-          
+
           const entry = relayHints.get(hint)!;
           entry.count += 1;
           entry.lastSeen = Math.max(entry.lastSeen, eventTime);
         }
-        
+
         // Store hints for future use
         relayHintCache.storeHints(event);
       }
@@ -249,7 +297,7 @@ export function useRelayDiscovery() {
 
         const contactPubkeys = follows.map(f => f.pubkey);
         const contactRelays = await discoverFromContactRelays(contactPubkeys);
-        
+
         for (const relay of contactRelays) {
           if (!currentRelays.includes(relay.url)) {
             allDiscovered.set(relay.url, relay);
@@ -258,8 +306,8 @@ export function useRelayDiscovery() {
 
         setDiscoveryState(prev => ({
           ...prev,
-          stats: { 
-            ...prev.stats, 
+          stats: {
+            ...prev.stats,
             discoveryProgress: 25,
             contactsAnalyzed: contactPubkeys.length,
           },
@@ -267,7 +315,7 @@ export function useRelayDiscovery() {
 
         // Step 2: Discover from recent notes (50% progress)
         const recentNoteRelays = await discoverFromRecentNotes();
-        
+
         for (const relay of recentNoteRelays) {
           if (!currentRelays.includes(relay.url)) {
             if (allDiscovered.has(relay.url)) {
@@ -283,8 +331,8 @@ export function useRelayDiscovery() {
 
         setDiscoveryState(prev => ({
           ...prev,
-          stats: { 
-            ...prev.stats, 
+          stats: {
+            ...prev.stats,
             discoveryProgress: 50,
             eventsScanned: 200,
             hintsFound: recentNoteRelays.length,
@@ -301,12 +349,12 @@ export function useRelayDiscovery() {
           const connectivity = await testRelayConnectivity(relay.url);
           relay.isReachable = connectivity.reachable;
           relay.latency = connectivity.latency;
-          
+
           testedCount++;
           setDiscoveryState(prev => ({
             ...prev,
-            stats: { 
-              ...prev.stats, 
+            stats: {
+              ...prev.stats,
               discoveryProgress: 50 + (testedCount / sortedRelays.length) * 25,
             },
           }));
@@ -319,7 +367,7 @@ export function useRelayDiscovery() {
             // Prioritize reachable relays
             if (a.isReachable && !b.isReachable) return -1;
             if (!a.isReachable && b.isReachable) return 1;
-            
+
             // Then by score
             return b.score - a.score;
           })
@@ -367,10 +415,10 @@ export function useRelayDiscovery() {
 
       try {
         const signal = AbortSignal.timeout(15000);
-        
+
         // Create temporary relay group
         const tempGroup = nostr.group(relayUrls);
-        
+
         // Fetch recent content that might have been missed
         const filters: Filter[] = [
           // Recent notes
@@ -389,14 +437,14 @@ export function useRelayDiscovery() {
         ];
 
         const events = await tempGroup.query(filters, { signal });
-        
+
         console.log(`Found ${events.length} events from temporary relay connections`);
-        
+
         // Store hints from discovered events
         for (const event of events) {
           relayHintCache.storeHints(event);
         }
-        
+
         return events;
       } catch (error) {
         console.error('Failed to connect temporarily:', error);
@@ -404,6 +452,24 @@ export function useRelayDiscovery() {
       }
     },
   });
+
+  // Clear cached discovery results
+  const clearCache = useCallback(() => {
+    localStorage.removeItem(DISCOVERY_CACHE_KEY);
+    setDiscoveryState({
+      isDiscovering: false,
+      discoveredRelays: [],
+      stats: {
+        totalDiscovered: 0,
+        reachableCount: 0,
+        unreachableCount: 0,
+        contactsAnalyzed: 0,
+        eventsScanned: 0,
+        hintsFound: 0,
+        discoveryProgress: 0,
+      },
+    });
+  }, []);
 
   return {
     discoveryState,
@@ -413,6 +479,7 @@ export function useRelayDiscovery() {
     isConnecting: connectTemporarily.isPending,
     addTempRelay,
     getCurrentRelayUrls,
+    clearCache,
   };
 }
 
@@ -422,25 +489,25 @@ export function useRelayDiscovery() {
 export function useRelayRecommendations() {
   const { config } = useAppContext();
   const { follows } = useFollow();
-  
+
   return useQuery({
     queryKey: ['relay-recommendations', config.relays?.length, follows.length],
     queryFn: async () => {
       // Simple recommendations based on app state
       const recommendations: string[] = [];
-      
+
       if (!config.relays || config.relays.length < 3) {
         recommendations.push('Consider adding more relays for better content discovery');
       }
-      
+
       if (follows.length > 50 && (!config.relays || config.relays.length < 5)) {
         recommendations.push('With many follows, additional relays will improve content visibility');
       }
-      
+
       if (!config.searchRelays || config.searchRelays.length === 0) {
         recommendations.push('Add search relays for better hashtag and content discovery');
       }
-      
+
       return recommendations;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes

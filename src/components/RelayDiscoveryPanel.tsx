@@ -9,15 +9,15 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Zap, 
-  Search, 
-  Users, 
-  Activity, 
-  CheckCircle2, 
-  AlertCircle, 
-  Loader2, 
-  Plus, 
+import {
+  Zap,
+  Search,
+  Users,
+  Activity,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Plus,
   TrendingUp,
   Clock,
   Wifi,
@@ -25,7 +25,8 @@ import {
   Eye,
   Download,
   RefreshCw,
-  BarChart3
+  BarChart3,
+  RotateCcw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { RelayMode } from '@/contexts/AppContext';
@@ -44,17 +45,20 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
     isDiscovering,
     connectTemporarily,
     isConnecting,
+    clearCache,
   } = useRelayDiscovery();
+
+  const [isFromCache, setIsFromCache] = useState(false);
+
+  // Check if results are from cache on mount
+  useEffect(() => {
+    if (discoveryState.discoveredRelays.length > 0 && !isDiscovering) {
+      setIsFromCache(true);
+    }
+  }, [discoveryState.discoveredRelays.length, isDiscovering]);
 
   const [selectedRelays, setSelectedRelays] = useState<Set<string>>(new Set());
   const [showConnectivityTest, setShowConnectivityTest] = useState(false);
-
-  // Auto-start discovery when component mounts (if user is logged in)
-  useEffect(() => {
-    if (user && !isDiscovering && discoveryState.discoveredRelays.length === 0) {
-      handleDiscover();
-    }
-  }, [user?.pubkey]);
 
   const handleDiscover = async () => {
     if (!user) {
@@ -66,10 +70,40 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
       return;
     }
 
+    setIsFromCache(false);
+
     try {
       await discoverRelays();
       toast({
         title: 'Discovery complete',
+        description: `Found ${discoveryState.stats.totalDiscovered} potential relays`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Discovery failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRefresh = async () => {
+    if (!user) {
+      toast({
+        title: 'Login required',
+        description: 'You must be logged in to discover relays',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    clearCache();
+    setIsFromCache(false);
+
+    try {
+      await discoverRelays();
+      toast({
+        title: 'Discovery refreshed',
         description: `Found ${discoveryState.stats.totalDiscovered} potential relays`,
       });
     } catch (error) {
@@ -203,6 +237,11 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
           <CardTitle className="flex items-center gap-2">
             <Search className="h-5 w-5 text-lime-400" />
             Smart Relay Discovery
+            {isFromCache && (
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                Cached
+              </Badge>
+            )}
           </CardTitle>
           <CardDescription>
             Automatically discover relevant relays based on your contacts, recent activity, and the broader Nostr network.
@@ -211,22 +250,38 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button 
-              onClick={handleDiscover} 
+            <Button
+              onClick={discoveryState.discoveredRelays.length > 0 ? handleRefresh : handleDiscover}
               disabled={isDiscovering}
               className="flex-1"
               size="lg"
             >
               {isDiscovering ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : discoveryState.discoveredRelays.length > 0 ? (
+                <RefreshCw className="h-4 w-4 mr-2" />
               ) : (
                 <Search className="h-4 w-4 mr-2" />
               )}
-              {isDiscovering ? 'Discovering...' : 'Start Discovery'}
+              {isDiscovering ? 'Discovering...' :
+               discoveryState.discoveredRelays.length > 0 ? 'Refresh Results' : 'Start Discovery'}
             </Button>
-            
+
+            {discoveryState.discoveredRelays.length > 0 && (
+              <Button
+                onClick={handleRefresh}
+                disabled={isDiscovering}
+                variant="outline"
+                className="flex-1 sm:flex-initial"
+                size="lg"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Clear & Rediscover
+              </Button>
+            )}
+
             {selectedRelays.size > 0 && (
-              <Button 
+              <Button
                 onClick={handleConnectTemporarily}
                 disabled={isConnecting}
                 variant="outline"
@@ -260,9 +315,9 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
                   {Math.round(discoveryState.stats.discoveryProgress)}%
                 </div>
               </div>
-              
+
               <Progress value={discoveryState.stats.discoveryProgress} className="h-2" />
-              
+
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                 <div className="text-center">
                   <div className="font-semibold text-lg">{discoveryState.stats.contactsAnalyzed}</div>
@@ -357,7 +412,7 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
                           }}
                           className="h-4 w-4 text-lime-600 focus:ring-lime-500 border-gray-300 rounded"
                         />
-                        
+
                         {relay.isReachable === true ? (
                           <Wifi className="h-4 w-4 text-green-500" />
                         ) : relay.isReachable === false ? (
@@ -372,25 +427,25 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
                         <div className="font-mono text-sm font-medium truncate">
                           {relay.name || relay.url.replace(/^wss?:\/\//, '')}
                         </div>
-                        
+
                         <div className="flex flex-wrap gap-2">
                           <Badge variant="outline" className={getSourceColor(relay.source)}>
                             {getSourceIcon(relay.source)}
                             <span className="ml-1">{getSourceLabel(relay.source)}</span>
                           </Badge>
-                          
+
                           {relay.contactCount > 0 && (
                             <Badge variant="outline" className="text-xs">
                               {relay.contactCount} contact{relay.contactCount === 1 ? '' : 's'}
                             </Badge>
                           )}
-                          
+
                           {relay.latency && (
                             <Badge variant="outline" className="text-xs">
                               {relay.latency}ms
                             </Badge>
                           )}
-                          
+
                           <Badge variant="outline" className="text-xs">
                             Score: {relay.score}
                           </Badge>
@@ -443,7 +498,7 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
                         Preview content or add to your configuration
                       </div>
                     </div>
-                    
+
                     <div className="flex gap-2">
                       <Button
                         onClick={handleConnectTemporarily}
@@ -457,7 +512,7 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
                         )}
                         Preview Content
                       </Button>
-                      
+
                       <Button
                         onClick={() => {
                           selectedRelays.forEach(url => {
@@ -487,10 +542,10 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
                   <div className="space-y-3">
                     {['nip65-outbox', 'event-hint', 'nip02-contact', 'recent-note'].map(source => {
                       const count = discoveryState.discoveredRelays.filter(r => r.source === source).length;
-                      const percentage = discoveryState.discoveredRelays.length > 0 
+                      const percentage = discoveryState.discoveredRelays.length > 0
                         ? Math.round((count / discoveryState.discoveredRelays.length) * 100)
                         : 0;
-                      
+
                       return (
                         <div key={source} className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -566,6 +621,9 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
                 <h3 className="font-semibold">No relays discovered yet</h3>
                 <p className="text-sm text-muted-foreground mt-1">
                   Click "Start Discovery" to find relays relevant to your network
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Discovery results will be cached and persist across tab switches
                 </p>
               </div>
             </div>
