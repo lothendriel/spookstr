@@ -105,6 +105,29 @@ export function useRobustQuotedEvent(
       }
 
       console.log('❌ All strategies failed for event:', eventId);
+
+      // Fallback: Even if we couldn't fetch the event, try to extract relay hints
+      // from the original event that referenced this quoted event
+      // This helps build cache for future attempts
+      try {
+        const { useNostr } = await import('@nostrify/react');
+        const nostr = useNostr.getState();
+
+        // Try to find the original event that quoted this event to extract its relay hints
+        const referencingEvents = await nostr.query([{
+          kinds: [1, 6, 16], // notes, reposts, generic reposts
+          '#e': [targetId],
+          limit: 5,
+        }], { signal: AbortSignal.timeout(5000) });
+
+        if (referencingEvents.length > 0) {
+          console.log(`📡 Found ${referencingEvents.length} referencing events for failed quote, extracting hints`);
+          RelayHintPopulator.processEvents(referencingEvents);
+        }
+      } catch (error) {
+        console.log('📡 Fallback hint extraction failed:', error);
+      }
+
       return null;
     },
     enabled: enabled && !!eventId,
@@ -138,10 +161,20 @@ async function tryWithRelayHints(filter: Filter, targetId: string, originalEvent
     if (allRelays.length === 1) {
       const relay = nostr.relay(allRelays[0]);
       const events = await relay.query([filter], { signal: AbortSignal.timeout(8000) });
+      if (events[0]) {
+        console.log('✅ Strategy 1 succeeded with cached hints');
+        RelayHintPopulator.processEvent(events[0]);
+        return events[0];
+      }
       return events[0] || null;
     } else {
       const relayGroup = nostr.group(allRelays.slice(0, 8));
       const events = await relayGroup.query([filter], { signal: AbortSignal.timeout(8000) });
+      if (events[0]) {
+        console.log('✅ Strategy 1 succeeded with cached hints');
+        RelayHintPopulator.processEvent(events[0]);
+        return events[0];
+      }
       return events[0] || null;
     }
   } catch (error) {
@@ -246,6 +279,7 @@ async function tryFallbackWithTimeout(filter: Filter, signal?: AbortSignal): Pro
     if (events[0]) {
       console.log('✅ Strategy 4: Found event with fallback');
       RelayHintPopulator.processEvent(events[0]);
+      return events[0];
     }
 
     return events[0] || null;

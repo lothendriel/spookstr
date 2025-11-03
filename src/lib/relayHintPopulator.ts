@@ -12,7 +12,17 @@ export class RelayHintPopulator {
    */
   static processEvent(event: NostrEvent): void {
     try {
+      const beforeStats = RelayHintPopulator.getCacheStats();
       relayHintCache.storeHints(event);
+      const afterStats = RelayHintPopulator.getCacheStats();
+
+      const hintsAdded = afterStats.totalSize - beforeStats.totalSize;
+      if (hintsAdded > 0) {
+        console.log(`🌱 Added ${hintsAdded} relay hints from event ${event.id.slice(0, 8)}`, {
+          before: beforeStats,
+          after: afterStats
+        });
+      }
     } catch (error) {
       console.warn('Failed to process event for relay hints:', error);
     }
@@ -30,12 +40,12 @@ export class RelayHintPopulator {
    */
   static extractContentRelayHints(event: NostrEvent): string[] {
     const hints = new Set<string>();
-    
+
     try {
       // Look for relay URLs in content that might be part of nostr URIs
       const nostrRegex = /nostr:(note1|nevent1|naddr1|npub1|nprofile1)[0-9a-z]+/g;
       let match;
-      
+
       while ((match = nostrRegex.exec(event.content)) !== null) {
         // For now, we can't extract relay hints from content without parsing the actual events
         // but we could potentially add known reliable relays for certain event types
@@ -46,7 +56,7 @@ export class RelayHintPopulator {
     } catch (error) {
       console.warn('Failed to extract content relay hints:', error);
     }
-    
+
     return Array.from(hints);
   }
 
@@ -79,7 +89,7 @@ export class RelayHintPopulator {
   static seedCache(): void {
     // Add some known reliable relays as fallbacks
     const popularRelays = this.getPopularRelays();
-    
+
     // Create a synthetic event to store these relays as hints
     const syntheticEvent: NostrEvent = {
       id: 'seed-relay-hints',
@@ -90,7 +100,7 @@ export class RelayHintPopulator {
       content: 'Seed relay hints',
       sig: ''
     };
-    
+
     this.processEvent(syntheticEvent);
   }
 
@@ -123,8 +133,14 @@ export class RelayHintPopulator {
 if (typeof window !== 'undefined') {
   // Only seed in browser environment
   setTimeout(() => {
+    const beforeStats = RelayHintPopulator.getCacheStats();
     RelayHintPopulator.seedCache();
-    console.log('🌱 Relay hint cache seeded with popular relays');
+    const afterStats = RelayHintPopulator.getCacheStats();
+    console.log('🌱 Relay hint cache seeded with popular relays', {
+      before: beforeStats,
+      after: afterStats,
+      added: afterStats.totalSize - beforeStats.totalSize
+    });
   }, 1000);
 }
 
