@@ -343,6 +343,21 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
 
         <CardContent className="pt-0">
           <div className="whitespace-pre-wrap break-words text-lime-100 mb-4">
+            {(() => {
+              const content = displayEvent.content;
+              const nostrRegex = /nostr:(note1|nevent1|naddr1|npub1|nprofile1)[023456789acdefghjklmnpqrstuvwxyz]+/g;
+              const nostrMatches = content.match(nostrRegex);
+              console.log('🔍 PostDetailView: About to render NoteContent for event:', {
+                id: displayEvent.id,
+                kind: displayEvent.kind,
+                contentLength: content.length,
+                contentPreview: content.substring(0, 100) + '...',
+                hasNostrRefs: !!nostrMatches,
+                nostrMatches: nostrMatches || 'none',
+                fullContent: content
+              });
+              return null;
+            })()}
             <NoteContent event={displayEvent} />
           </div>
 
