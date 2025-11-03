@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthor } from '@/hooks/useAuthor';
 import { getDisplayName } from '@/lib/getDisplayName';
+import { useNavigate } from 'react-router-dom';
+import { nip19 } from 'nostr-tools';
 import { BookOpen, ExternalLink, Clock, Calendar, Eye } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { NostrEvent } from '@nostrify/nostrify';
@@ -14,6 +16,7 @@ interface LongFormContentProps {
 }
 
 export function LongFormContent({ event, className }: LongFormContentProps) {
+  const navigate = useNavigate();
   const author = useAuthor(event.pubkey);
   const metadata = author.data?.metadata;
   const displayName = getDisplayName(metadata, event.pubkey);
@@ -24,27 +27,28 @@ export function LongFormContent({ event, className }: LongFormContentProps) {
   const image = event.tags.find(([name]) => name === 'image')?.[1] || '';
   const publishedAt = event.tags.find(([name]) => name === 'published_at')?.[1];
   const url = event.tags.find(([name]) => name === 'url')?.[1];
-  
+  const dTag = event.tags.find(([name]) => name === 'd')?.[1] || '';
+
   // Extract hashtags
   const hashtags = event.tags.filter(([name]) => name === 't').map(([, tag]) => tag);
 
   const timeAgo = formatDistanceToNow(new Date(event.created_at * 1000), { addSuffix: true });
-  const publishTime = publishedAt 
+  const publishTime = publishedAt
     ? formatDistanceToNow(new Date(parseInt(publishedAt) * 1000), { addSuffix: true })
     : timeAgo;
 
   // Extract content preview (first few paragraphs)
   const getContentPreview = () => {
     if (!event.content) return summary;
-    
+
     // Try to extract first paragraph or first 200 characters
     const paragraphs = event.content.split('\n\n');
     const firstParagraph = paragraphs[0];
-    
+
     if (firstParagraph.length > 200) {
       return firstParagraph.substring(0, 200) + '...';
     }
-    
+
     return firstParagraph;
   };
 
@@ -58,6 +62,20 @@ export function LongFormContent({ event, className }: LongFormContentProps) {
 
   const readingTime = getReadingTime();
   const contentPreview = getContentPreview();
+
+  const handleReadArticle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Create naddr (addressable event) identifier for the article
+    const naddr = nip19.naddrEncode({
+      identifier: dTag,
+      pubkey: event.pubkey,
+      kind: event.kind
+    });
+
+    // Navigate to the article view
+    navigate(`/${naddr}`);
+  };
 
   return (
     <Card className={`border-blue-500/30 bg-gradient-to-br from-blue-900/20 to-indigo-900/20 backdrop-blur-sm ${className}`}>
@@ -104,7 +122,7 @@ export function LongFormContent({ event, className }: LongFormContentProps) {
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-              
+
               {/* Title overlay on image */}
               <div className="absolute bottom-4 left-4 right-4">
                 <h3 className="font-bold text-xl text-white mb-2 line-clamp-2 drop-shadow-lg">
@@ -169,11 +187,14 @@ export function LongFormContent({ event, className }: LongFormContentProps) {
 
           {/* Action Buttons */}
           <div className="flex gap-2 pt-2">
-            <Button className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
+            <Button
+              onClick={handleReadArticle}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            >
               <BookOpen className="h-4 w-4 mr-2" />
               Read Article
             </Button>
-            
+
             {url && (
               <Button
                 variant="outline"
