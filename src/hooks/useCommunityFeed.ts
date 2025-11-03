@@ -7,7 +7,8 @@ import {
   isCommunityContent,
   validateCommunityEvent,
   getContentType,
-  filterForCommunityFeed
+  filterForCommunityFeed,
+  isReply
 } from '@/lib/contentType';
 
 export interface CommunityFeedPost {
@@ -20,9 +21,10 @@ export interface CommunityFeedPost {
 }
 
 /**
- * Hook to fetch approved community posts for display in the community feed
- * Only shows posts that have been approved by moderators (NIP-72 compliance)
- * Moderators see all posts, regular users see only approved posts
+ * Hook to fetch approved community main topics for display in the community feed
+ * Only shows top-level posts (excludes replies/comments) that have been approved by moderators (NIP-72 compliance)
+ * Moderators see all main topics (excluding denied ones), regular users see only approved main topics
+ * Replies/comments are handled separately in the individual post detail pages
  */
 export function useCommunityFeed(communityId?: string, communityAuthor?: string) {
   const { nostr } = useNostr();
@@ -80,11 +82,17 @@ export function useCommunityFeed(communityId?: string, communityAuthor?: string)
 
         console.log(`🚫 Filtering out ${deniedEventIds.size} denied posts`);
 
-        // Filter out NSFW content AND denied posts
+        // Filter out NSFW content, denied posts, AND replies (only show main topics)
         let filteredPosts = filterNSFWContent(allPosts).filter(event => {
           // Exclude denied posts
           if (deniedEventIds.has(event.id)) {
             console.log(`🚫 Excluding denied post: ${event.id.substring(0, 8)}...`);
+            return false;
+          }
+
+          // CRITICAL: Exclude replies - only show main topics in community feed
+          if (isReply(event)) {
+            console.log(`💬 Excluding reply from community feed: ${event.id.substring(0, 8)}...`);
             return false;
           }
 
@@ -114,7 +122,7 @@ export function useCommunityFeed(communityId?: string, communityAuthor?: string)
           return true;
         });
 
-        console.log(`✅ Validated ${filteredPosts.length} community posts for display (excluding denied)`);
+        console.log(`✅ Validated ${filteredPosts.length} main community topics for display (excluding denied posts and replies)`);
 
         const sortedPosts = filteredPosts.sort((a, b) => b.created_at - a.created_at);
 
@@ -173,11 +181,15 @@ export function useCommunityFeed(communityId?: string, communityAuthor?: string)
 
         console.log(`📝 Found ${approvedPosts.length} actual approved posts`);
 
-        // Filter out NSFW content
-        let filteredPosts = filterNSFWContent(approvedPosts);
+        // Filter out NSFW content AND replies (only show main topics)
+        let filteredPosts = filterNSFWContent(approvedPosts).filter(event => {
+          // CRITICAL: Exclude replies - only show main topics in community feed
+          if (isReply(event)) {
+            console.log(`💬 Excluding reply from approved community posts: ${event.id.substring(0, 8)}...`);
+            return false;
+          }
 
-        // CRITICAL: Ensure only valid community content is included for regular users too
-        filteredPosts = filteredPosts.filter(event => {
+          // CRITICAL: Ensure only valid community content is included for regular users too
           const isValidCommunity = isCommunityContent(event);
           const isValidEvent = validateCommunityEvent(event);
           const contentType = getContentType(event);
@@ -203,7 +215,7 @@ export function useCommunityFeed(communityId?: string, communityAuthor?: string)
           return true;
         });
 
-        console.log(`✅ Validated ${filteredPosts.length} approved community posts for regular users`);
+        console.log(`✅ Validated ${filteredPosts.length} approved main community topics for regular users (excluding replies)`);
 
         const sortedPosts = filteredPosts.sort((a, b) => b.created_at - a.created_at);
 

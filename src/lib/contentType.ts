@@ -11,7 +11,7 @@ import { NostrEvent } from '@nostrify/nostrify';
  * @returns True if the event belongs to a community (has 'A' tag with 34550)
  */
 export function isCommunityContent(event: NostrEvent): boolean {
-  return event.tags.some(tag => 
+  return event.tags.some(tag =>
     tag[0] === 'A' && tag[1]?.startsWith('34550:')
   );
 }
@@ -19,12 +19,21 @@ export function isCommunityContent(event: NostrEvent): boolean {
 /**
  * Check if an event is a reply to another event
  * @param event The Nostr event to check
- * @returns True if the event is a reply (has 'e' tags with reply/root markers)
+ * @returns True if the event is a reply (has 'e' tags referencing other events)
  */
 export function isReply(event: NostrEvent): boolean {
-  return event.tags.some(tag => 
+  // Check for 'e' tags with explicit reply/root markers (NIP-10 style)
+  const hasExplicitReplyMarkers = event.tags.some(tag =>
     tag[0] === 'e' && (tag[3] === 'reply' || tag[3] === 'root')
   );
+
+  // Also check for any 'e' tags that reference other events (basic reply detection)
+  // This covers cases where reply markers might not be explicitly set
+  const hasEventReferences = event.tags.some(tag =>
+    tag[0] === 'e' && tag[1] && tag[1].length > 0
+  );
+
+  return hasExplicitReplyMarkers || hasEventReferences;
 }
 
 /**
@@ -51,7 +60,7 @@ export function shouldAppearInCommunityFeed(event: NostrEvent): boolean {
  * @returns Community tag string or null if not a community event
  */
 export function getCommunityTag(event: NostrEvent): string | null {
-  const communityTag = event.tags.find(tag => 
+  const communityTag = event.tags.find(tag =>
     tag[0] === 'A' && tag[1]?.startsWith('34550:')
   );
   return communityTag?.[1] || null;
@@ -64,13 +73,13 @@ export function getCommunityTag(event: NostrEvent): string | null {
  */
 export function validateCommunityEvent(event: NostrEvent): boolean {
   const isCommunity = isCommunityContent(event);
-  
+
   // Community content should use kind 1111
   if (isCommunity && event.kind !== 1111) {
     console.warn('Community content should use kind 1111, found:', event.kind);
     return false;
   }
-  
+
   return true;
 }
 

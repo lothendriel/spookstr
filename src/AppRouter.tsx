@@ -15,6 +15,7 @@ const CommunityPage = lazy(() => import("./pages/CommunityPage"));
 const CreateCommunityPage = lazy(() => import("./pages/CreateCommunityPage"));
 const CommunityBrowsePage = lazy(() => import("./pages/CommunityBrowsePage"));
 const PostDetailPage = lazy(() => import("./pages/PostDetailPage"));
+const CommunityPostDetailPage = lazy(() => import("./pages/CommunityPostDetailPage"));
 const ModeratorPanel = lazy(() => import("./components/communities/ModeratorPanel").then(m => ({ default: m.ModeratorPanel })));
 
 export function AppRouter() {
@@ -30,7 +31,7 @@ export function AppRouter() {
         {/* Community Routes */}
         <Route path="/communities" element={<CommunityBrowsePage />} />
         <Route path="/community/:communityId" element={<CommunityPage />} />
-        <Route path="/community/:communityId/post/:postId" element={<PostDetailPage />} />
+        <Route path="/community/:communityId/post/:postId" element={<CommunityPostDetailPage />} />
         <Route path="/community/:communityId/moderate" element={<ModeratorPanel />} />
         <Route path="/create-community" element={<CreateCommunityPage />} />
         <Route path="/create-community/:communityId" element={<CreateCommunityPage />} />
