@@ -154,8 +154,6 @@ export function NoteContent({
 
 // Helper function to process text content (URLs, mentions, hashtags)
 function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> = new Set()): React.ReactNode[] {
-  console.log('🔍 NoteContent: Processing text:', text.substring(0, 100) + '...');
-  console.log('🔍 NoteContent: Full text being processed:', text);
   const parts: React.ReactNode[] = [];
 
   // Regex to find URLs, Nostr references, @mentions, and hashtags
@@ -209,19 +207,16 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
 
         if (decoded.type === 'npub') {
           const pubkey = decoded.data;
-          console.log('🔍 NoteContent: Rendering npub mention:', nostrId);
           parts.push(
             <NostrMention key={`mention-${keyCounter++}`} pubkey={pubkey} />
           );
         } else if (decoded.type === 'nprofile') {
           const profileData = decoded.data as { pubkey: string; relays?: string[] };
-          console.log('🔍 NoteContent: Rendering nprofile mention:', nostrId);
           parts.push(
             <NostrMention key={`mention-${keyCounter++}`} pubkey={profileData.pubkey} />
           );
         } else {
           // For note, nevent, naddr types, render as quoted event
-          console.log('🔍 NoteContent: Rendering QuotedEvent for:', nostrId);
           parts.push(
             <QuotedEvent
               key={`quoted-${keyCounter++}`}
@@ -231,7 +226,6 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
           );
         }
       } catch (error) {
-        console.log('🔍 NoteContent: Failed to decode nostr reference:', nostrId, error);
         // If decoding fails, just render as text
         parts.push(fullMatch);
       }

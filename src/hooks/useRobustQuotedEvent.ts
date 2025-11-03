@@ -36,14 +36,7 @@ export function useRobustQuotedEvent(
         throw new Error('No event ID provided');
       }
 
-      console.log('🔍 RobustQuotedEvent: Starting discovery for:', eventId);
-      console.log('🔍 RobustQuotedEvent: Hook called from context:', {
-        stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
-      });
 
-      // Log cache statistics for debugging
-      const cacheStats = RelayHintPopulator.getCacheStats();
-      console.log('📊 Cache stats:', cacheStats);
 
       // Parse the event ID to understand what we're looking for
       let targetId: string;
@@ -76,39 +69,28 @@ export function useRobustQuotedEvent(
       }
 
       // Strategy 1: Try with relay hints from cache first
-      console.log('📡 Strategy 1: Trying with relay hints from cache...');
       const cachedHintsResult = await tryWithRelayHints(nostr, filter, targetId, eventId);
       if (cachedHintsResult) {
-        console.log('✅ Strategy 1 succeeded with cached hints');
         return cachedHintsResult;
       }
 
       // Strategy 2: Try with expanded relay set including all presets
-      console.log('📡 Strategy 2: Trying with expanded relay set...');
       const expandedRelaysResult = await tryWithExpandedRelays(nostr, filter);
       if (expandedRelaysResult) {
-        console.log('✅ Strategy 2 succeeded with expanded relays');
         return expandedRelaysResult;
       }
 
       // Strategy 3: Try individual high-priority relays sequentially
-      console.log('📡 Strategy 3: Trying high-priority relays sequentially...');
       const sequentialResult = await trySequentialHighPriorityRelays(nostr, filter);
       if (sequentialResult) {
-        console.log('✅ Strategy 3 succeeded with sequential relays');
         return sequentialResult;
       }
 
       // Strategy 4: Last resort - try the default nostr instance with longer timeout
-      console.log('🚨 DEBUG: Reached Strategy 4!');
-      console.log('📡 Strategy 4: Trying fallback with extended timeout...');
       const fallbackResult = await tryFallbackWithTimeout(nostr, filter, c.signal);
       if (fallbackResult) {
-        console.log('✅ Strategy 4 succeeded with fallback');
         return fallbackResult;
       }
-
-      console.log('❌ All strategies failed for event:', eventId);
 
       // Fallback: Even if we couldn't fetch the event, try to extract relay hints
       // from the original event that referenced this quoted event
@@ -122,11 +104,10 @@ export function useRobustQuotedEvent(
         }], { signal: AbortSignal.timeout(5000) });
 
         if (referencingEvents.length > 0) {
-          console.log(`📡 Found ${referencingEvents.length} referencing events for failed quote, extracting hints`);
           RelayHintPopulator.processEvents(referencingEvents);
         }
       } catch (error) {
-        console.log('📡 Fallback hint extraction failed:', error);
+        // Silently handle fallback extraction errors
       }
 
       return null;
@@ -155,7 +136,7 @@ async function tryWithRelayHints(nostr: any, filter: Filter, targetId: string, o
     const eventHints = relayHintCache.getEventHints([targetId]);
     const allRelays = [...new Set([...baseRelays, ...eventHints])];
 
-    console.log('📡 Strategy 1: Trying relays:', allRelays.slice(0, 8));
+
 
     let events: NostrEvent[];
     if (allRelays.length === 1) {
@@ -167,14 +148,12 @@ async function tryWithRelayHints(nostr: any, filter: Filter, targetId: string, o
     }
 
     if (events[0]) {
-      console.log('✅ Strategy 1 succeeded with cached hints');
       RelayHintPopulator.processEvent(events[0]);
       return events[0];
     }
 
     return null;
   } catch (error) {
-    console.log('📡 Strategy 1 failed:', error);
     return null;
   }
 }
@@ -203,13 +182,10 @@ async function tryWithExpandedRelays(nostr: any, filter: Filter): Promise<NostrE
       'wss://nostr.zebedee.cloud'
     ];
 
-    console.log('📡 Strategy 2: Trying expanded relay set (first 10):', expandedRelays.slice(0, 10));
-
     const relayGroup = nostr.group(expandedRelays.slice(0, 10));
     const events = await relayGroup.query([filter], { signal: AbortSignal.timeout(12000) });
 
     if (events[0]) {
-      console.log('✅ Strategy 2 succeeded with expanded relays');
       // Store relay hints from the found event
       RelayHintPopulator.processEvent(events[0]);
       return events[0];
@@ -217,7 +193,6 @@ async function tryWithExpandedRelays(nostr: any, filter: Filter): Promise<NostrE
 
     return null;
   } catch (error) {
-    console.log('📡 Strategy 2 failed:', error);
     return null;
   }
 }
@@ -234,22 +209,17 @@ async function trySequentialHighPriorityRelays(nostr: any, filter: Filter): Prom
     'wss://relay.primal.net'
   ];
 
-  console.log('📡 Strategy 3: Trying high-priority relays sequentially...');
-
   for (const relayUrl of highPriorityRelays) {
     try {
-      console.log(`📡 Strategy 3: Trying ${relayUrl}...`);
       const relay = nostr.relay(relayUrl);
       const events = await relay.query([filter], { signal: AbortSignal.timeout(6000) });
 
       if (events[0]) {
-        console.log(`✅ Strategy 3: Found event on ${relayUrl}`);
         // Store relay hints from the found event
         RelayHintPopulator.processEvent(events[0]);
         return events[0];
       }
     } catch (error) {
-      console.log(`📡 Strategy 3: ${relayUrl} failed:`, error);
       continue;
     }
   }
@@ -262,8 +232,6 @@ async function trySequentialHighPriorityRelays(nostr: any, filter: Filter): Prom
  */
 async function tryFallbackWithTimeout(nostr: any, filter: Filter, signal?: AbortSignal): Promise<NostrEvent | null> {
   try {
-    console.log('📡 Strategy 4: Trying fallback with extended timeout...');
-
     const combinedSignal = signal
       ? AbortSignal.any([signal, AbortSignal.timeout(20000)])
       : AbortSignal.timeout(20000);
@@ -271,14 +239,12 @@ async function tryFallbackWithTimeout(nostr: any, filter: Filter, signal?: Abort
     const events = await nostr.query([filter], { signal: combinedSignal });
 
     if (events[0]) {
-      console.log('✅ Strategy 4: Found event with fallback');
       RelayHintPopulator.processEvent(events[0]);
       return events[0];
     }
 
     return null;
   } catch (error) {
-    console.log('📡 Strategy 4 failed:', error);
     return null;
   }
 }

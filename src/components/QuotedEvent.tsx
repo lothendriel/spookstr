@@ -66,14 +66,6 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
     return [];
   }, [parsedEvent]);
 
-  // Use robust quoted event discovery with multiple strategies
-  console.log('🔍 QuotedEvent: Processing event ID:', eventId, {
-    parsedSuccess: parsedEvent.success,
-    hasFilters: filters.length > 0,
-    enabled: !!eventId && parsedEvent.success && filters.length > 0,
-    filters: filters
-  });
-
   const { data: quotedEvent, isLoading, error } = useRobustQuotedEvent(
     eventId,
     {
@@ -82,14 +74,6 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
       retry: 2, // More retries for better reliability
     }
   );
-
-  console.log('🔍 QuotedEvent: Hook result:', {
-    eventId,
-    quotedEventId: quotedEvent?.id?.slice(0, 8),
-    isLoading,
-    hasError: !!error,
-    error: error?.message
-  });
 
   if (isLoading) {
     return (
@@ -107,7 +91,6 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
   }
 
   if (error) {
-    console.log('QuotedEvent: Error fetching event:', error);
     return (
       <Card className={`border-lime-500/20 bg-lime-500/5 ${className}`}>
         <CardContent className="p-3">
@@ -133,7 +116,6 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
   }
 
   if (!quotedEvent) {
-    console.log('QuotedEvent: No event found for ID:', eventId);
     return (
       <Card className={`border-lime-500/20 bg-lime-500/5 ${className}`}>
         <CardContent className="p-3">
@@ -198,13 +180,6 @@ function DynamicEventRenderer({ event, className, originalEventId }: QuotedEvent
 }
 
 function QuotedEventContent({ event, className, originalEventId }: QuotedEventContentProps) {
-  console.log('🔍 QuotedEventContent: Rendering event:', {
-    id: event.id.slice(0, 8),
-    kind: event.kind,
-    contentLength: event.content.length,
-    originalEventId: originalEventId?.slice(0, 8)
-  });
-
   const author = useAuthor(event.pubkey);
   const navigate = useNavigate();
   const metadata = author.data?.metadata;

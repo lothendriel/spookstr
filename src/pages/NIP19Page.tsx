@@ -47,39 +47,29 @@ function useEventWithHints(eventId: string, relayHints?: string[]) {
       // Remove duplicates while preserving order (hints first, then presets, then fallbacks)
       const uniqueRelays = [...new Set(allRelays)];
 
-      console.log(`EventWithHints: Fetching event ${eventId} from ${uniqueRelays.length} relays:`, uniqueRelays);
-
       if (uniqueRelays.length > 0) {
         try {
           // Try relay group first (most efficient for multiple relays)
           const relayGroup = nostr.group(uniqueRelays);
           const events = await relayGroup.query([{ ids: [eventId], limit: 1 }], { signal });
           if (events.length > 0) {
-            console.log('EventWithHints: Found event from relay group');
             return events[0];
           }
         } catch (groupError) {
-          console.log('EventWithHints: Relay group failed, trying individual relays:', groupError);
-
           // Try each relay individually, prioritizing relay hints
           for (const relayUrl of uniqueRelays) {
             try {
-              console.log(`EventWithHints: Trying relay: ${relayUrl}`);
               const relay = nostr.relay(relayUrl);
               const events = await relay.query([{ ids: [eventId], limit: 1 }], { signal });
               if (events.length > 0) {
-                console.log(`EventWithHints: Found event from relay: ${relayUrl}`);
                 return events[0];
               }
             } catch (relayError) {
-              console.log(`EventWithHints: Relay ${relayUrl} failed:`, relayError);
               continue;
             }
           }
         }
       }
-
-      console.log('EventWithHints: Event not found on any relay');
       return null;
     },
     enabled: !!eventId,
@@ -93,8 +83,6 @@ function useEventWithHints(eventId: string, relayHints?: string[]) {
 export function NIP19Page() {
   const { nip19: identifier } = useParams<{ nip19: string }>();
   const { nostr } = useNostr();
-
-  console.log('🔍 NIP19Page: Component rendering with identifier:', identifier);
 
   if (!identifier) {
     return <NotFound />;
@@ -118,13 +106,11 @@ export function NIP19Page() {
 
     case 'note': {
       const noteId = data as string;
-      console.log('🔍 NIP19Page: Routing to NoteView for noteId:', noteId);
       return <NoteView noteId={noteId} />;
     }
 
     case 'nevent': {
       const eventData = data as { id: string; author?: string; relays?: string[] };
-      console.log('🔍 NIP19Page: Routing to EventView for eventId:', eventData.id, 'with relay hints:', eventData.relays);
       return <EventView eventId={eventData.id} relayHints={eventData.relays} />;
     }
 
@@ -140,7 +126,6 @@ export function NIP19Page() {
 
 // Component to view a note by ID
 function NoteView({ noteId }: { noteId: string }) {
-  console.log('🔍 NoteView: Starting to render for noteId:', noteId);
   const { data: event, isLoading } = useMultiRelayEvent(noteId);
 
   if (isLoading) {
@@ -333,8 +318,6 @@ function useAddressableEvent(naddrData: { identifier: string; pubkey: string; ki
       // Remove duplicates while preserving order (hints first, then presets, then fallbacks)
       const uniqueRelays = [...new Set(allRelays)];
 
-      console.log(`AddressableEvent: Fetching naddr ${naddrData.kind}:${naddrData.pubkey}:${naddrData.identifier} from ${uniqueRelays.length} relays`);
-
       const filters = [{
         kinds: [naddrData.kind],
         authors: [naddrData.pubkey],
@@ -348,31 +331,23 @@ function useAddressableEvent(naddrData: { identifier: string; pubkey: string; ki
           const relayGroup = nostr.group(uniqueRelays);
           const events = await relayGroup.query(filters, { signal });
           if (events.length > 0) {
-            console.log('AddressableEvent: Found event from relay group');
             return events[0];
           }
         } catch (groupError) {
-          console.log('AddressableEvent: Relay group failed, trying individual relays:', groupError);
-
           // Try each relay individually, prioritizing relay hints
           for (const relayUrl of uniqueRelays) {
             try {
-              console.log(`AddressableEvent: Trying relay: ${relayUrl}`);
               const relay = nostr.relay(relayUrl);
               const events = await relay.query(filters, { signal });
               if (events.length > 0) {
-                console.log(`AddressableEvent: Found event from relay: ${relayUrl}`);
                 return events[0];
               }
             } catch (relayError) {
-              console.log(`AddressableEvent: Relay ${relayUrl} failed:`, relayError);
               continue;
             }
           }
         }
       }
-
-      console.log('AddressableEvent: Event not found on any relay');
       return null;
     },
     enabled: !!(naddrData.kind && naddrData.pubkey),
@@ -385,7 +360,6 @@ function useAddressableEvent(naddrData: { identifier: string; pubkey: string; ki
 
 // Component to view an event by ID (including relay hints from nevent)
 function EventView({ eventId, relayHints }: { eventId: string; relayHints?: string[] }) {
-  console.log('🔍 EventView: Starting to render for eventId:', eventId, 'with relay hints:', relayHints);
   const { data: event, isLoading } = useEventWithHints(eventId, relayHints);
 
   if (isLoading) {
