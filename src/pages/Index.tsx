@@ -4,6 +4,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useParanormalFeed } from '@/hooks/useParanormalFeed';
 import { useBatchInteractions } from '@/hooks/useBatchInteractions';
 import { useRealtimeInteractionUpdates } from '@/hooks/useRealtimeInteractionUpdates';
+import { useFeedDiscovery } from '@/hooks/useContextualRelayDiscovery';
+import { SmartRelayDiscoveryIndicator } from '@/components/RelayDiscoveryIndicator';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { CreateParanormalPost } from '@/components/CreateParanormalPost';
 import { CreatePostModal } from '@/components/CreatePostModal';
@@ -30,6 +32,13 @@ const Index = () => {
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [postsToShow, setPostsToShow] = useState(12); // Show 12 posts initially on all devices
   const isMobile = useIsMobile();
+
+  // Get feed discovery stats
+  const {
+    events: discoveredEvents,
+    isLoading: isDiscovering,
+    stats: discoveryStats
+  } = useFeedDiscovery();
 
   // Memoize visible post IDs to prevent unnecessary re-renders
   const visiblePostIds = useMemo(() => {
@@ -120,9 +129,17 @@ const Index = () => {
           <div className="lg:col-span-2 space-y-4">
             <div className="text-center mb-6">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-2xl font-bold text-lime-400">
-                  Paranormal Activity Feed
-                </h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-bold text-lime-400">
+                    Paranormal Activity Feed
+                  </h2>
+                  <SmartRelayDiscoveryIndicator
+                    context="feed"
+                    eventsFound={posts?.length || 0}
+                    hintsUsed={discoveryStats?.hintsUsed || false}
+                    isLoading={isDiscovering || isLoading}
+                  />
+                </div>
                 <Button
                   onClick={handleRefresh}
                   variant="outline"

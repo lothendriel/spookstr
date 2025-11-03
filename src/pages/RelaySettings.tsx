@@ -17,12 +17,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Plus, Activity, AlertCircle, CheckCircle2, Loader2, RefreshCw, Save, Download, Star, Zap, BarChart3 } from 'lucide-react';
+import { Trash2, Plus, Activity, AlertCircle, CheckCircle2, Loader2, RefreshCw, Save, Download, Star, Zap, BarChart3, Search } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { relayHintCache } from '@/lib/relayHints';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RelayDiscoveryPanel } from '@/components/RelayDiscoveryPanel';
+import { GlobalRelayDiscoveryStatus } from '@/components/RelayDiscoveryIndicator';
 
 // Official Spookstr relay
 const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
@@ -379,7 +381,7 @@ export default function RelaySettings() {
       </div>
 
       <Tabs defaultValue="relays" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="relays" className="flex items-center gap-2">
             <Activity className="h-4 w-4" />
             Relays
@@ -387,6 +389,10 @@ export default function RelaySettings() {
           <TabsTrigger value="discovery" className="flex items-center gap-2">
             <Zap className="h-4 w-4" />
             Discovery
+          </TabsTrigger>
+          <TabsTrigger value="smart-discovery" className="flex items-center gap-2">
+            <Search className="h-4 w-4" />
+            Smart Discovery
           </TabsTrigger>
           <TabsTrigger value="stats" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
@@ -932,6 +938,10 @@ export default function RelaySettings() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="smart-discovery" className="space-y-6">
+          <RelayDiscoveryPanel />
+        </TabsContent>
+
         <TabsContent value="stats" className="space-y-6">
           {/* Relay Statistics */}
           <Card>
@@ -991,6 +1001,11 @@ export default function RelaySettings() {
                     </CardContent>
                   </Card>
                 </div>
+              </div>
+
+              {/* Global Discovery Status */}
+              <div className="mt-6">
+                <GlobalRelayDiscoveryStatus />
               </div>
             </CardContent>
           </Card>

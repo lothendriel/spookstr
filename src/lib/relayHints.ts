@@ -2,7 +2,7 @@ import type { NostrEvent, Filter } from '@nostrify/nostrify';
 
 /**
  * Extract relay hints from event tags
- * 
+ *
  * Relay hints can be found in:
  * - 'e' tags: ["e", "event-id", "relay-url", "marker"]
  * - 'p' tags: ["p", "pubkey", "relay-url", "petname"]
@@ -14,7 +14,7 @@ export function extractRelayHints(event: NostrEvent): string[] {
 
   for (const tag of event.tags) {
     const [tagName, ...rest] = tag;
-    
+
     switch (tagName) {
       case 'e':
       case 'p':
@@ -36,7 +36,7 @@ export function extractRelayHints(event: NostrEvent): string[] {
       }
     }
   }
-  
+
   return Array.from(hints);
 }
 
@@ -49,7 +49,7 @@ export function extractEventRelayHints(event: NostrEvent): Map<string, string[]>
 
   for (const tag of event.tags) {
     const [tagName, eventId, relayUrl] = tag;
-    
+
     if (tagName === 'e' && eventId && relayUrl && isValidRelayUrl(relayUrl)) {
       if (!eventHints.has(eventId)) {
         eventHints.set(eventId, []);
@@ -57,7 +57,7 @@ export function extractEventRelayHints(event: NostrEvent): Map<string, string[]>
       eventHints.get(eventId)!.push(relayUrl);
     }
   }
-  
+
   return eventHints;
 }
 
@@ -70,7 +70,7 @@ export function extractPubkeyRelayHints(event: NostrEvent): Map<string, string[]
 
   for (const tag of event.tags) {
     const [tagName, pubkey, relayUrl] = tag;
-    
+
     if (tagName === 'p' && pubkey && relayUrl && isValidRelayUrl(relayUrl)) {
       if (!pubkeyHints.has(pubkey)) {
         pubkeyHints.set(pubkey, []);
@@ -78,7 +78,7 @@ export function extractPubkeyRelayHints(event: NostrEvent): Map<string, string[]
       pubkeyHints.get(pubkey)!.push(relayUrl);
     }
   }
-  
+
   return pubkeyHints;
 }
 
@@ -91,7 +91,7 @@ export function extractAddressableRelayHints(event: NostrEvent): Map<string, str
 
   for (const tag of event.tags) {
     const [tagName, coordinate, relayUrl] = tag;
-    
+
     if (tagName === 'a' && coordinate && relayUrl && isValidRelayUrl(relayUrl)) {
       if (!addressHints.has(coordinate)) {
         addressHints.set(coordinate, []);
@@ -99,7 +99,7 @@ export function extractAddressableRelayHints(event: NostrEvent): Map<string, str
       addressHints.get(coordinate)!.push(relayUrl);
     }
   }
-  
+
   return addressHints;
 }
 
@@ -108,7 +108,7 @@ export function extractAddressableRelayHints(event: NostrEvent): Map<string, str
  */
 function isValidRelayUrl(url: string): boolean {
   if (!url || typeof url !== 'string') return false;
-  
+
   try {
     const parsed = new URL(url);
     return parsed.protocol === 'ws:' || parsed.protocol === 'wss:';
@@ -122,18 +122,18 @@ function isValidRelayUrl(url: string): boolean {
  * and limiting total relay count for performance
  */
 export function mergeRelayHints(
-  baseRelays: string[], 
-  hints: string[], 
+  baseRelays: string[],
+  hints: string[],
   maxRelays: number = 5
 ): string[] {
   const relaySet = new Set(baseRelays);
-  
+
   // Add hints until we reach the limit
   for (const hint of hints) {
     if (relaySet.size >= maxRelays) break;
     relaySet.add(hint);
   }
-  
+
   return Array.from(relaySet);
 }
 
@@ -144,7 +144,7 @@ export function mergeRelayHints(
 export interface RelayHintContext {
   /** Event IDs that need to be fetched with their relay hints */
   eventIds?: string[];
-  /** Pubkeys that need to be fetched with their relay hints */  
+  /** Pubkeys that need to be fetched with their relay hints */
   pubkeys?: string[];
   /** Addressable coordinates that need to be fetched with their relay hints */
   addresses?: string[];
@@ -241,7 +241,7 @@ class RelayHintCache {
       const firstKey = this.eventHints.keys().next().value;
       this.eventHints.delete(firstKey);
     }
-    
+
     const existing = this.eventHints.get(eventId) || [];
     const merged = Array.from(new Set([...existing, ...relays]));
     this.eventHints.set(eventId, merged);
@@ -252,7 +252,7 @@ class RelayHintCache {
       const firstKey = this.pubkeyHints.keys().next().value;
       this.pubkeyHints.delete(firstKey);
     }
-    
+
     const existing = this.pubkeyHints.get(pubkey) || [];
     const merged = Array.from(new Set([...existing, ...relays]));
     this.pubkeyHints.set(pubkey, merged);
@@ -263,7 +263,7 @@ class RelayHintCache {
       const firstKey = this.addressHints.keys().next().value;
       this.addressHints.delete(firstKey);
     }
-    
+
     const existing = this.addressHints.get(address) || [];
     const merged = Array.from(new Set([...existing, ...relays]));
     this.addressHints.set(address, merged);
@@ -274,21 +274,21 @@ class RelayHintCache {
    */
   getEnhancedRelays(context: RelayHintContext): string[] {
     const { eventIds, pubkeys, addresses, baseRelays = [], maxRelays = 5 } = context;
-    
+
     const hints = new Set<string>();
-    
+
     // Add base relays first
     baseRelays.forEach(r => hints.add(r));
-    
+
     // Add hints from cache
     if (eventIds?.length) {
       this.getEventHints(eventIds).forEach(r => hints.add(r));
     }
-    
+
     if (pubkeys?.length) {
       this.getPubkeyHints(pubkeys).forEach(r => hints.add(r));
     }
-    
+
     if (addresses?.length) {
       this.getAddressHints(addresses).forEach(r => hints.add(r));
     }
@@ -305,6 +305,13 @@ class RelayHintCache {
     this.pubkeyHints.clear();
     this.addressHints.clear();
   }
+
+  /**
+   * Get total cache size
+   */
+  getCacheSize(): number {
+    return this.eventHints.size + this.pubkeyHints.size + this.addressHints.size;
+  }
 }
 
 // Global instance for the app
@@ -315,51 +322,51 @@ export const relayHintCache = new RelayHintCache();
  * This should be used for queries that reference specific events, pubkeys, or addresses
  */
 export function enhanceFiltersWithHints(
-  filters: Filter[], 
-  baseRelays: string[], 
+  filters: Filter[],
+  baseRelays: string[],
   maxRelays: number = 5
 ): { enhancedRelays: string[]; shouldUseHints: boolean } {
   // Collect all referenced IDs from filters
   const eventIds = new Set<string>();
   const pubkeys = new Set<string>();
   const addresses = new Set<string>();
-  
+
   let shouldUseHints = false;
-  
+
   for (const filter of filters) {
     // Collect event IDs
     if (filter.ids?.length) {
       filter.ids.forEach(id => eventIds.add(id));
       shouldUseHints = true;
     }
-    
+
     if (filter['#e']?.length) {
       filter['#e'].forEach(id => eventIds.add(id));
       shouldUseHints = true;
     }
-    
+
     // Collect pubkeys
     if (filter.authors?.length) {
       filter.authors.forEach(pk => pubkeys.add(pk));
       // Don't set shouldUseHints for authors - they have NIP-65 relay lists
     }
-    
+
     if (filter['#p']?.length) {
       filter['#p'].forEach(pk => pubkeys.add(pk));
       shouldUseHints = true;
     }
-    
+
     // Collect addressable coordinates
     if (filter['#a']?.length) {
       filter['#a'].forEach(addr => addresses.add(addr));
       shouldUseHints = true;
     }
   }
-  
+
   if (!shouldUseHints) {
     return { enhancedRelays: baseRelays, shouldUseHints: false };
   }
-  
+
   const enhancedRelays = relayHintCache.getEnhancedRelays({
     eventIds: Array.from(eventIds),
     pubkeys: Array.from(pubkeys),
@@ -367,6 +374,6 @@ export function enhanceFiltersWithHints(
     baseRelays,
     maxRelays,
   });
-  
+
   return { enhancedRelays, shouldUseHints: true };
 }

@@ -3,6 +3,7 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useAppContext } from './useAppContext';
 import { useUserRelays } from './useUserRelays';
+import { useNotificationDiscovery } from './useContextualRelayDiscovery';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 
@@ -40,6 +41,13 @@ export function useNotifications() {
 
   // Fetch the user's NIP-65 relay list for inbox model
   const { data: userRelayList, isLoading: isLoadingRelays } = useUserRelays(user?.pubkey);
+
+  // Use enhanced relay discovery for notifications
+  const {
+    events: enhancedNotifications,
+    isLoading: isDiscovering,
+    stats: discoveryStats
+  } = useNotificationDiscovery(!!user?.pubkey);
 
   // Create a stable relay identifier for the query key
   const relayKey = config.spookstrOnlyMode

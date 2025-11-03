@@ -3,6 +3,8 @@ import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useNotificationState } from '@/hooks/useNotificationState';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useNotificationDiscovery } from '@/hooks/useContextualRelayDiscovery';
+import { SmartRelayDiscoveryIndicator } from '@/components/RelayDiscoveryIndicator';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -157,6 +159,13 @@ export default function Notifications() {
   const { isRead, markAsRead, markAllAsRead } = useNotificationState();
   const navigate = useNavigate();
 
+  // Get discovery stats for notifications
+  const {
+    events: discoveredEvents,
+    isLoading: isDiscovering,
+    stats: discoveryStats
+  } = useNotificationDiscovery(!!user?.pubkey);
+
   // Flatten all pages of notifications
   const allNotifications = useMemo(() => {
     if (!data?.pages) return [];
@@ -217,9 +226,17 @@ export default function Notifications() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <h1 className="text-3xl font-bold text-lime-400">
-              Notifications
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-lime-400">
+                Notifications
+              </h1>
+              <SmartRelayDiscoveryIndicator
+                context="notifications"
+                eventsFound={discoveredEvents?.length || 0}
+                hintsUsed={discoveryStats?.hintsUsed || false}
+                isLoading={isDiscovering}
+              />
+            </div>
             {unreadCount > 0 && (
               <Button
                 onClick={handleMarkAllAsRead}

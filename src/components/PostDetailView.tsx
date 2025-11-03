@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { usePostDetailDiscovery } from '@/hooks/useContextualRelayDiscovery';
+import { SmartRelayDiscoveryIndicator } from '@/components/RelayDiscoveryIndicator';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -47,6 +49,13 @@ interface PostDetailViewProps {
 export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   // Check if this is a repost (kind 6 or 16)
   const isRepost = event.kind === 6 || event.kind === 16;
+
+  // Get post detail discovery stats
+  const {
+    events: discoveredEvents,
+    isLoading: isDiscovering,
+    stats: discoveryStats
+  } = usePostDetailDiscovery(event.id);
 
   // For reposts, try to parse the reposted event from content
   let repostedEvent: NostrEvent | null = null;
@@ -238,16 +247,24 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   return (
     <>
       <div className="space-y-6">
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="ghost"
-            onClick={onBack}
-            className="text-lime-400 hover:text-lime-300 hover:bg-lime-500/10"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <h2 className="text-xl font-bold text-lime-400">Post Details</h2>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              onClick={onBack}
+              className="text-lime-400 hover:text-lime-300 hover:bg-lime-500/10"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+            <h2 className="text-xl font-bold text-lime-400">Post Details</h2>
+          </div>
+          <SmartRelayDiscoveryIndicator
+            context="post-detail"
+            eventsFound={discoveredEvents?.length || 0}
+            hintsUsed={discoveryStats?.hintsUsed || false}
+            isLoading={isDiscovering}
+          />
         </div>
 
       {/* Main Post */}
