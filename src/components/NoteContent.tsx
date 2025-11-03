@@ -154,6 +154,7 @@ export function NoteContent({
 
 // Helper function to process text content (URLs, mentions, hashtags)
 function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> = new Set()): React.ReactNode[] {
+  console.log('🔍 NoteContent: Processing text:', text.substring(0, 100) + '...');
   const parts: React.ReactNode[] = [];
 
   // Regex to find URLs, Nostr references, @mentions, and hashtags
@@ -202,15 +203,18 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
       try {
         // Remove the "nostr:" prefix
         const nostrId = nostrRef.substring(6);
+        console.log('🔍 NoteContent: Found nostr reference:', nostrId);
         const decoded = nip19.decode(nostrId);
 
         if (decoded.type === 'npub') {
           const pubkey = decoded.data;
+          console.log('🔍 NoteContent: Rendering npub mention:', nostrId);
           parts.push(
             <NostrMention key={`mention-${keyCounter++}`} pubkey={pubkey} />
           );
         } else {
           // For note, nevent, naddr types, render as quoted event
+          console.log('🔍 NoteContent: Rendering QuotedEvent for:', nostrId);
           parts.push(
             <QuotedEvent
               key={`quoted-${keyCounter++}`}
@@ -219,7 +223,8 @@ function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> =
             />
           );
         }
-      } catch {
+      } catch (error) {
+        console.log('🔍 NoteContent: Failed to decode nostr reference:', nostrId, error);
         // If decoding fails, just render as text
         parts.push(fullMatch);
       }
