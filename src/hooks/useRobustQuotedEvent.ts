@@ -74,7 +74,7 @@ export function useRobustQuotedEvent(
 
       // Strategy 1: Try with relay hints from cache first
       console.log('📡 Strategy 1: Trying with relay hints from cache...');
-      const cachedHintsResult = await tryWithRelayHints(filter, targetId, eventId);
+      const cachedHintsResult = await tryWithRelayHints(nostr, filter, targetId, eventId);
       if (cachedHintsResult) {
         console.log('✅ Strategy 1 succeeded with cached hints');
         return cachedHintsResult;
@@ -82,7 +82,7 @@ export function useRobustQuotedEvent(
 
       // Strategy 2: Try with expanded relay set including all presets
       console.log('📡 Strategy 2: Trying with expanded relay set...');
-      const expandedRelaysResult = await tryWithExpandedRelays(filter);
+      const expandedRelaysResult = await tryWithExpandedRelays(nostr, filter);
       if (expandedRelaysResult) {
         console.log('✅ Strategy 2 succeeded with expanded relays');
         return expandedRelaysResult;
@@ -90,7 +90,7 @@ export function useRobustQuotedEvent(
 
       // Strategy 3: Try individual high-priority relays sequentially
       console.log('📡 Strategy 3: Trying high-priority relays sequentially...');
-      const sequentialResult = await trySequentialHighPriorityRelays(filter);
+      const sequentialResult = await trySequentialHighPriorityRelays(nostr, filter);
       if (sequentialResult) {
         console.log('✅ Strategy 3 succeeded with sequential relays');
         return sequentialResult;
@@ -99,7 +99,7 @@ export function useRobustQuotedEvent(
       // Strategy 4: Last resort - try the default nostr instance with longer timeout
       console.log('🚨 DEBUG: Reached Strategy 4!');
       console.log('📡 Strategy 4: Trying fallback with extended timeout...');
-      const fallbackResult = await tryFallbackWithTimeout(filter, c.signal);
+      const fallbackResult = await tryFallbackWithTimeout(nostr, filter, c.signal);
       if (fallbackResult) {
         console.log('✅ Strategy 4 succeeded with fallback');
         return fallbackResult;
@@ -111,9 +111,6 @@ export function useRobustQuotedEvent(
       // from the original event that referenced this quoted event
       // This helps build cache for future attempts
       try {
-        const { useNostr } = await import('@nostrify/react');
-        const nostr = useNostr.getState();
-
         // Try to find the original event that quoted this event to extract its relay hints
         const referencingEvents = await nostr.query([{
           kinds: [1, 6, 16], // notes, reposts, generic reposts
@@ -140,7 +137,7 @@ export function useRobustQuotedEvent(
 /**
  * Strategy 1: Try with relay hints from cache
  */
-async function tryWithRelayHints(filter: Filter, targetId: string, originalEventId: string): Promise<NostrEvent | null> {
+async function tryWithRelayHints(nostr: any, filter: Filter, targetId: string, originalEventId: string): Promise<NostrEvent | null> {
   try {
     // Get base relays
     const baseRelays = [
@@ -157,27 +154,22 @@ async function tryWithRelayHints(filter: Filter, targetId: string, originalEvent
 
     console.log('📡 Strategy 1: Trying relays:', allRelays.slice(0, 8));
 
-    const { nostr } = useNostr.getState();
-
+    let events: NostrEvent[];
     if (allRelays.length === 1) {
       const relay = nostr.relay(allRelays[0]);
-      const events = await relay.query([filter], { signal: AbortSignal.timeout(8000) });
-      if (events[0]) {
-        console.log('✅ Strategy 1 succeeded with cached hints');
-        RelayHintPopulator.processEvent(events[0]);
-        return events[0];
-      }
-      return events[0] || null;
+      events = await relay.query([filter], { signal: AbortSignal.timeout(8000) });
     } else {
       const relayGroup = nostr.group(allRelays.slice(0, 8));
-      const events = await relayGroup.query([filter], { signal: AbortSignal.timeout(8000) });
-      if (events[0]) {
-        console.log('✅ Strategy 1 succeeded with cached hints');
-        RelayHintPopulator.processEvent(events[0]);
-        return events[0];
-      }
-      return events[0] || null;
+      events = await relayGroup.query([filter], { signal: AbortSignal.timeout(8000) });
     }
+
+    if (events[0]) {
+      console.log('✅ Strategy 1 succeeded with cached hints');
+      RelayHintPopulator.processEvent(events[0]);
+      return events[0];
+    }
+
+    return null;
   } catch (error) {
     console.log('📡 Strategy 1 failed:', error);
     return null;
@@ -187,7 +179,7 @@ async function tryWithRelayHints(filter: Filter, targetId: string, originalEvent
 /**
  * Strategy 2: Try with expanded relay set
  */
-async function tryWithExpandedRelays(filter: Filter): Promise<NostrEvent | null> {
+async function tryWithExpandedRelays(nostr: any, filter: Filter): Promise<NostrEvent | null> {
   try {
     // Comprehensive list of reliable relays
     const expandedRelays = [
@@ -210,16 +202,17 @@ async function tryWithExpandedRelays(filter: Filter): Promise<NostrEvent | null>
 
     console.log('📡 Strategy 2: Trying expanded relay set (first 10):', expandedRelays.slice(0, 10));
 
-    const { nostr } = useNostr.getState();
     const relayGroup = nostr.group(expandedRelays.slice(0, 10));
     const events = await relayGroup.query([filter], { signal: AbortSignal.timeout(12000) });
 
     if (events[0]) {
+      console.log('✅ Strategy 2 succeeded with expanded relays');
       // Store relay hints from the found event
       RelayHintPopulator.processEvent(events[0]);
+      return events[0];
     }
 
-    return events[0] || null;
+    return null;
   } catch (error) {
     console.log('📡 Strategy 2 failed:', error);
     return null;
@@ -229,7 +222,7 @@ async function tryWithExpandedRelays(filter: Filter): Promise<NostrEvent | null>
 /**
  * Strategy 3: Try high-priority relays sequentially
  */
-async function trySequentialHighPriorityRelays(filter: Filter): Promise<NostrEvent | null> {
+async function trySequentialHighPriorityRelays(nostr: any, filter: Filter): Promise<NostrEvent | null> {
   const highPriorityRelays = [
     'wss://spookstr2.nostr1.com',
     'wss://relay.damus.io',
@@ -239,8 +232,6 @@ async function trySequentialHighPriorityRelays(filter: Filter): Promise<NostrEve
   ];
 
   console.log('📡 Strategy 3: Trying high-priority relays sequentially...');
-
-  const { nostr } = useNostr.getState();
 
   for (const relayUrl of highPriorityRelays) {
     try {
@@ -266,10 +257,9 @@ async function trySequentialHighPriorityRelays(filter: Filter): Promise<NostrEve
 /**
  * Strategy 4: Fallback with extended timeout
  */
-async function tryFallbackWithTimeout(filter: Filter, signal?: AbortSignal): Promise<NostrEvent | null> {
+async function tryFallbackWithTimeout(nostr: any, filter: Filter, signal?: AbortSignal): Promise<NostrEvent | null> {
   try {
     console.log('📡 Strategy 4: Trying fallback with extended timeout...');
-    const { nostr } = useNostr.getState();
 
     const combinedSignal = signal
       ? AbortSignal.any([signal, AbortSignal.timeout(20000)])
@@ -283,7 +273,7 @@ async function tryFallbackWithTimeout(filter: Filter, signal?: AbortSignal): Pro
       return events[0];
     }
 
-    return events[0] || null;
+    return null;
   } catch (error) {
     console.log('📡 Strategy 4 failed:', error);
     return null;
