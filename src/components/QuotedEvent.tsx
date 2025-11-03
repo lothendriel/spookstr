@@ -67,6 +67,12 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
   }, [parsedEvent]);
 
   // Use robust quoted event discovery with multiple strategies
+  console.log('🔍 QuotedEvent: Processing event ID:', eventId, {
+    parsedSuccess: parsedEvent.success,
+    hasFilters: filters.length > 0,
+    enabled: !!eventId && parsedEvent.success && filters.length > 0
+  });
+
   const { data: quotedEvent, isLoading, error } = useRobustQuotedEvent(
     eventId,
     {
@@ -75,6 +81,14 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
       retry: 2, // More retries for better reliability
     }
   );
+
+  console.log('🔍 QuotedEvent: Hook result:', {
+    eventId,
+    quotedEventId: quotedEvent?.id?.slice(0, 8),
+    isLoading,
+    hasError: !!error,
+    error: error?.message
+  });
 
   if (isLoading) {
     return (
