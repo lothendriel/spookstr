@@ -1573,6 +1573,77 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
           </Card>
         );
 
+      case 'odysee':
+        const odyseeData = extractOdyseeData(media.url);
+
+        if (!odyseeData.videoSlug || !odyseeData.claimId) {
+          return (
+            <Card className="bg-lime-500/5 border-lime-500/20 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-lime-500/20 rounded-lg flex items-center justify-center">
+                      <ExternalLink className="h-6 w-6 text-lime-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-lime-100">
+                      Invalid Odysee URL
+                    </p>
+                    <p className="text-xs text-lime-500/60 truncate max-w-xs">
+                      {media.url}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-lime-500/30 text-lime-400 hover:bg-lime-500/10"
+                  onClick={() => window.open(media.url, '_blank')}
+                >
+                  Open
+                </Button>
+              </div>
+            </Card>
+          );
+        }
+
+        // Odysee embed using their official embed API
+        return (
+          <div className="relative rounded-lg overflow-hidden bg-black group">
+            {/* Odysee embed iframe */}
+            <div className="relative pb-[56.25%] h-0">
+              <iframe
+                className="absolute top-0 left-0 w-full h-full rounded-lg border-0"
+                src={`https://odysee.com/$/embed/${odyseeData.videoSlug}:${odyseeData.claimId}`}
+                title={media.title || 'Odysee Video'}
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                loading="lazy"
+                onError={(e) => {
+                  console.warn('Odysee embed failed to load:', e);
+                  console.log('🎥 Odysee data:', odyseeData);
+                  console.log('🎥 Odysee URL:', media.url);
+                }}
+              />
+            </div>
+
+            {/* External link button */}
+            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 text-white hover:bg-white/20 bg-black/60 backdrop-blur-sm"
+                onClick={() => window.open(media.url, '_blank')}
+                title="Watch on Odysee"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+
       case 'link':
         return <LinkPreview media={media} />;
 
@@ -1834,4 +1905,47 @@ function extractMindsId(url: string): string {
   }
 
   return '';
+}
+
+// Helper function to extract Odysee data from URL
+function extractOdyseeData(url: string): { channel: string; videoSlug: string; claimId: string } {
+  try {
+    console.log('🎥 Extracting Odysee data from:', url);
+
+    // Handle Odysee URL format: https://odysee.com/@TheQuartering:1/walmart-shuts-down-food-wars-shoppers:c?r=...
+    const pattern = /odysee\.com\/(@[^\/\s]+):([^\/\s]+)\/([^\/\s]+):([^\/\s]+)/;
+    const match = url.match(pattern);
+
+    if (match && match[1] && match[2] && match[3] && match[4]) {
+      const channel = match[1]; // @TheQuartering
+      const channelClaimId = match[2]; // 1
+      const videoSlug = match[3]; // walmart-shuts-down-food-wars-shoppers
+      const claimId = match[4]; // c
+
+      console.log('✅ Odysee data extracted:', {
+        channel,
+        channelClaimId,
+        videoSlug,
+        claimId
+      });
+
+      return {
+        channel,
+        videoSlug,
+        claimId
+      };
+    }
+
+    console.warn('❌ No Odysee data found in URL:', url);
+    console.warn('🔍 URL parts:', url.split('/'));
+  } catch (error) {
+    console.warn('Failed to extract Odysee data from:', url, error);
+  }
+
+  // Return fallback data
+  return {
+    channel: '',
+    videoSlug: '',
+    claimId: ''
+  };
 }

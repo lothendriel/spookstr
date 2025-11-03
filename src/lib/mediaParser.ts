@@ -1,7 +1,7 @@
 import { type NostrEvent } from '@nostrify/nostrify';
 
 export interface MediaItem {
-  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'hls' | 'dash' | 'imdb' | 'instagram' | 'twitter' | 'facebook' | 'minds';
+  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'hls' | 'dash' | 'imdb' | 'instagram' | 'twitter' | 'facebook' | 'minds' | 'odysee';
   url: string;
   alt?: string;
   title?: string;
@@ -51,6 +51,7 @@ const mediaPatterns = {
   twitter: /(?:twitter\.com|x\.com)\/[a-zA-Z0-9_]+\/status\/([0-9]+)/gi,
   facebook: /https?:\/\/(?:www\.facebook\.com|facebook\.com)\/[^\/\s]+\/(?:posts|activity|photos|videos|permalink\.php\?story_fbid=|story\.php\?story_fbid=|groups\/[^\/\s]+\/permalink\/)[^\s]*/gi,
   minds: /https?:\/\/(?:www\.minds\.com|minds\.com)\/(?:newsfeed|groups\/[^\/\s]+|[^\/\s]+)\/([0-9]+)/gi,
+  odysee: /https?:\/\/(?:www\.odysee\.com|odysee\.com)\/@[^\/\s]+:[^\/\s]+\/[^\/\s]+:[^\/\s]+(?:\?[^\s]*)?/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
   // Streaming formats
@@ -74,7 +75,7 @@ const mediaPatterns = {
   genericCDN: /https?:\/\/[^\s]+\/(?:media|attachments|files|assets|images|static|uploads|content|cdn-cgi|mediaproxy)(?:_attachments)?\/[^\s]+/gi,
   // IMDB links for special preview handling
   imdb: /https?:\/\/(?:www\.)?imdb\.com\/(?:title|name)\/(?:[a-z0-9]+)(?:\/[^\s]*)?/gi,
-  website: /https?:\/\/(?:www\.)?(?!www\.youtube\.com|youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropbox\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|cdn\.bsky\.app|image\.nostr\.build|nostr\.build|void\.cat|cdn\.satellite\.earth|media\.tenor\.com|media\.giphy\.com|media\.witter\.cz|files\.mastodon\.social|media\.mas\.to|blossom\.primal\.net|media\.channels\.im|cdn\.masto\.host|media\.pubeurope\.com|o\.mastodon\.nz|social\.anoxinon\.de|imdb\.com|instagram\.com|twitter\.com|x\.com|facebook\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|jpe|jp|j|png|pn|p|gif|gi|g|webp|svg|bmp|avif|ico|tiff?|tif|psd|heic?|heif|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
+  website: /https?:\/\/(?:www\.)?(?!www\.youtube\.com|youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropbox\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|cdn\.bsky\.app|image\.nostr\.build|nostr\.build|void\.cat|cdn\.satellite\.earth|media\.tenor\.com|media\.giphy\.com|media\.witter\.cz|files\.mastodon\.social|media\.mas\.to|blossom\.primal\.net|media\.channels\.im|cdn\.masto\.host|media\.pubeurope\.com|o\.mastodon\.nz|social\.anoxinon\.de|imdb\.com|instagram\.com|twitter\.com|x\.com|facebook\.com|odysee\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|jpe|jp|j|png|pn|p|gif|gi|g|webp|svg|bmp|avif|ico|tiff?|tif|psd|heic?|heif|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
 };
 
 // Helper function to normalize URLs (ensure HTTPS and consistent format)
@@ -125,7 +126,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   }
 
   // Process other media types in order of precedence
-  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'instagram', 'twitter', 'facebook', 'minds', 'imdb', 'genericCDN'];
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'instagram', 'twitter', 'facebook', 'minds', 'odysee', 'imdb', 'genericCDN'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -480,6 +481,21 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
           metadata: {
             postId: mindsPostId,
             postType: mindsPostType
+          }
+        };
+
+      case 'odysee':
+        const odyseeData = extractOdyseeData(cleanUrl);
+        return {
+          type: 'odysee',
+          url: cleanUrl,
+          title: odyseeData.title,
+          description: 'Click to view this Odysee video',
+          siteName: 'Odysee',
+          metadata: {
+            channel: odyseeData.channel,
+            videoSlug: odyseeData.videoSlug,
+            claimId: odyseeData.claimId
           }
         };
 
@@ -1225,6 +1241,58 @@ function detectMindsPostType(url: string): 'post' | 'video' | 'image' {
     console.warn('Failed to detect Minds post type from:', url, error);
     return 'post';
   }
+}
+
+// Helper function to extract Odysee data from URL
+function extractOdyseeData(url: string): { channel: string; videoSlug: string; claimId: string; title: string } {
+  try {
+    console.log('🎥 Extracting Odysee data from:', url);
+
+    // Handle Odysee URL format: https://odysee.com/@TheQuartering:1/walmart-shuts-down-food-wars-shoppers:c?r=...
+    const pattern = /odysee\.com\/(@[^\/\s]+):([^\/\s]+)\/([^\/\s]+):([^\/\s]+)/;
+    const match = url.match(pattern);
+
+    if (match && match[1] && match[2] && match[3] && match[4]) {
+      const channel = match[1]; // @TheQuartering
+      const channelClaimId = match[2]; // 1
+      const videoSlug = match[3]; // walmart-shuts-down-food-wars-shoppers
+      const claimId = match[4]; // c
+
+      console.log('✅ Odysee data extracted:', {
+        channel,
+        channelClaimId,
+        videoSlug,
+        claimId
+      });
+
+      // Generate a title from the video slug
+      const title = videoSlug
+        .replace(/[-_]/g, ' ')
+        .replace(/\b\w/g, l => l.toUpperCase())
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      return {
+        channel,
+        videoSlug,
+        claimId,
+        title
+      };
+    }
+
+    console.warn('❌ No Odysee data found in URL:', url);
+    console.warn('🔍 URL parts:', url.split('/'));
+  } catch (error) {
+    console.warn('Failed to extract Odysee data from:', url, error);
+  }
+
+  // Return fallback data
+  return {
+    channel: '',
+    videoSlug: '',
+    claimId: '',
+    title: 'Odysee Video'
+  };
 }
 
 // Placeholder data for IMDB links (actual data will be fetched asynchronously by the component)
