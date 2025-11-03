@@ -13,8 +13,8 @@ import { useState, useEffect } from 'react';
 import { useCommunity, CommunityDefinition, CommunityPost } from '@/hooks/useCommunity';
 import { useCommunityFeed, CommunityFeedPost } from '@/hooks/useCommunityFeed';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
-import { MessageCircle, Settings, RefreshCw, Clock, Shield } from 'lucide-react';
-import { CommunityManagement } from '@/components/CommunityManagement';
+import { MessageCircle, RefreshCw, Clock, Shield } from 'lucide-react';
+
 import { CreateCommunityPost } from '@/components/CreateCommunityPost';
 
 export default function CommunityPage() {
@@ -24,8 +24,6 @@ export default function CommunityPage() {
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const [showCreatePost, setShowCreatePost] = useState(false);
-
-  const [showManagement, setShowManagement] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -187,23 +185,14 @@ export default function CommunityPage() {
               </div>
               <div className="flex gap-2">
                 {user && (user.pubkey === community.author || community.moderators.includes(user.pubkey)) && (
-                  <>
-                    <Button
-                      variant="outline"
-                      onClick={() => navigate(`/community/${communityId}/moderate`)}
-                      className="border-lime-500/50 text-lime-300 hover:bg-lime-500/20"
-                    >
-                      <Shield className="h-4 w-4 mr-2" />
-                      Moderate
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowManagement(!showManagement)}
-                    >
-                      <Settings className="h-4 w-4 mr-2" />
-                      {showManagement ? 'Cancel' : 'Manage'}
-                    </Button>
-                  </>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate(`/community/${communityId}/moderate`)}
+                    className="border-lime-500/50 text-lime-300 hover:bg-lime-500/20"
+                  >
+                    <Shield className="h-4 w-4 mr-2" />
+                    Moderate
+                  </Button>
                 )}
                 <Button onClick={() => setShowCreatePost(!showCreatePost)}>
                   {showCreatePost ? 'Cancel' : 'Create Post'}
@@ -212,17 +201,6 @@ export default function CommunityPage() {
             </div>
           </CardHeader>
         </Card>
-
-        {/* Community Management Form */}
-        {showManagement && (
-          <CommunityManagement
-            community={community}
-            onUpdate={() => {
-              // Refresh community data after update
-              window.location.reload();
-            }}
-          />
-        )}
 
         {/* Create Post Form */}
         {showCreatePost && (
