@@ -15,6 +15,7 @@ import { MediaDisplay } from '@/components/MediaDisplay';
 import { Send, Ghost, MessageSquare, Shield, AlertTriangle, Clock, Paperclip, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import type { MediaItem } from '@/lib/mediaParser';
 
 interface SimpleChatProps {
   isOpen: boolean;
@@ -126,13 +127,23 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
                       }
                     }
 
+                    // Create MediaItem object for MediaDisplay
+                    const mediaItem: MediaItem = {
+                      url: mediaUrl,
+                      type: mediaType.startsWith('video/') ? 'video' :
+                             mediaType.startsWith('audio/') ? 'audio' :
+                             mediaType.startsWith('image/') ? 'image' : 'image',
+                      metadata: {
+                        format: mediaType.split('/')[1] || 'jpg',
+                        cdnProvider: 'blossom',
+                      },
+                    };
+
                     return (
                       <div key={index} className="rounded-md overflow-hidden max-w-sm">
                         <MediaDisplay
-                          url={mediaUrl}
-                          type={mediaType}
+                          media={mediaItem}
                           className="w-full"
-                          controls={mediaType.startsWith('video') || mediaType.startsWith('audio')}
                         />
                       </div>
                     );
