@@ -290,9 +290,9 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
                 {isConnecting ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
-                  <Eye className="h-4 w-4 mr-2" />
+                  <Download className="h-4 w-4 mr-2" />
                 )}
-                Preview ({selectedRelays.size})
+                Fetch & Cache ({selectedRelays.size})
               </Button>
             )}
           </div>
@@ -495,7 +495,7 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
                         {selectedRelays.size} relay{selectedRelays.size === 1 ? '' : 's'} selected
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        Preview content or add to your configuration
+                        Fetch and cache content or add to your configuration
                       </div>
                     </div>
 
@@ -508,9 +508,9 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
                         {isConnecting ? (
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         ) : (
-                          <Eye className="h-4 w-4 mr-2" />
+                          <Download className="h-4 w-4 mr-2" />
                         )}
-                        Preview Content
+                        Fetch & Cache
                       </Button>
 
                       <Button
