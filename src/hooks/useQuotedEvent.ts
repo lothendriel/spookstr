@@ -1,17 +1,14 @@
-import { useRelayHintEvent } from './useRelayHintQuery';
+import { useRobustQuotedEvent } from './useRobustQuotedEvent';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 /**
- * Hook for fetching quoted events using relay hints
- * This provides much better success rates for finding quoted content
- * compared to querying only from configured relays
+ * Hook for fetching quoted events using ultra-robust multi-strategy discovery
+ * This provides maximum success rates for finding quoted content by trying
+ * multiple relay sets, hints, and fallback strategies in parallel
  */
 export function useQuotedEvent(quotedEventId: string | undefined) {
-  const { data: events, ...rest } = useRelayHintEvent(quotedEventId || '', !!quotedEventId);
-  
-  // Return the first (and should be only) event
-  const quotedEvent: NostrEvent | undefined = events?.[0];
-  
+  const { data: quotedEvent, ...rest } = useRobustQuotedEvent(quotedEventId);
+
   return {
     data: quotedEvent,
     ...rest,
@@ -30,7 +27,7 @@ export function extractQuotedEventId(event: NostrEvent): string | undefined {
   }
 
   // Fallback to 'e' tags with "mention" marker
-  const mentionTag = event.tags.find(([name, , , marker]) => 
+  const mentionTag = event.tags.find(([name, , , marker]) =>
     name === 'e' && marker === 'mention'
   );
   if (mentionTag && mentionTag[1]) {
@@ -38,14 +35,14 @@ export function extractQuotedEventId(event: NostrEvent): string | undefined {
   }
 
   // Last resort: look for any 'e' tag that's not a reply
-  const replyTag = event.tags.find(([name, , , marker]) => 
+  const replyTag = event.tags.find(([name, , , marker]) =>
     name === 'e' && (marker === 'reply' || marker === 'root')
   );
-  
-  const nonReplyETag = event.tags.find(([name, eventId]) => 
+
+  const nonReplyETag = event.tags.find(([name, eventId]) =>
     name === 'e' && eventId && eventId !== replyTag?.[1]
   );
-  
+
   return nonReplyETag?.[1];
 }
 

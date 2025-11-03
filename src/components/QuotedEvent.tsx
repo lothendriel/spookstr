@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthor } from '@/hooks/useAuthor';
 import { getDisplayName } from '@/lib/getDisplayName';
 import { NoteContent } from '@/components/NoteContent';
-import { useRelayHintQuery } from '@/hooks/useRelayHintQuery';
+import { useRobustQuotedEvent } from '@/hooks/useRobustQuotedEvent';
 import { nip19 } from 'nostr-tools';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -66,28 +66,24 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
     return [];
   }, [parsedEvent]);
 
-  // Use relay hint query for better discovery
-  const { data: events, isLoading, error } = useRelayHintQuery({
-    filters,
-    enabled: !!eventId && parsedEvent.success && filters.length > 0,
-    staleTime: 60000, // 1 minute
-    retry: 2, // More retries for quoted content
-    maxRelays: 8, // Use more relays for better discovery of quoted content
-    useRelayHints: true,
-  });
-
-  const quotedEvent = events?.[0];
+  // Use robust quoted event discovery with multiple strategies
+  const { data: quotedEvent, isLoading, error } = useRobustQuotedEvent(
+    eventId,
+    {
+      enabled: !!eventId && parsedEvent.success && filters.length > 0,
+      staleTime: 120000, // 2 minutes - longer cache for quoted content
+      retry: 2, // More retries for better reliability
+    }
+  );
 
   if (isLoading) {
     return (
       <Card className={`border-lime-500/20 bg-lime-500/5 ${className}`}>
         <CardContent className="p-3">
-          <div className="flex items-start space-x-2">
-            <Skeleton className="h-6 w-6 rounded-full" />
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-3/4" />
+          <div className="flex items-center space-x-2">
+            <div className="animate-spin h-4 w-4 border-2 border-lime-500 border-t-transparent rounded-full" />
+            <div className="text-lime-500/60 text-sm">
+              Searching for quoted post...
             </div>
           </div>
         </CardContent>
@@ -100,8 +96,21 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
     return (
       <Card className={`border-lime-500/20 bg-lime-500/5 ${className}`}>
         <CardContent className="p-3">
-          <div className="text-center text-lime-500/60 text-sm">
-            Unable to load quoted post
+          <div className="text-center space-y-2">
+            <div className="text-lime-500/60 text-sm">
+              Having trouble finding this quoted post
+            </div>
+            <div className="text-xs text-lime-500/40">
+              Trying multiple relay sources...
+            </div>
+            <a
+              href={`https://njump.me/nostr:${eventId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-lime-400 hover:text-lime-300 hover:underline block"
+            >
+              View on Nostr →
+            </a>
           </div>
         </CardContent>
       </Card>
@@ -113,15 +122,18 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
     return (
       <Card className={`border-lime-500/20 bg-lime-500/5 ${className}`}>
         <CardContent className="p-3">
-          <div className="text-center">
-            <div className="text-lime-500/60 text-sm mb-1">
+          <div className="text-center space-y-2">
+            <div className="text-lime-500/60 text-sm">
               Quoted post not found
+            </div>
+            <div className="text-xs text-lime-500/40">
+              Searched multiple relays and strategies
             </div>
             <a
               href={`https://njump.me/nostr:${eventId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-lime-400 hover:text-lime-300 hover:underline"
+              className="text-xs text-lime-400 hover:text-lime-300 hover:underline block"
             >
               View on Nostr →
             </a>

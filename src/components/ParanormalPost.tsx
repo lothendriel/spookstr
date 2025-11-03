@@ -38,6 +38,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/useToast';
+import { useBatchPrefetchQuotedEvents } from '@/hooks/useRobustQuotedEvent';
 
 interface ParanormalPostProps {
   event: NostrEvent;
@@ -54,6 +55,33 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     triggerOnce: true,
     rootMargin: '200px', // Start loading 200px before visible
   });
+
+  // Extract quoted event IDs from content for prefetching
+  const quotedEventIds = useMemo(() => {
+    if (!inView || !displayEvent.content) return [];
+
+    const ids: string[] = [];
+    const nostrRegex = /nostr:(note1|nevent1|naddr1)[0-9a-z]+/g;
+    let match;
+
+    while ((match = nostrRegex.exec(displayEvent.content)) !== null) {
+      const fullMatch = match[0];
+      const nostrId = fullMatch.substring(6); // Remove "nostr:" prefix
+      ids.push(nostrId);
+    }
+
+    return ids;
+  }, [inView, displayEvent.content]);
+
+  // Prefetch quoted events when post comes into view
+  const { prefetchAll } = useBatchPrefetchQuotedEvents(quotedEventIds);
+
+  useEffect(() => {
+    if (inView && quotedEventIds.length > 0) {
+      console.log(`📡 Prefetching ${quotedEventIds.length} quoted events for post ${displayEvent.id.slice(0, 8)}`);
+      prefetchAll();
+    }
+  }, [inView, quotedEventIds, prefetchAll]);
 
   // Check if this is a repost (kind 6 or 16)
   const isRepost = event.kind === 6 || event.kind === 16;
