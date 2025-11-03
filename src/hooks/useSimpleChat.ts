@@ -97,16 +97,31 @@ export function useSimpleChat(): SimpleChatHook {
         }
 
         // Process messages
-        const messages: ChatMessage[] = events.map(event => ({
-          id: event.id,
-          pubkey: event.pubkey,
-          content: event.content,
-          created_at: event.created_at,
-          mediaTags: event.tags.filter(tag =>
-            tag.length >= 2 &&
-            (tag[0] === 'url' || tag[0] === 'imeta')
-          ),
-        }));
+        const messages: ChatMessage[] = events.map(event => {
+          // Extract media tags following NIP-94
+          const mediaTags: string[][] = [];
+          const urls = new Set<string>(); // Track unique URLs
+
+          event.tags.forEach(tag => {
+            if (tag.length >= 2 && tag[0] === 'url') {
+              const url = tag[1];
+              if (!urls.has(url)) {
+                urls.add(url);
+                mediaTags.push(tag);
+              }
+            } else if (tag.length >= 2 && tag[0] === 'imeta') {
+              mediaTags.push(tag);
+            }
+          });
+
+          return {
+            id: event.id,
+            pubkey: event.pubkey,
+            content: event.content,
+            created_at: event.created_at,
+            mediaTags: mediaTags.length > 0 ? mediaTags : undefined,
+          };
+        });
 
         // Remove duplicates and sort in chronological order (oldest first, newest last)
         const uniqueMessages = messages.filter((msg, index, self) =>
@@ -196,19 +211,45 @@ export function useSimpleChat(): SimpleChatHook {
         console.log('📝 [Simple Chat] Sending message:', content, 'with media tags:', mediaTags.length);
       }
 
+      // Process media tags and build content with media URLs
+      let finalContent = content.trim();
+      const processedTags: string[][] = [];
+
+      if (mediaTags.length > 0) {
+        // Extract URLs and add them to content
+        const urls: string[] = [];
+
+        mediaTags.forEach(tagArray => {
+          if (tagArray.length >= 2 && tagArray[0] === 'url') {
+            const url = tagArray[1];
+            urls.push(url);
+            processedTags.push(tagArray); // Add the url tag
+          } else if (tagArray.length >= 2 && tagArray[0] === 'imeta') {
+            processedTags.push(tagArray); // Add the imeta tag
+          }
+        });
+
+        // Append URLs to content if we have media and content
+        if (urls.length > 0 && finalContent) {
+          finalContent += '\n\n' + urls.join('\n');
+        } else if (urls.length > 0 && !finalContent) {
+          finalContent = urls.join('\n');
+        }
+      }
+
       // Create simple chat message (kind 42)
       const chatMessage = {
         kind: 42,
-        content: content.trim(),
+        content: finalContent,
         tags: [
           ['t', SITE_CHAT_D_TAG], // Site chat identifier
-          ...mediaTags, // Add media tags
+          ...processedTags, // Add processed media tags
         ],
         created_at: Math.floor(Date.now() / 1000),
       };
 
       if (import.meta.env.DEV) {
-        console.log('🔑 [Simple Chat] Signing event...');
+        console.log('🔑 [Simple Chat] Signing event...', JSON.stringify(chatMessage, null, 2));
       }
       // Sign the event
       const signedEvent = await user.signer.signEvent(chatMessage);

@@ -100,22 +100,37 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
             {/* Media attachments */}
             {message.mediaTags && message.mediaTags.length > 0 && (
               <div className="space-y-2">
-                {message.mediaTags.map((mediaTag, index) => {
-                  const mediaUrl = mediaTag[1];
-                  const mediaType = mediaTag.find(tag => tag.startsWith('m:'))?.substring(2) || 'image';
-                  const mediaSize = mediaTag.find(tag => tag.startsWith('size:'))?.substring(5);
+                {message.mediaTags
+                  .filter(tag => tag[0] === 'url') // Only process url tags
+                  .map((urlTag, index) => {
+                    const mediaUrl = urlTag[1];
 
-                  return (
-                    <div key={index} className="rounded-md overflow-hidden max-w-sm">
-                      <MediaDisplay
-                        url={mediaUrl}
-                        type={mediaType}
-                        className="w-full"
-                        controls={mediaType.startsWith('video') || mediaType.startsWith('audio')}
-                      />
-                    </div>
-                  );
-                })}
+                    // Find corresponding imeta tag for this URL
+                    const imetaTag = message.mediaTags?.find(tag =>
+                      tag[0] === 'imeta' &&
+                      tag.some(item => item.startsWith(`url ${mediaUrl}`))
+                    );
+
+                    // Extract media type from imeta tag
+                    let mediaType = 'image'; // Default to image
+                    if (imetaTag) {
+                      const typeItem = imetaTag.find(item => item.startsWith('m '));
+                      if (typeItem) {
+                        mediaType = typeItem.substring(2); // Remove 'm ' prefix
+                      }
+                    }
+
+                    return (
+                      <div key={index} className="rounded-md overflow-hidden max-w-sm">
+                        <MediaDisplay
+                          url={mediaUrl}
+                          type={mediaType}
+                          className="w-full"
+                          controls={mediaType.startsWith('video') || mediaType.startsWith('audio')}
+                        />
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </CardContent>
