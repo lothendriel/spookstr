@@ -70,7 +70,8 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
   console.log('🔍 QuotedEvent: Processing event ID:', eventId, {
     parsedSuccess: parsedEvent.success,
     hasFilters: filters.length > 0,
-    enabled: !!eventId && parsedEvent.success && filters.length > 0
+    enabled: !!eventId && parsedEvent.success && filters.length > 0,
+    filters: filters
   });
 
   const { data: quotedEvent, isLoading, error } = useRobustQuotedEvent(

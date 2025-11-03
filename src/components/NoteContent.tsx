@@ -155,6 +155,7 @@ export function NoteContent({
 // Helper function to process text content (URLs, mentions, hashtags)
 function processTextContent(text: string, keyOffset = 0, skipUrls: Set<string> = new Set()): React.ReactNode[] {
   console.log('🔍 NoteContent: Processing text:', text.substring(0, 100) + '...');
+  console.log('🔍 NoteContent: Full text being processed:', text);
   const parts: React.ReactNode[] = [];
 
   // Regex to find URLs, Nostr references, @mentions, and hashtags

@@ -37,6 +37,9 @@ export function useRobustQuotedEvent(
       }
 
       console.log('🔍 RobustQuotedEvent: Starting discovery for:', eventId);
+      console.log('🔍 RobustQuotedEvent: Hook called from context:', {
+        stack: new Error().stack?.split('\n').slice(1, 4).join('\n')
+      });
 
       // Log cache statistics for debugging
       const cacheStats = RelayHintPopulator.getCacheStats();
