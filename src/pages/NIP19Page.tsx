@@ -116,11 +116,13 @@ export function NIP19Page() {
 
     case 'note': {
       const noteId = data as string;
+      console.log('🔍 NIP19Page: Routing to NoteView for noteId:', noteId);
       return <NoteView noteId={noteId} />;
     }
 
     case 'nevent': {
       const eventData = data as { id: string; author?: string; relays?: string[] };
+      console.log('🔍 NIP19Page: Routing to EventView for eventId:', eventData.id, 'with relay hints:', eventData.relays);
       return <EventView eventId={eventData.id} relayHints={eventData.relays} />;
     }
 
@@ -136,6 +138,7 @@ export function NIP19Page() {
 
 // Component to view a note by ID
 function NoteView({ noteId }: { noteId: string }) {
+  console.log('🔍 NoteView: Starting to render for noteId:', noteId);
   const { data: event, isLoading } = useMultiRelayEvent(noteId);
 
   if (isLoading) {
@@ -380,6 +383,7 @@ function useAddressableEvent(naddrData: { identifier: string; pubkey: string; ki
 
 // Component to view an event by ID (including relay hints from nevent)
 function EventView({ eventId, relayHints }: { eventId: string; relayHints?: string[] }) {
+  console.log('🔍 EventView: Starting to render for eventId:', eventId, 'with relay hints:', relayHints);
   const { data: event, isLoading } = useEventWithHints(eventId, relayHints);
 
   if (isLoading) {
