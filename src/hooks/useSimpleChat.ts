@@ -25,6 +25,8 @@ interface SimpleChatHook {
   sendMessage: (content: string) => Promise<void>;
   unreadCount: number;
   markAsRead: () => void;
+  canSendMessage: () => boolean;
+  getTimeUntilNextMessage: () => number;
 }
 
 // Simple chat identifier - this makes our chat unique to Spookstr
@@ -40,6 +42,10 @@ export function useSimpleChat(): SimpleChatHook {
 
   // Track last read timestamp per user
   const lastReadRef = useRef<Record<string, number>>({});
+
+  // Track last message time for rate limiting (5 second cooldown)
+  const lastMessageTimeRef = useRef<number>(0);
+  const RATE_LIMIT_COOLDOWN = 5000; // 5 seconds between messages
 
   // Get current user's last read time or set to now if not exists
   const getLastReadTime = useCallback(() => {
@@ -153,10 +159,32 @@ export function useSimpleChat(): SimpleChatHook {
     }
   }, [user]);
 
+  // Check if user can send message (rate limiting)
+  const canSendMessage = useCallback(() => {
+    if (!user) return false;
+    const now = Date.now();
+    const timeSinceLastMessage = now - lastMessageTimeRef.current;
+    return timeSinceLastMessage >= RATE_LIMIT_COOLDOWN;
+  }, [user]);
+
+  // Get time remaining until next message can be sent
+  const getTimeUntilNextMessage = useCallback(() => {
+    if (!user) return 0;
+    const now = Date.now();
+    const timeSinceLastMessage = now - lastMessageTimeRef.current;
+    return Math.max(0, RATE_LIMIT_COOLDOWN - timeSinceLastMessage);
+  }, [user]);
+
   // Send simple message
   const sendMessage = useCallback(async (content: string) => {
     if (!user) throw new Error('User not authenticated');
     if (!content.trim()) throw new Error('Message content cannot be empty');
+
+    // Check rate limiting
+    if (!canSendMessage()) {
+      const timeRemaining = Math.ceil(getTimeUntilNextMessage() / 1000);
+      throw new Error(`Please wait ${timeRemaining} second${timeRemaining !== 1 ? 's' : ''} before sending another message`);
+    }
 
     try {
       if (import.meta.env.DEV) {
@@ -192,6 +220,9 @@ export function useSimpleChat(): SimpleChatHook {
         console.log('✅ [Simple Chat] Message published successfully!');
       }
 
+      // Update last message time for rate limiting
+      lastMessageTimeRef.current = Date.now();
+
       // Invalidate query to refresh messages
       queryClient.invalidateQueries({ queryKey: ['simple-chat', SITE_CHAT_D_TAG] });
     } catch (error) {
@@ -200,7 +231,7 @@ export function useSimpleChat(): SimpleChatHook {
       }
       throw error;
     }
-  }, [user, queryClient]);
+  }, [user, queryClient, canSendMessage, getTimeUntilNextMessage]);
 
   // Auto-mark as read when chat is opened
   useEffect(() => {
@@ -231,5 +262,7 @@ export function useSimpleChat(): SimpleChatHook {
     sendMessage,
     unreadCount,
     markAsRead,
+    canSendMessage,
+    getTimeUntilNextMessage,
   };
 }

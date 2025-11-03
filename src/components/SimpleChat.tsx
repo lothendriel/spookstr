@@ -6,10 +6,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSimpleChat } from '@/hooks/useSimpleChat';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { Send, Ghost, MessageSquare } from 'lucide-react';
+import { Send, Ghost, MessageSquare, Shield, AlertTriangle, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -111,19 +112,26 @@ function ChatMessageSkeleton() {
 
 export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
   const { user } = useCurrentUser();
+  const currentUserAuthor = useAuthor(user?.pubkey);
   const {
     messages,
     isLoading,
     isLoadingMore,
     hasNextPage,
     fetchNextPage,
-    sendMessage
+    sendMessage,
+    canSendMessage,
+    getTimeUntilNextMessage
   } = useSimpleChat();
 
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [timeUntilNextMessage, setTimeUntilNextMessage] = useState(0);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Check if current user is NIP-05 verified
+  const isNip05Verified = currentUserAuthor.data?.metadata?.nip05;
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -131,6 +139,18 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
+
+  // Update rate limiting countdown
+  useEffect(() => {
+    const updateCountdown = () => {
+      setTimeUntilNextMessage(getTimeUntilNextMessage());
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [getTimeUntilNextMessage]);
 
   const handleSendMessage = async () => {
     if (!message.trim() || isSending || !user) return;
@@ -140,6 +160,7 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
       await sendMessage(message.trim());
       setMessage('');
     } catch (error) {
+      // Rate limiting errors are handled by the disabled state and countdown
       console.error('Failed to send message:', error);
     } finally {
       setIsSending(false);
@@ -181,6 +202,24 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
             Simple site-wide chat for Spookstr community members
           </p>
         </DialogHeader>
+
+        {/* NIP-05 Verification Disclaimer */}
+        <div className="px-4 pb-3">
+          <Alert className={`border ${isNip05Verified ? 'border-green-500/30 bg-green-500/10' : 'border-amber-500/30 bg-amber-500/10'}`}>
+            <Shield className={`h-4 w-4 ${isNip05Verified ? 'text-green-400' : 'text-amber-400'}`} />
+            <AlertDescription className="text-xs">
+              {isNip05Verified ? (
+                <span className="text-green-300">
+                  ✅ NIP-05 verified: You have access to site-wide chat
+                </span>
+              ) : (
+                <span className="text-amber-300">
+                  ⚠️ NIP-05 verification required: Please verify your NIP-05 identity to use the site-wide chat
+                </span>
+              )}
+            </AlertDescription>
+          </Alert>
+        </div>
 
         {/* Messages Area */}
         <div className="flex-1 flex flex-col min-h-0">
@@ -229,30 +268,57 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
 
           {/* Message Input */}
           <div className="p-4 border-t border-gray-800">
-            <div className="flex gap-2">
-              <Input
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type your message..."
-                disabled={isSending}
-                className="flex-1 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-purple-500"
-              />
-              <Button
-                onClick={handleSendMessage}
-                disabled={!message.trim() || isSending}
-                className="bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-              <MessageSquare className="h-3 w-3" />
-              <span>Simple site-wide chat</span>
-              <span className="ml-auto">
-                {messages.length} messages
-              </span>
-            </div>
+            {!isNip05Verified ? (
+              <div className="text-center py-4">
+                <AlertTriangle className="h-8 w-8 text-amber-400 mx-auto mb-2" />
+                <p className="text-sm text-amber-300 mb-2">
+                  NIP-05 verification required to chat
+                </p>
+                <p className="text-xs text-gray-400">
+                  Please verify your identity with a NIP-05 address in your profile settings
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Type your message..."
+                    disabled={isSending || !canSendMessage()}
+                    className="flex-1 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-purple-500"
+                  />
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={!message.trim() || isSending || !canSendMessage()}
+                    className="bg-purple-600 hover:bg-purple-700 text-white disabled:bg-gray-600"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                {/* Rate limiting status */}
+                <div className="flex items-center justify-between mt-2 text-xs">
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <MessageSquare className="h-3 w-3" />
+                    <span>Simple site-wide chat</span>
+                    <span className="ml-auto">
+                      {messages.length} messages
+                    </span>
+                  </div>
+
+                  {timeUntilNextMessage > 0 && (
+                    <div className="flex items-center gap-1 text-amber-400">
+                      <Clock className="h-3 w-3" />
+                      <span>
+                        Slow mode: {Math.ceil(timeUntilNextMessage / 1000)}s
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </DialogContent>
