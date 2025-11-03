@@ -197,6 +197,13 @@ function DynamicEventRenderer({ event, className, originalEventId }: QuotedEvent
 }
 
 function QuotedEventContent({ event, className, originalEventId }: QuotedEventContentProps) {
+  console.log('🔍 QuotedEventContent: Rendering event:', {
+    id: event.id.slice(0, 8),
+    kind: event.kind,
+    contentLength: event.content.length,
+    originalEventId: originalEventId?.slice(0, 8)
+  });
+
   const author = useAuthor(event.pubkey);
   const navigate = useNavigate();
   const metadata = author.data?.metadata;
