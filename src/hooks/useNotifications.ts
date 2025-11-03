@@ -6,6 +6,7 @@ import { useUserRelays } from './useUserRelays';
 import { useNotificationDiscovery } from './useContextualRelayDiscovery';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
+import { useEffect } from 'react';
 
 export interface Notification {
   id: string;
@@ -54,7 +55,7 @@ export function useNotifications() {
     ? 'spookstr-only'
     : config.relays?.filter(r => r.mode === 'read' || r.mode === 'both').map(r => r.url).sort().join(',') || config.relayUrl;
 
-  return useInfiniteQuery({
+  const query = useInfiniteQuery({
     queryKey: ['notifications', user?.pubkey, relayKey, userRelayList?.length],
     queryFn: async ({ pageParam = undefined, signal: querySignal }) => {
       console.log('[Notifications] 🔔 Query function called', {
@@ -75,6 +76,7 @@ export function useNotifications() {
       if (config.spookstrOnlyMode) {
         const spookstrRelay = config.relays?.find(r => r.url.includes('spookstr'));
         readRelays = spookstrRelay ? [spookstrRelay.url] : ['wss://spookstr2.nostr1.com'];
+        console.log('[Notifications] 👻 Spookstr-only mode, using relay:', readRelays[0]);
       } else if (userRelayList && userRelayList.length > 0) {
         const nip65ReadRelays = userRelayList
           .filter(r => r.mode === 'read' || r.mode === 'both')
@@ -89,6 +91,8 @@ export function useNotifications() {
         readRelays = config.relays
           ?.filter(r => r.mode === 'read' || r.mode === 'both')
           .map(r => r.url) || [config.relayUrl];
+        const relayStatus = isLoadingRelays ? ' (still loading, using defaults)' : ' (no user relays found)';
+        console.log('[Notifications] 🔄 Using default relays' + relayStatus + ':', readRelays);
       }
 
       const relayGroup = readRelays.length > 0 ? nostr.group(readRelays) : nostr;
@@ -278,11 +282,9 @@ export function useNotifications() {
       // Return the oldest timestamp for pagination
       return lastPage.hasMore ? lastPage.oldestTimestamp : undefined;
     },
-    // Wait for user to be logged in AND (relay list to load OR spookstr-only mode OR using default relays)
-    enabled: !!user?.pubkey && (
-      config.spookstrOnlyMode || // Always enabled in spookstr-only mode
-      !isLoadingRelays // Or when relay list is done loading (even if null)
-    ),
+    // Always enable notifications when user is logged in
+    // Use default relays initially if user's relay list is still loading
+    enabled: !!user?.pubkey,
     retry: 2,
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
     staleTime: 60000, // Increased to 1 minute - reduce unnecessary refetches
@@ -306,4 +308,15 @@ export function useNotifications() {
       return lastUpdated < fiveMinutesAgo;
     }
   });
+
+  // Refetch notifications when user's relay list becomes available
+  // This ensures we get more accurate results once we know the user's preferred relays
+  useEffect(() => {
+    if (user?.pubkey && !isLoadingRelays && userRelayList) {
+      console.log('[Notifications] 🔄 User relay list loaded, refetching notifications');
+      query.refetch();
+    }
+  }, [user?.pubkey, isLoadingRelays, userRelayList, query]);
+
+  return query;
 }
