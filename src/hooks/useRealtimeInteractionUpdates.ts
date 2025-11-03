@@ -329,6 +329,9 @@ async function fetchHistoricalInteractions(
       relays.unshift(spookstrRelay);
     }
 
+    // Limit to 2 relays maximum to reduce memory usage
+    const limitedRelays = relays.slice(0, 2);
+
     const filters: NostrFilter[] = [{
       kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
       '#e': eventIds,
