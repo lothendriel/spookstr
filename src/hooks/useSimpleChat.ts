@@ -217,29 +217,23 @@ export function useSimpleChat(): SimpleChatHook {
         console.log('📝 [Simple Chat] Sending message:', content, 'with media tags:', mediaTags.length);
       }
 
-      // Process media tags and build content with media URLs
+      // Process media tags - don't include URLs in content when media is attached
       let finalContent = content.trim();
       const processedTags: string[][] = [];
 
       if (mediaTags.length > 0) {
-        // Extract URLs and add them to content
-        const urls: string[] = [];
-
+        // Extract URLs and add them to tags but NOT to content
         mediaTags.forEach(tagArray => {
           if (tagArray.length >= 2 && tagArray[0] === 'url') {
-            const url = tagArray[1];
-            urls.push(url);
             processedTags.push(tagArray); // Add the url tag
           } else if (tagArray.length >= 2 && tagArray[0] === 'imeta') {
             processedTags.push(tagArray); // Add the imeta tag
           }
         });
 
-        // Append URLs to content if we have media and content
-        if (urls.length > 0 && finalContent) {
-          finalContent += '\n\n' + urls.join('\n');
-        } else if (urls.length > 0 && !finalContent) {
-          finalContent = urls.join('\n');
+        // If there's no text content, set content to empty string for media-only messages
+        if (!finalContent) {
+          finalContent = '';
         }
       }
 
