@@ -3,7 +3,6 @@ import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useNotificationState } from '@/hooks/useNotificationState';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useNotificationDiscovery } from '@/hooks/useContextualRelayDiscovery';
 import { SmartRelayDiscoveryIndicator } from '@/components/RelayDiscoveryIndicator';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -159,12 +158,10 @@ export default function Notifications() {
   const { isRead, markAsRead, markAllAsRead } = useNotificationState();
   const navigate = useNavigate();
 
-  // Get discovery stats for notifications
-  const {
-    events: discoveredEvents,
-    isLoading: isDiscovering,
-    stats: discoveryStats
-  } = useNotificationDiscovery(!!user?.pubkey);
+  // Use the main notifications query data for discovery indicator
+  const isDiscovering = isLoading;
+  const discoveredEvents = data?.pages.flatMap(page => page.notifications) || [];
+  const hintsUsed = false; // Discovery hints are handled internally by useNotifications
 
   // Flatten all pages of notifications
   const allNotifications = useMemo(() => {
@@ -232,8 +229,8 @@ export default function Notifications() {
               </h1>
               <SmartRelayDiscoveryIndicator
                 context="notifications"
-                eventsFound={discoveredEvents?.length || 0}
-                hintsUsed={discoveryStats?.hintsUsed || false}
+                eventsFound={discoveredEvents.length}
+                hintsUsed={hintsUsed}
                 isLoading={isDiscovering}
               />
             </div>
