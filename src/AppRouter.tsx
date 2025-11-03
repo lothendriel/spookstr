@@ -15,6 +15,7 @@ const CommunityPage = lazy(() => import("./pages/CommunityPage"));
 const CreateCommunityPage = lazy(() => import("./pages/CreateCommunityPage"));
 const CommunityBrowsePage = lazy(() => import("./pages/CommunityBrowsePage"));
 const PostDetailPage = lazy(() => import("./pages/PostDetailPage"));
+const ModeratorPanel = lazy(() => import("./components/communities/ModeratorPanel").then(m => ({ default: m.ModeratorPanel })));
 
 export function AppRouter() {
   return (
@@ -30,6 +31,7 @@ export function AppRouter() {
         <Route path="/communities" element={<CommunityBrowsePage />} />
         <Route path="/community/:communityId" element={<CommunityPage />} />
         <Route path="/community/:communityId/post/:postId" element={<PostDetailPage />} />
+        <Route path="/community/:communityId/moderate" element={<ModeratorPanel />} />
         <Route path="/create-community" element={<CreateCommunityPage />} />
         <Route path="/create-community/:communityId" element={<CreateCommunityPage />} />
         {/* NIP-19 route for npub1, note1, naddr1, nevent1, nevent1, nprofile1 */}

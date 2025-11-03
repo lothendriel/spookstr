@@ -13,7 +13,7 @@ import { useState, useEffect } from 'react';
 import { useCommunity, CommunityDefinition, CommunityPost } from '@/hooks/useCommunity';
 import { useCommunityFeed, CommunityFeedPost } from '@/hooks/useCommunityFeed';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
-import { MessageCircle, Settings, RefreshCw, Clock } from 'lucide-react';
+import { MessageCircle, Settings, RefreshCw, Clock, Shield } from 'lucide-react';
 import { CommunityManagement } from '@/components/CommunityManagement';
 import { CreateCommunityPost } from '@/components/CreateCommunityPost';
 
@@ -186,14 +186,24 @@ export default function CommunityPage() {
                 </div>
               </div>
               <div className="flex gap-2">
-                {user && community.moderators.includes(user.pubkey) && (
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowManagement(!showManagement)}
-                  >
-                    <Settings className="h-4 w-4 mr-2" />
-                    {showManagement ? 'Cancel' : 'Manage'}
-                  </Button>
+                {user && (user.pubkey === community.author || community.moderators.includes(user.pubkey)) && (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => navigate(`/community/${communityId}/moderate`)}
+                      className="border-lime-500/50 text-lime-300 hover:bg-lime-500/20"
+                    >
+                      <Shield className="h-4 w-4 mr-2" />
+                      Moderate
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowManagement(!showManagement)}
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      {showManagement ? 'Cancel' : 'Manage'}
+                    </Button>
+                  </>
                 )}
                 <Button onClick={() => setShowCreatePost(!showCreatePost)}>
                   {showCreatePost ? 'Cancel' : 'Create Post'}
