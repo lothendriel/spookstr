@@ -6,13 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { 
-  Zap, 
-  Activity, 
-  Search, 
-  Bell, 
-  MessageSquare, 
-  Heart, 
+import {
+  Zap,
+  Activity,
+  Search,
+  Bell,
+  MessageSquare,
+  Heart,
   Repeat2,
   User,
   TrendingUp,
@@ -102,7 +102,7 @@ export function RelayDiscoveryIndicator({
 
   if (variant === 'minimal') {
     return (
-      <Tooltip>
+      <Tooltip delayDuration={0}>
         <TooltipTrigger asChild>
           <div className={cn("inline-flex items-center text-xs", className)}>
             {hintsUsed ? (
@@ -112,8 +112,8 @@ export function RelayDiscoveryIndicator({
             )}
           </div>
         </TooltipTrigger>
-        <TooltipContent>
-          <div className="text-xs">
+        <TooltipContent side="top" align="center" className="z-50 bg-black border border-gray-700 text-white">
+          <div className="text-xs font-medium">
             {hintsUsed ? `Enhanced discovery: ${eventsFound} events` : 'Standard discovery'}
           </div>
         </TooltipContent>
@@ -123,10 +123,10 @@ export function RelayDiscoveryIndicator({
 
   if (variant === 'badge') {
     return (
-      <Tooltip>
+      <Tooltip delayDuration={0}>
         <TooltipTrigger asChild>
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className={cn(
               "text-xs cursor-help transition-colors hover:opacity-80",
               getStatusColor(),
@@ -137,13 +137,13 @@ export function RelayDiscoveryIndicator({
             <span className="ml-1">{getStatusText()}</span>
           </Badge>
         </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs">
+        <TooltipContent side="top" align="center" className="z-50 max-w-xs bg-black border border-gray-700 text-white">
           <div className="space-y-1">
-            <div className="font-semibold flex items-center gap-1">
+            <div className="font-semibold flex items-center gap-1 text-sm">
               {getContextIcon(context)}
               {getContextLabel(context)} Discovery
             </div>
-            <div className="text-xs text-muted-foreground">
+            <div className="text-xs text-gray-300">
               {hintsUsed ? (
                 <>Enhanced relay discovery found {eventsFound} events using relay hints</>
               ) : (
@@ -160,8 +160,8 @@ export function RelayDiscoveryIndicator({
   return (
     <Popover open={showDetails} onOpenChange={setShowDetails}>
       <PopoverTrigger asChild>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
           className={cn(
             "h-8 px-2 text-xs",
