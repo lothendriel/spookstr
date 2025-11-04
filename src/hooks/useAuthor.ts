@@ -39,6 +39,17 @@ export function useAuthor(pubkey: string | undefined) {
     retry: 2,
   });
 
+  // Debug logging for multi-relay profile fetching
+  if (import.meta.env.DEV) {
+    console.log('[Author Debug] State:', {
+      pubkey: pubkey?.slice(0, 8),
+      isLoading: isRawLoading,
+      hasRawData: !!rawProfileEvent,
+      rawDataLength: rawProfileEvent?.length || 0,
+      error: rawError
+    });
+  }
+
   // Process and validate profile data
   return useQuery<{ event?: NostrEvent; metadata?: NostrMetadata }>({
     queryKey: ['author', 'processed', pubkey ?? ''],

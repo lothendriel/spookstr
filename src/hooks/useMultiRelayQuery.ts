@@ -76,10 +76,10 @@ export function useMultiRelayQuery({
           const relay = nostr.relay(relayUrl);
           const events = await relay.query(filters, { signal });
 
-          console.log(`[Multi-Relay Query] Relay ${relayUrl} returned`, events.length, 'events');
+          console.log(`[Multi-Relay Query] ✅ Relay ${relayUrl} returned`, events.length, 'events');
           return { relayUrl, events, success: true };
         } catch (error) {
-          console.warn(`[Multi-Relay Query] Relay ${relayUrl} failed:`, error);
+          console.warn(`[Multi-Relay Query] ❌ Relay ${relayUrl} failed:`, error);
           return { relayUrl, events: [], success: false, error };
         }
       });
