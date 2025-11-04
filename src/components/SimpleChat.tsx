@@ -67,8 +67,8 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
       </Avatar>
 
       <div className={cn(
-        'flex flex-col max-w-[70%]',
-        isOwnMessage ? 'items-end' : 'items-start'
+        'flex flex-col',
+        isOwnMessage ? 'items-end max-w-[85%]' : 'items-start max-w-[90%]'
       )}>
         <div className={cn(
           'flex items-center gap-2 mb-1',
@@ -140,10 +140,10 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
                     };
 
                     return (
-                      <div key={index} className="rounded-md overflow-hidden w-full max-w-full">
+                      <div key={index} className="rounded-md overflow-hidden w-full">
                         <MediaDisplay
                           media={mediaItem}
-                          className="w-full h-auto max-h-[60vh] object-contain"
+                          className="w-full h-auto max-h-[50vh] object-contain"
                         />
                       </div>
                     );
