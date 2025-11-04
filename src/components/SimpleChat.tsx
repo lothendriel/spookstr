@@ -86,21 +86,21 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
         </div>
 
         <Card className={cn(
-          'px-3 py-2',
+          'px-3 py-2 max-w-[70%] w-full',
           isOwnMessage
             ? 'bg-purple-600 text-white'
             : 'bg-gray-800 text-gray-100'
         )}>
           <CardContent className="p-0 space-y-2">
             {message.content && (
-              <p className="text-sm whitespace-pre-wrap break-words">
+              <p className="text-sm whitespace-pre-wrap break-words overflow-hidden">
                 {message.content}
               </p>
             )}
 
             {/* Media attachments */}
             {message.mediaTags && message.mediaTags.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-2 max-w-full">
                 {(() => {
                   console.log('🖼️ [Simple Chat] Processing media tags for message:', message.id, message.mediaTags);
                   const urlTags = message.mediaTags.filter(tag => tag[0] === 'url');
@@ -140,10 +140,10 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
                     };
 
                     return (
-                      <div key={index} className="rounded-md overflow-hidden max-w-sm">
+                      <div key={index} className="rounded-md overflow-hidden max-w-full">
                         <MediaDisplay
                           media={mediaItem}
-                          className="max-h-64 w-full object-contain"
+                          className="max-h-64 max-w-full object-contain"
                         />
                       </div>
                     );
