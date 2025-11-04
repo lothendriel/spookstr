@@ -173,12 +173,14 @@ export function useNotifications() {
           'wss://relay.primal.net'
         ];
 
+        // Import nostr client once, then create relay promises
+        const { nostr: tempNostr } = await import('@nostrify/react');
+        if (!tempNostr) {
+          throw new Error('Failed to import nostr client');
+        }
+
         const relayPromises = relayUrls.map(async (relayUrl) => {
           try {
-            const { nostr: tempNostr } = await import('@nostrify/react');
-            if (!tempNostr) {
-              throw new Error('Failed to import nostr client');
-            }
             const relay = tempNostr.relay(relayUrl);
             const events = await relay.query([filter], { signal });
             return { relayUrl, events, success: true };
