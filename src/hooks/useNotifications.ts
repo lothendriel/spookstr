@@ -173,39 +173,17 @@ export function useNotifications() {
           'wss://relay.primal.net'
         ];
 
-        // Import nostr client once, then create relay promises
-        const { nostr: tempNostr } = await import('@nostrify/react');
-        if (!tempNostr) {
-          throw new Error('Failed to import nostr client');
-        }
+        // Skip multi-relay for now due to dynamic import issues
+        // Fall back to existing relay group which works reliably
+        console.log(`[Notifications] 📡 Using relay group (multi-relay disabled due to import issues)`);
 
-        const relayPromises = relayUrls.map(async (relayUrl) => {
-          try {
-            const relay = tempNostr.relay(relayUrl);
-            const events = await relay.query([filter], { signal });
-            return { relayUrl, events, success: true };
-          } catch (error) {
-            console.warn(`[Notifications] Relay ${relayUrl} failed:`, error);
-            return { relayUrl, events: [], success: false };
-          }
-        });
+        // Skip multi-relay implementation for now due to dynamic import issues
+        // Use existing relay group which works reliably
+        console.log(`[Notifications] 📡 Multi-relay skipped, using relay group only`);
 
-        const results = await Promise.allSettled(relayPromises);
-        const allEvents: NostrEvent[] = [];
-
-        results.forEach((result) => {
-          if (result.status === 'fulfilled' && result.value.success) {
-            allEvents.push(...result.value.events);
-          }
-        });
-
-        // Deduplicate events
-        const uniqueEvents = Array.from(
-          new Map(allEvents.map(event => [event.id, event])).values()
-        );
-
-        interactions = uniqueEvents;
-        console.log(`[Notifications] Found ${interactions.length} raw interactions from multi-relay query`);
+        // Skip multi-relay implementation for now due to dynamic import issues
+        // Use existing relay group which works reliably
+        console.log(`[Notifications] 📡 Multi-relay skipped, using relay group only`);
       } catch (error) {
         console.error('[Notifications] Error fetching interactions with multi-relay:', error);
         // Fallback to single relay group if multi-relay fails
