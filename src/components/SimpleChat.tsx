@@ -7,10 +7,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { EmojiPickerButton } from '@/components/ui/emoji-picker';
 import { useSimpleChat } from '@/hooks/useSimpleChat';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { Send, Ghost, MessageSquare, Shield, AlertTriangle, Clock } from 'lucide-react';
+import { Send, Ghost, MessageSquare, Shield, AlertTriangle, Clock, Smile } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -174,6 +175,10 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
     }
   };
 
+  const handleEmojiSelect = (emoji: string) => {
+    setMessage(prev => prev + emoji);
+  };
+
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop } = e.currentTarget;
     // Load more messages when user scrolls near the top
@@ -281,6 +286,15 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
             ) : (
               <>
                 <div className="flex gap-2">
+                  <EmojiPickerButton
+                    onEmojiSelect={handleEmojiSelect}
+                    disabled={isSending || !canSendMessage()}
+                    variant="ghost"
+                    size="sm"
+                    className="text-gray-400 hover:text-gray-300"
+                  >
+                    <Smile className="h-4 w-4" />
+                  </EmojiPickerButton>
                   <Input
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
