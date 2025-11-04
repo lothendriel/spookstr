@@ -4,6 +4,7 @@ import { useCurrentUser } from './useCurrentUser';
 import { useAppContext } from './useAppContext';
 import { useUserRelays } from './useUserRelays';
 import { useNotificationDiscovery } from './useContextualRelayDiscovery';
+import { useMultiRelayQuery } from './useMultiRelayQuery';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 import { useEffect } from 'react';
@@ -161,14 +162,57 @@ export function useNotifications() {
         filter.until = pageParam;
       }
 
-      // Query for interactions
+      // Use multi-relay querying for interactions
       let interactions;
       try {
-        interactions = await relayGroup.query([filter], { signal });
-        console.log(`[Notifications] Found ${interactions.length} raw interactions from relays`);
+        // Create a temporary multi-relay query function
+        const { nostr: tempNostr } = await import('@nostrify/react');
+
+        // Query multiple relays in parallel for interactions
+        const relayUrls = [
+          'wss://spookstr2.nostr1.com',
+          'wss://relay.nostr.band',
+          'wss://relay.damus.io',
+          'wss://relay.primal.net'
+        ];
+
+        const relayPromises = relayUrls.map(async (relayUrl) => {
+          try {
+            const relay = tempNostr.relay(relayUrl);
+            const events = await relay.query([filter], { signal });
+            return { relayUrl, events, success: true };
+          } catch (error) {
+            console.warn(`[Notifications] Relay ${relayUrl} failed:`, error);
+            return { relayUrl, events: [], success: false };
+          }
+        });
+
+        const results = await Promise.allSettled(relayPromises);
+        const allEvents: NostrEvent[] = [];
+
+        results.forEach((result) => {
+          if (result.status === 'fulfilled' && result.value.success) {
+            allEvents.push(...result.value.events);
+          }
+        });
+
+        // Deduplicate events
+        const uniqueEvents = Array.from(
+          new Map(allEvents.map(event => [event.id, event])).values()
+        );
+
+        interactions = uniqueEvents;
+        console.log(`[Notifications] Found ${interactions.length} raw interactions from multi-relay query`);
       } catch (error) {
-        console.error('[Notifications] Error fetching interactions:', error);
-        return { notifications: [], hasMore: false, oldestTimestamp: undefined };
+        console.error('[Notifications] Error fetching interactions with multi-relay:', error);
+        // Fallback to single relay group if multi-relay fails
+        try {
+          interactions = await relayGroup.query([filter], { signal });
+          console.log(`[Notifications] Fallback: Found ${interactions.length} interactions from relay group`);
+        } catch (fallbackError) {
+          console.error('[Notifications] Fallback also failed:', fallbackError);
+          return { notifications: [], hasMore: false, oldestTimestamp: undefined };
+        }
       }
 
       // Filter out the user's own interactions

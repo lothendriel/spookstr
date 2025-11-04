@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNostr } from '@nostrify/react';
 import { useAppContext } from './useAppContext';
+import { useMultiRelayQuery } from './useMultiRelayQuery';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface InteractionCounts {
@@ -32,85 +32,47 @@ if (import.meta.env.DEV) {
   console.log('[Batch Interactions] Hook called with eventIds:', eventIds.map(id => id.slice(0, 8)));
 }
 
+  // Get raw interaction events from multiple relays
+  const { data: rawInteractionEvents, isLoading: isRawLoading, error: rawError } = useMultiRelayQuery({
+    filters: [{
+      kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
+      '#e': eventIds,
+      limit: 500, // Reduced limit to save memory
+    }],
+    // Use high-performance relays for interaction fetching
+    relayUrls: [
+      'wss://spookstr2.nostr1.com',
+      'wss://relay.nostr.band',
+      'wss://relay.damus.io',
+      'wss://relay.primal.net',
+      'wss://relay.mostr.pub'
+    ],
+    enabled: eventIds.length > 0,
+    staleTime: 180000, // 3 minutes - reduced frequency for better memory management
+    gcTime: 240000, // 4 minutes - reduced cache time to save memory
+    retry: 2,
+  });
+
+  // Process and count interactions
   const { data: batchData, isLoading, error } = useQuery({
-    queryKey: ['batch-interactions', eventIds.sort().join(',')],
-    queryFn: async (c) => {
+    queryKey: ['batch-interactions', 'processed', eventIds.sort().join(',')],
+    queryFn: () => {
       if (eventIds.length === 0) {
         console.log('[Batch Interactions] No event IDs provided');
         return {};
       }
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
-
-      if (import.meta.env.DEV) {
-  console.log('[Batch Interactions] Fetching interactions for', eventIds.length, 'posts');
-}
-
-      // Get configured relays for better coverage
-      const relays = config.relays?.filter(r => r.mode === 'read' || r.mode === 'both').map(r => r.url) || [config.relayUrl];
-
-      // Always include Spookstr relay for better interaction discovery
-      const spookstrRelay = 'wss://spookstr2.nostr1.com';
-      if (!relays.includes(spookstrRelay)) {
-        relays.unshift(spookstrRelay);
-      }
-
-      if (import.meta.env.DEV) {
-  console.log('[Batch Interactions] Using relays:', relays);
-}
-
-      let allEvents: NostrEvent[] = [];
-
-      // Try to query from multiple relays with limited scope for memory efficiency
-      if (relays.length > 1) {
-        try {
-          const relayGroup = nostr.group(relays.slice(0, 2)); // Use top 2 relays only
-          const events = await relayGroup.query([{
-            kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
-            '#e': eventIds,
-            limit: 500, // Reduced limit to save memory
-          }], { signal });
-
-          allEvents = events;
-          if (import.meta.env.DEV) {
-  console.log('[Batch Interactions] Found', events.length, 'interactions from relay group');
-}
-        } catch (error) {
-          console.warn('[Batch Interactions] Relay group query failed, falling back to single relay:', error);
+      if (!rawInteractionEvents || rawInteractionEvents.length === 0) {
+        console.log('[Batch Interactions] No raw interaction events found');
+        // Initialize empty counts for all requested event IDs
+        const countsMap: Record<string, InteractionCounts> = {};
+        for (const eventId of eventIds) {
+          countsMap[eventId] = { likes: 0, reposts: 0, zaps: 0, comments: 0 };
         }
+        return countsMap;
       }
 
-      // Fallback to single relay if group query failed or we have only one relay
-      if (allEvents.length === 0) {
-        try {
-          const events = await nostr.query([{
-            kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
-            '#e': eventIds,
-            limit: 500, // Reduced limit to save memory
-          }], { signal });
-
-          allEvents = events;
-          if (import.meta.env.DEV) {
-  console.log('[Batch Interactions] Found', events.length, 'interactions from single relay');
-}
-        } catch (error) {
-          console.error('[Batch Interactions] Single relay query failed:', error);
-          allEvents = [];
-        }
-      }
-
-      // Deduplicate events by ID
-      const uniqueEvents = new Map<string, NostrEvent>();
-      for (const event of allEvents) {
-        if (!uniqueEvents.has(event.id)) {
-          uniqueEvents.set(event.id, event);
-        }
-      }
-
-      const deduplicatedEvents = Array.from(uniqueEvents.values());
-      if (import.meta.env.DEV) {
-  console.log('[Batch Interactions] After deduplication:', deduplicatedEvents.length, 'unique interactions');
-}
+      console.log('[Batch Interactions] Processing', rawInteractionEvents.length, 'raw interaction events for', eventIds.length, 'posts');
 
       // Group interactions by event ID
       const countsMap: Record<string, InteractionCounts> = {};
@@ -128,7 +90,7 @@ if (import.meta.env.DEV) {
       // Count interactions for each event
       let likeCount = 0, repostCount = 0, zapCount = 0, commentCount = 0;
 
-      for (const event of deduplicatedEvents) {
+      for (const event of rawInteractionEvents) {
         const referencedEventId = event.tags.find(([tag]) => tag === 'e')?.[1];
         if (!referencedEventId || !countsMap[referencedEventId]) {
           continue;
@@ -164,7 +126,7 @@ if (import.meta.env.DEV) {
 
       if (import.meta.env.DEV) {
         console.log('[Batch Interactions] Summary:', {
-          totalEvents: deduplicatedEvents.length,
+          totalEvents: rawInteractionEvents.length,
           likes: likeCount,
           reposts: repostCount,
           zaps: zapCount,
@@ -177,7 +139,7 @@ if (import.meta.env.DEV) {
 
       return countsMap;
     },
-    enabled: eventIds.length > 0,
+    enabled: !!rawInteractionEvents && eventIds.length > 0,
     staleTime: 180000, // 3 minutes - reduced frequency for better memory management
     gcTime: 240000, // 4 minutes - reduced cache time to save memory
     refetchOnMount: true, // Always refetch on mount to get fresh data
