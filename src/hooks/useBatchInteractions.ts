@@ -23,7 +23,6 @@ interface InteractionCounts {
  * - Enhanced debugging
  */
 export function useBatchInteractions(eventIds: string[]) {
-  const { nostr } = useNostr();
   const { config } = useAppContext();
   const queryClient = useQueryClient();
 
