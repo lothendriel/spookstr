@@ -165,9 +165,6 @@ export function useNotifications() {
       // Use multi-relay querying for interactions
       let interactions;
       try {
-        // Create a temporary multi-relay query function
-        const { nostr: tempNostr } = await import('@nostrify/react');
-
         // Query multiple relays in parallel for interactions
         const relayUrls = [
           'wss://spookstr2.nostr1.com',
@@ -178,6 +175,10 @@ export function useNotifications() {
 
         const relayPromises = relayUrls.map(async (relayUrl) => {
           try {
+            const { nostr: tempNostr } = await import('@nostrify/react');
+            if (!tempNostr) {
+              throw new Error('Failed to import nostr client');
+            }
             const relay = tempNostr.relay(relayUrl);
             const events = await relay.query([filter], { signal });
             return { relayUrl, events, success: true };

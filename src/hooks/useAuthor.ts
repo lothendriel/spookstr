@@ -41,6 +41,18 @@ export function useAuthor(pubkey: string | undefined) {
 
   // Debug logging for multi-relay profile fetching
   if (import.meta.env.DEV) {
+    console.log('[Author Hook Debug] State:', {
+      pubkey: pubkey?.slice(0, 8),
+      enabled: !!pubkey,
+      isLoading: isRawLoading,
+      hasRawData: !!rawProfileEvent,
+      rawDataLength: rawProfileEvent?.length || 0,
+      error: rawError
+    });
+  }
+
+  // Debug logging for multi-relay profile fetching
+  if (import.meta.env.DEV) {
     console.log('[Author Debug] State:', {
       pubkey: pubkey?.slice(0, 8),
       isLoading: isRawLoading,
