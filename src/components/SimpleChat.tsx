@@ -88,7 +88,7 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
             : 'bg-gray-800 text-gray-100'
         )}>
           <CardContent className="p-0">
-            <p className="text-sm whitespace-pre-wrap break-words">
+            <p className="text-sm whitespace-pre-wrap break-all overflow-hidden">
               {message.content}
             </p>
           </CardContent>
