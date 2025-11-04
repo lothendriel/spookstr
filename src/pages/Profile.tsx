@@ -11,7 +11,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { useOutboxQuery } from '@/hooks/useOutboxQuery';
 import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check, MessageSquare } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { PostDetailView } from '@/components/PostDetailView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,7 +22,6 @@ interface ProfileProps {
 }
 
 export default function Profile({ pubkey }: ProfileProps) {
-  const navigate = useNavigate();
   const author = useAuthor(pubkey);
   const { user } = useCurrentUser();
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
@@ -114,7 +112,7 @@ export default function Profile({ pubkey }: ProfileProps) {
 
       <main className="max-w-4xl mx-auto px-4 py-8">
         <Button
-          onClick={() => navigate(-1)}
+          onClick={() => window.history.back()}
           variant="ghost"
           className="mb-6 text-lime-400 hover:text-lime-300 hover:bg-lime-500/10"
         >
