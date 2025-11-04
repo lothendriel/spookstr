@@ -440,10 +440,9 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
               src={media.url}
               alt={media.alt || 'Image'}
               className={cn(
-                "w-full rounded-lg transition-all duration-300",
+                "w-full h-auto rounded-lg transition-all duration-300",
                 "hover:scale-[1.02] hover:shadow-lg hover:shadow-lime-500/20",
-                error && "hidden",
-                className
+                error && "hidden"
               )}
               onLoad={handleMediaLoad}
               onError={handleMediaError}

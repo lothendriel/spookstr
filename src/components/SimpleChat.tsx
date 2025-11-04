@@ -15,7 +15,6 @@ import { MediaDisplay } from '@/components/MediaDisplay';
 import { Send, Ghost, MessageSquare, Shield, AlertTriangle, Clock, Paperclip, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import type { MediaItem } from '@/lib/mediaParser';
 
 interface SimpleChatProps {
   isOpen: boolean;
@@ -50,8 +49,8 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
 
   return (
     <div className={cn(
-      'flex gap-3 mb-4 w-full',
-      isOwnMessage ? 'flex-row-reverse justify-start' : 'justify-start'
+      'flex gap-3 mb-4',
+      isOwnMessage && 'flex-row-reverse'
     )}>
       <Avatar className={cn(
         'h-8 w-8 flex-shrink-0',
@@ -67,88 +66,56 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
       </Avatar>
 
       <div className={cn(
-        'flex flex-col',
-        isOwnMessage ? 'items-end max-w-[70%] ml-auto' : 'items-start max-w-[70%]'
+        'flex flex-col max-w-[70%]',
+        isOwnMessage ? 'items-end' : 'items-start'
       )}>
         <div className={cn(
-          'flex items-center gap-2 mb-1 w-full',
+          'flex items-center gap-2 mb-1',
           isOwnMessage ? 'flex-row-reverse' : ''
         )}>
           <span className={cn(
-            'text-xs font-medium whitespace-nowrap',
+            'text-xs font-medium',
             isOwnMessage ? 'text-purple-400' : 'text-gray-400'
           )}>
             {displayName}
           </span>
-          <span className="text-xs text-gray-500 whitespace-nowrap">
+          <span className="text-xs text-gray-500">
             {timeAgo}
           </span>
         </div>
 
         <Card className={cn(
-          'px-3 py-2 w-full',
+          'px-3 py-2',
           isOwnMessage
             ? 'bg-purple-600 text-white'
             : 'bg-gray-800 text-gray-100'
         )}>
           <CardContent className="p-0 space-y-2">
             {message.content && (
-              <p className="text-sm whitespace-pre-wrap break-words overflow-hidden">
+              <p className="text-sm whitespace-pre-wrap break-words">
                 {message.content}
               </p>
             )}
 
             {/* Media attachments */}
             {message.mediaTags && message.mediaTags.length > 0 && (
-              <div className="space-y-2 max-w-full">
-                {(() => {
-                  console.log('🖼️ [Simple Chat] Processing media tags for message:', message.id, message.mediaTags);
-                  const urlTags = message.mediaTags.filter(tag => tag[0] === 'url');
-                  console.log('🔗 [Simple Chat] Found URL tags:', urlTags);
+              <div className="space-y-2">
+                {message.mediaTags.map((mediaTag, index) => {
+                  const mediaUrl = mediaTag[1];
+                  const mediaType = mediaTag.find(tag => tag.startsWith('m:'))?.substring(2) || 'image';
+                  const mediaSize = mediaTag.find(tag => tag.startsWith('size:'))?.substring(5);
 
-                  return urlTags.map((urlTag, index) => {
-                    const mediaUrl = urlTag[1];
-                    console.log('🎯 [Simple Chat] Processing URL:', mediaUrl);
-
-                    // Find corresponding imeta tag for this URL
-                    const imetaTag = message.mediaTags?.find(tag =>
-                      tag[0] === 'imeta' &&
-                      tag.some(item => item.startsWith(`url ${mediaUrl}`))
-                    );
-                    console.log('🏷️ [Simple Chat] Found imeta tag for URL:', imetaTag);
-
-                    // Extract media type from imeta tag
-                    let mediaType = 'image'; // Default to image
-                    if (imetaTag) {
-                      const typeItem = imetaTag.find(item => item.startsWith('m '));
-                      if (typeItem) {
-                        mediaType = typeItem.substring(2); // Remove 'm ' prefix
-                        console.log('📁 [Simple Chat] Detected media type:', mediaType);
-                      }
-                    }
-
-                    // Create MediaItem object for MediaDisplay
-                    const mediaItem: MediaItem = {
-                      url: mediaUrl,
-                      type: mediaType.startsWith('video/') ? 'video' :
-                             mediaType.startsWith('audio/') ? 'audio' :
-                             mediaType.startsWith('image/') ? 'image' : 'image',
-                      metadata: {
-                        format: mediaType.split('/')[1] || 'jpg',
-                        cdnProvider: 'blossom',
-                      },
-                    };
-
-                    return (
-                      <div key={index} className="rounded-md overflow-hidden max-w-full">
-                        <MediaDisplay
-                          media={mediaItem}
-                          className="max-h-64 max-w-full object-contain"
-                        />
-                      </div>
-                    );
-                  });
-                })()}
+                  return (
+                    <div key={index} className="rounded-md overflow-hidden max-w-sm">
+                      <MediaDisplay
+                        url={mediaUrl}
+                        type={mediaType}
+                        className="w-full"
+                        controls={mediaType.startsWith('video') || mediaType.startsWith('audio')}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -242,12 +209,9 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
       // Upload media files if any
       let finalMediaTags = [...mediaTags];
       if (mediaFiles.length > 0) {
-        console.log('📤 [Simple Chat] Uploading', mediaFiles.length, 'files:', mediaFiles.map(f => f.name));
         const uploadPromises = mediaFiles.map(file => uploadFile(file));
         const uploadedTags = await Promise.all(uploadPromises);
-        console.log('✅ [Simple Chat] Upload complete, received tags:', uploadedTags);
-        finalMediaTags = [...finalMediaTags, ...uploadedTags.flat()];
-        console.log('🏷️ [Simple Chat] Final media tags:', finalMediaTags);
+        finalMediaTags = [...finalMediaTags, ...uploadedTags];
       }
 
       await sendMessage(message.trim(), finalMediaTags);
@@ -256,7 +220,7 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
       setMediaTags([]);
     } catch (error) {
       // Rate limiting errors are handled by the disabled state and countdown
-      console.error('❌ [Simple Chat] Failed to send message:', error);
+      console.error('Failed to send message:', error);
     } finally {
       setIsSending(false);
     }
@@ -282,7 +246,7 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="max-w-2xl h-[80vh] max-h-[600px] p-0 flex flex-col bg-gray-900 border-purple-500/20 overflow-hidden"
+        className="max-w-2xl h-[80vh] max-h-[600px] p-0 flex flex-col bg-gray-900 border-purple-500/20"
         aria-describedby="chat-description"
       >
         <DialogHeader className="p-4 pb-0">
@@ -317,9 +281,9 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
         </div>
 
         {/* Messages Area */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0">
           <ScrollArea
-            className="flex-1 px-4 py-2 overflow-hidden"
+            className="flex-1 px-4 py-2"
             ref={scrollAreaRef}
             onScroll={handleScroll}
           >
