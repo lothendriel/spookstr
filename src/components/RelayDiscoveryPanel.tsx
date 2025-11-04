@@ -50,15 +50,42 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
 
   const [isFromCache, setIsFromCache] = useState(false);
 
-  // Check if results are from cache on mount
+  // Check if results are from cache on mount and when discovery state changes
   useEffect(() => {
-    if (discoveryState.discoveredRelays.length > 0 && !isDiscovering) {
-      setIsFromCache(true);
+    // Check localStorage directly to see if we have cached discovery data
+    try {
+      const cached = localStorage.getItem('spookstr-relay-discovery');
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        const isExpired = Date.now() - timestamp > (30 * 60 * 1000); // 30 minutes TTL
+
+        if (!isExpired && data.discoveredRelays.length > 0 && !isDiscovering) {
+          setIsFromCache(true);
+          setCacheTimestamp(timestamp);
+          return;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to check cache state:', error);
     }
+
+    // If no valid cache found, set to false
+    setIsFromCache(false);
+    setCacheTimestamp(null);
   }, [discoveryState.discoveredRelays.length, isDiscovering]);
+
+  // Update cache state when discovery completes
+  useEffect(() => {
+    if (!isDiscovering && discoveryState.discoveredRelays.length > 0) {
+      // When discovery completes, results are no longer from cache
+      setIsFromCache(false);
+      setCacheTimestamp(null);
+    }
+  }, [isDiscovering, discoveryState.discoveredRelays.length]);
 
   const [selectedRelays, setSelectedRelays] = useState<Set<string>>(new Set());
   const [showConnectivityTest, setShowConnectivityTest] = useState(false);
+  const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(null);
 
   const handleDiscover = async () => {
     if (!user) {
@@ -251,19 +278,22 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-3">
             <Button
-              onClick={discoveryState.discoveredRelays.length > 0 ? handleRefresh : handleDiscover}
+              onClick={isFromCache ? handleDiscover : (discoveryState.discoveredRelays.length > 0 ? handleRefresh : handleDiscover)}
               disabled={isDiscovering}
               className="flex-1"
               size="lg"
             >
               {isDiscovering ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : isFromCache ? (
+                <RefreshCw className="h-4 w-4 mr-2" />
               ) : discoveryState.discoveredRelays.length > 0 ? (
                 <RefreshCw className="h-4 w-4 mr-2" />
               ) : (
                 <Search className="h-4 w-4 mr-2" />
               )}
               {isDiscovering ? 'Discovering...' :
+               isFromCache ? 'Run New Discovery' :
                discoveryState.discoveredRelays.length > 0 ? 'Refresh Results' : 'Start Discovery'}
             </Button>
 
@@ -347,6 +377,28 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             Discovery failed: {discoveryState.error}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Cache Notice */}
+      {isFromCache && (
+        <Alert className="border-blue-500/30 bg-blue-500/5">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <div className="space-y-1">
+              <p className="font-semibold">📋 Showing cached discovery results</p>
+              <p className="text-sm">
+                These results are from a previous discovery session.
+                Click "Run New Discovery" to find fresh relays.
+              </p>
+              {cacheTimestamp && (
+                <p className="text-xs text-muted-foreground">
+                  Cached on {new Date(cacheTimestamp).toLocaleString()}
+                  ({Math.round((Date.now() - cacheTimestamp) / (1000 * 60))} minutes ago)
+                </p>
+              )}
+            </div>
           </AlertDescription>
         </Alert>
       )}
@@ -623,7 +675,7 @@ export function RelayDiscoveryPanel({ className }: RelayDiscoveryPanelProps) {
                   Click "Start Discovery" to find relays relevant to your network
                 </p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Discovery results will be cached and persist across tab switches
+                  💡 Discovery results are cached for 30 minutes and will persist when you navigate away and return to this page
                 </p>
               </div>
             </div>
