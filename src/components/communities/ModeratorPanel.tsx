@@ -17,14 +17,14 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useCommunity } from '@/hooks/useCommunity';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
-import { 
-  Shield, 
-  ArrowLeft, 
-  Check, 
-  X, 
-  Settings, 
-  Users, 
-  MessageSquare, 
+import {
+  Shield,
+  ArrowLeft,
+  Check,
+  X,
+  Settings,
+  Users,
+  MessageSquare,
   AlertTriangle,
   Plus,
   Trash2,
@@ -85,7 +85,7 @@ export function ModeratorPanel() {
 
   // Check if current user is authorized to moderate
   const isAuthorized = user && community && (
-    user.pubkey === community.author || 
+    user.pubkey === community.author ||
     community.moderators.includes(user.pubkey)
   );
 
@@ -105,17 +105,7 @@ export function ModeratorPanel() {
     if (!community) return;
 
     try {
-      await moderatePost.mutateAsync({
-        communityId: community.id,
-        communityAuthor: community.author,
-        postId: topic.id,
-        postAuthor: topic.pubkey,
-        postKind: topic.kind,
-        postEvent: topic,
-        action: 'approve'
-      });
-
-      // Add to moderation log
+      // Add to moderation log immediately for better UX
       const action: ModerationAction = {
         id: Date.now().toString(),
         moderator: user!.pubkey,
@@ -127,15 +117,6 @@ export function ModeratorPanel() {
       };
       setModerationLog(prev => [action, ...prev]);
 
-    } catch (error) {
-      console.error('Failed to approve post:', error);
-    }
-  };
-
-  const handleDenyPost = async (topic: any) => {
-    if (!community) return;
-
-    try {
       await moderatePost.mutateAsync({
         communityId: community.id,
         communityAuthor: community.author,
@@ -143,10 +124,21 @@ export function ModeratorPanel() {
         postAuthor: topic.pubkey,
         postKind: topic.kind,
         postEvent: topic,
-        action: 'deny'
+        action: 'approve'
       });
 
-      // Add to moderation log
+    } catch (error) {
+      console.error('Failed to approve post:', error);
+      // Remove from log if failed
+      setModerationLog(prev => prev.filter(log => log.targetId !== topic.id));
+    }
+  };
+
+  const handleDenyPost = async (topic: any) => {
+    if (!community) return;
+
+    try {
+      // Add to moderation log immediately for better UX
       const action: ModerationAction = {
         id: Date.now().toString(),
         moderator: user!.pubkey,
@@ -158,8 +150,20 @@ export function ModeratorPanel() {
       };
       setModerationLog(prev => [action, ...prev]);
 
+      await moderatePost.mutateAsync({
+        communityId: community.id,
+        communityAuthor: community.author,
+        postId: topic.id,
+        postAuthor: topic.pubkey,
+        postKind: topic.kind,
+        postEvent: topic,
+        action: 'deny'
+      });
+
     } catch (error) {
       console.error('Failed to deny post:', error);
+      // Remove from log if failed
+      setModerationLog(prev => prev.filter(log => log.targetId !== topic.id));
     }
   };
 
@@ -196,7 +200,7 @@ export function ModeratorPanel() {
       });
 
       setIsEditing(false);
-      
+
       toast({
         title: 'Community updated',
         description: 'Community settings have been saved successfully.',
@@ -228,7 +232,7 @@ export function ModeratorPanel() {
 
     try {
       let pubkey: string;
-      
+
       if (newModeratorNpub.startsWith('npub1')) {
         const decoded = nip19.decode(newModeratorNpub);
         if (decoded.type !== 'npub') {
@@ -277,7 +281,7 @@ export function ModeratorPanel() {
       });
 
       setNewModeratorNpub('');
-      
+
       toast({
         title: 'Moderator added',
         description: 'New moderator has been added successfully.',
@@ -333,7 +337,7 @@ export function ModeratorPanel() {
         content: '',
         tags
       });
-      
+
       toast({
         title: 'Moderator removed',
         description: 'Moderator has been removed successfully.',
@@ -685,7 +689,7 @@ export function ModeratorPanel() {
                         onRemove={() => {}}
                         canRemove={false}
                       />
-                      
+
                       {/* Other Moderators */}
                       {community.moderators
                         .filter(mod => mod !== community.author)
@@ -750,7 +754,7 @@ function PostModerationCard({ topic, onApprove, onDeny, isProcessing }: PostMode
   const profileImage = metadata?.picture;
 
   return (
-    <Card className="border-yellow-500/20 bg-yellow-500/5 backdrop-blur-sm">
+    <Card className={`border-yellow-500/20 backdrop-blur-sm transition-all duration-300 ${isProcessing ? 'bg-yellow-500/10 opacity-75' : 'bg-yellow-500/5'}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3 flex-1">
@@ -764,7 +768,7 @@ function PostModerationCard({ topic, onApprove, onDeny, isProcessing }: PostMode
               <div className="flex items-center space-x-2 mb-1">
                 <span className="font-medium text-yellow-200">{displayName}</span>
                 <Badge variant="outline" className="border-yellow-500/50 text-yellow-400 text-xs">
-                  Pending
+                  {isProcessing ? 'Processing...' : 'Pending'}
                 </Badge>
               </div>
               <div className="text-xs text-yellow-500/80">
@@ -777,20 +781,38 @@ function PostModerationCard({ topic, onApprove, onDeny, isProcessing }: PostMode
               size="sm"
               onClick={onApprove}
               disabled={isProcessing}
-              className="bg-green-600 hover:bg-green-500 text-white"
+              className={`bg-green-600 hover:bg-green-500 text-white transition-all ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              <Check className="h-3 w-3 mr-1" />
-              Approve
+              {isProcessing ? (
+                <>
+                  <div className="animate-spin h-3 w-3 mr-1 border-2 border-white border-t-transparent rounded-full" />
+                  Processing
+                </>
+              ) : (
+                <>
+                  <Check className="h-3 w-3 mr-1" />
+                  Approve
+                </>
+              )}
             </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={onDeny}
               disabled={isProcessing}
-              className="border-red-500/50 text-red-400 hover:bg-red-500/20"
+              className={`border-red-500/50 text-red-400 hover:bg-red-500/20 transition-all ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              <X className="h-3 w-3 mr-1" />
-              Deny
+              {isProcessing ? (
+                <>
+                  <div className="animate-spin h-3 w-3 mr-1 border-2 border-red-400 border-t-transparent rounded-full" />
+                  Processing
+                </>
+              ) : (
+                <>
+                  <X className="h-3 w-3 mr-1" />
+                  Deny
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -799,7 +821,7 @@ function PostModerationCard({ topic, onApprove, onDeny, isProcessing }: PostMode
         {topic.title && (
           <h3 className="font-semibold text-yellow-100 mb-2">{topic.title}</h3>
         )}
-        <div className="whitespace-pre-wrap break-words text-sm text-yellow-100/90 line-clamp-4">
+        <div className={`whitespace-pre-wrap break-words text-sm line-clamp-4 ${isProcessing ? 'text-yellow-100/60' : 'text-yellow-100/90'}`}>
           <NoteContent
             event={{
               id: topic.id,

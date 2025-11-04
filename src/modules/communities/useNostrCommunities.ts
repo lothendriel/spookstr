@@ -109,7 +109,7 @@ export function useNostrCommunities() {
         const communityTag = `34550:${communityAuthor}:${communityId}`;
 
         // Check if current user is a moderator
-        const isModerator = user?.pubkey === communityAuthor || 
+        const isModerator = user?.pubkey === communityAuthor ||
                           (user && getCommunities.data?.find(c => c.id === communityId)?.moderators.includes(user.pubkey));
 
         if (isModerator) {
@@ -127,7 +127,16 @@ export function useNostrCommunities() {
             limit: 200
           }], { signal });
 
+          // Get denial events to determine denial status
+          const denials = await nostr.query([{
+            kinds: [4551],
+            '#a': [communityTag],
+            limit: 200
+          }], { signal });
+
           const approvedEventIds = new Set<string>();
+          const deniedEventIds = new Set<string>();
+
           approvals.forEach(approval => {
             const eTags = approval.tags.filter(tag => tag[0] === 'e');
             eTags.forEach(eTag => {
@@ -135,8 +144,18 @@ export function useNostrCommunities() {
             });
           });
 
+          denials.forEach(denial => {
+            const eTags = denial.tags.filter(tag => tag[0] === 'e');
+            eTags.forEach(eTag => {
+              if (eTag[1]) deniedEventIds.add(eTag[1]);
+            });
+          });
+
           return allPosts.map(event => {
             const titleTag = event.tags.find(tag => tag[0] === 'title');
+            const isApproved = approvedEventIds.has(event.id);
+            const isDenied = deniedEventIds.has(event.id);
+
             return {
               id: event.id,
               pubkey: event.pubkey,
@@ -145,22 +164,31 @@ export function useNostrCommunities() {
               tags: event.tags,
               kind: event.kind,
               title: titleTag?.[1],
-              approved: approvedEventIds.has(event.id),
-              approvalCount: Array.from(approvals).filter(a => 
+              approved: isApproved && !isDenied, // Only approved if not denied
+              approvalCount: Array.from(approvals).filter(a =>
                 a.tags.some(t => t[0] === 'e' && t[1] === event.id)
               ).length
             } as CommunityTopic;
           }).sort((a, b) => b.created_at - a.created_at);
 
         } else {
-          // Regular users see only approved posts
+          // Regular users see only approved posts (not denied)
           const approvals = await nostr.query([{
             kinds: [4550],
             '#a': [communityTag],
             limit: 200
           }], { signal });
 
+          // Also get denial events to exclude denied posts
+          const denials = await nostr.query([{
+            kinds: [4551],
+            '#a': [communityTag],
+            limit: 200
+          }], { signal });
+
           const approvedEventIds = new Set<string>();
+          const deniedEventIds = new Set<string>();
+
           approvals.forEach(approval => {
             const eTags = approval.tags.filter(tag => tag[0] === 'e');
             eTags.forEach(eTag => {
@@ -168,11 +196,21 @@ export function useNostrCommunities() {
             });
           });
 
-          if (approvedEventIds.size === 0) return [];
+          denials.forEach(denial => {
+            const eTags = denial.tags.filter(tag => tag[0] === 'e');
+            eTags.forEach(eTag => {
+              if (eTag[1]) deniedEventIds.add(eTag[1]);
+            });
+          });
+
+          // Filter out denied posts from approved list
+          const finalApprovedEventIds = Array.from(approvedEventIds).filter(id => !deniedEventIds.has(id));
+
+          if (finalApprovedEventIds.length === 0) return [];
 
           const approvedPosts = await nostr.query([{
             kinds: [1111],
-            ids: Array.from(approvedEventIds),
+            ids: finalApprovedEventIds,
             limit: 200
           }], { signal });
 
@@ -187,7 +225,7 @@ export function useNostrCommunities() {
               kind: event.kind,
               title: titleTag?.[1],
               approved: true,
-              approvalCount: Array.from(approvals).filter(a => 
+              approvalCount: Array.from(approvals).filter(a =>
                 a.tags.some(t => t[0] === 'e' && t[1] === event.id)
               ).length
             } as CommunityTopic;
@@ -281,11 +319,11 @@ export function useNostrCommunities() {
 
   // Publish a new topic/post
   const publishPost = useMutation({
-    mutationFn: async ({ 
-      communityId, 
-      communityAuthor, 
-      content, 
-      title 
+    mutationFn: async ({
+      communityId,
+      communityAuthor,
+      content,
+      title
     }: {
       communityId: string;
       communityAuthor: string;
@@ -295,7 +333,7 @@ export function useNostrCommunities() {
       if (!user) throw new Error('User not authenticated');
 
       const communityTag = `34550:${communityAuthor}:${communityId}`;
-      
+
       const tags = [
         ['A', communityTag],
         ['a', communityTag],
@@ -337,13 +375,13 @@ export function useNostrCommunities() {
 
   // Publish a comment/reply
   const publishComment = useMutation({
-    mutationFn: async ({ 
-      topicId, 
-      topicAuthor, 
-      communityId, 
-      communityAuthor, 
-      content, 
-      parentEventId 
+    mutationFn: async ({
+      topicId,
+      topicAuthor,
+      communityId,
+      communityAuthor,
+      content,
+      parentEventId
     }: {
       topicId: string;
       topicAuthor: string;
@@ -355,7 +393,7 @@ export function useNostrCommunities() {
       if (!user) throw new Error('User not authenticated');
 
       const communityTag = `34550:${communityAuthor}:${communityId}`;
-      
+
       const tags = [
         ['A', communityTag],
         ['P', communityAuthor],
@@ -397,14 +435,14 @@ export function useNostrCommunities() {
 
   // Moderate post (approve/deny)
   const moderatePost = useMutation({
-    mutationFn: async ({ 
-      communityId, 
-      communityAuthor, 
-      postId, 
-      postAuthor, 
-      postKind, 
-      postEvent, 
-      action 
+    mutationFn: async ({
+      communityId,
+      communityAuthor,
+      postId,
+      postAuthor,
+      postKind,
+      postEvent,
+      action
     }: {
       communityId: string;
       communityAuthor: string;
@@ -417,7 +455,7 @@ export function useNostrCommunities() {
       if (!user) throw new Error('User not authenticated');
 
       const communityTag = `34550:${communityAuthor}:${communityId}`;
-      
+
       if (action === 'approve') {
         const event = await user.signer.signEvent({
           kind: 4550,
@@ -434,12 +472,20 @@ export function useNostrCommunities() {
         await nostr.event(event);
         return event;
       } else {
-        // For denial, we can use NIP-09 deletion request
+        // For denial, use kind 4551 to be consistent with the moderation logic
         const event = await user.signer.signEvent({
-          kind: 5,
-          content: '',
+          kind: 4551,
+          content: JSON.stringify({
+            deniedEventId: postId,
+            deniedEventPubkey: postAuthor,
+            reason: 'Denied by moderator',
+            timestamp: Math.floor(Date.now() / 1000)
+          }),
           tags: [
+            ['a', communityTag],
             ['e', postId],
+            ['p', postAuthor],
+            ['k', postKind.toString()],
           ],
           created_at: Math.floor(Date.now() / 1000)
         });
@@ -448,19 +494,55 @@ export function useNostrCommunities() {
         return event;
       }
     },
-    onSuccess: () => {
-      toast({
-        title: 'Moderation action completed',
-        description: 'The post has been moderated successfully.',
-      });
-      queryClient.invalidateQueries({ queryKey: ['community-topics'] });
+    onMutate: async (variables) => {
+      // Optimistic update - remove the post from pending list immediately
+      const queryKey = ['community-topics', variables.communityId, variables.communityAuthor];
+      await queryClient.cancelQueries({ queryKey });
+
+      const previousData = queryClient.getQueryData(queryKey);
+
+      if (previousData) {
+        queryClient.setQueryData(queryKey, (old: any[]) => {
+          if (!old) return old;
+          return old.filter(topic => topic.id !== variables.postId);
+        });
+      }
+
+      return { previousData, queryKey };
     },
-    onError: (error) => {
+    onSuccess: (data, variables, context) => {
+      toast({
+        title: `Post ${variables.action === 'approve' ? 'Approved' : 'Denied'}`,
+        description: `The post has been ${variables.action === 'approve' ? 'approved and is now visible' : 'denied and hidden'} from the community.`,
+      });
+
+      // Invalidate the specific query to ensure fresh data
+      if (context?.queryKey) {
+        queryClient.invalidateQueries({ queryKey: context.queryKey });
+      }
+
+      // Also invalidate any related queries
+      queryClient.invalidateQueries({ queryKey: ['pending-posts'] });
+      queryClient.invalidateQueries({ queryKey: ['approved-posts'] });
+      queryClient.invalidateQueries({ queryKey: ['moderation-actions'] });
+    },
+    onError: (error, variables, context) => {
+      // Rollback optimistic update on error
+      if (context?.previousData && context?.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousData);
+      }
+
       toast({
         title: 'Moderation failed',
         description: error.message,
         variant: 'destructive',
       });
+    },
+    onSettled: (data, error, variables, context) => {
+      // Always refetch after settlement to ensure consistency
+      if (context?.queryKey) {
+        queryClient.invalidateQueries({ queryKey: context.queryKey });
+      }
     }
   });
 
