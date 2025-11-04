@@ -9,7 +9,6 @@ interface ChatMessage {
   pubkey: string;
   content: string;
   created_at: number;
-  mediaTags?: string[][];
   author?: {
     name?: string;
     picture?: string;
@@ -102,10 +101,6 @@ export function useSimpleChat(): SimpleChatHook {
           pubkey: event.pubkey,
           content: event.content,
           created_at: event.created_at,
-          mediaTags: event.tags.filter(tag =>
-            tag.length >= 2 &&
-            (tag[0] === 'url' || tag[0] === 'imeta')
-          ),
         }));
 
         // Remove duplicates and sort in chronological order (oldest first, newest last)
@@ -181,9 +176,9 @@ export function useSimpleChat(): SimpleChatHook {
   }, [user]);
 
   // Send simple message
-  const sendMessage = useCallback(async (content: string, mediaTags: string[][] = []) => {
+  const sendMessage = useCallback(async (content: string) => {
     if (!user) throw new Error('User not authenticated');
-    if (!content.trim() && mediaTags.length === 0) throw new Error('Message content or media cannot be empty');
+    if (!content.trim()) throw new Error('Message content cannot be empty');
 
     // Check rate limiting
     if (!canSendMessage()) {
@@ -193,7 +188,7 @@ export function useSimpleChat(): SimpleChatHook {
 
     try {
       if (import.meta.env.DEV) {
-        console.log('📝 [Simple Chat] Sending message:', content, 'with media tags:', mediaTags.length);
+        console.log('📝 [Simple Chat] Sending message:', content);
       }
 
       // Create simple chat message (kind 42)
@@ -202,7 +197,6 @@ export function useSimpleChat(): SimpleChatHook {
         content: content.trim(),
         tags: [
           ['t', SITE_CHAT_D_TAG], // Site chat identifier
-          ...mediaTags, // Add media tags
         ],
         created_at: Math.floor(Date.now() / 1000),
       };

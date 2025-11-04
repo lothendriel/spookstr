@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,10 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSimpleChat } from '@/hooks/useSimpleChat';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useUploadFile } from '@/hooks/useUploadFile';
-import { MentionTextarea } from '@/components/ui/mention-textarea';
-import { MediaDisplay } from '@/components/MediaDisplay';
-import { Send, Ghost, MessageSquare, Shield, AlertTriangle, Clock, Paperclip, X } from 'lucide-react';
+import { Send, Ghost, MessageSquare, Shield, AlertTriangle, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -27,7 +25,6 @@ interface ChatMessageComponentProps {
     pubkey: string;
     content: string;
     created_at: number;
-    mediaTags?: string[][];
     author?: {
       name?: string;
       picture?: string;
@@ -90,34 +87,10 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
             ? 'bg-purple-600 text-white'
             : 'bg-gray-800 text-gray-100'
         )}>
-          <CardContent className="p-0 space-y-2">
-            {message.content && (
-              <p className="text-sm whitespace-pre-wrap break-words">
-                {message.content}
-              </p>
-            )}
-
-            {/* Media attachments */}
-            {message.mediaTags && message.mediaTags.length > 0 && (
-              <div className="space-y-2">
-                {message.mediaTags.map((mediaTag, index) => {
-                  const mediaUrl = mediaTag[1];
-                  const mediaType = mediaTag.find(tag => tag.startsWith('m:'))?.substring(2) || 'image';
-                  const mediaSize = mediaTag.find(tag => tag.startsWith('size:'))?.substring(5);
-
-                  return (
-                    <div key={index} className="rounded-md overflow-hidden max-w-sm">
-                      <MediaDisplay
-                        url={mediaUrl}
-                        type={mediaType}
-                        className="w-full"
-                        controls={mediaType.startsWith('video') || mediaType.startsWith('audio')}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          <CardContent className="p-0">
+            <p className="text-sm whitespace-pre-wrap break-words">
+              {message.content}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -154,13 +127,8 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [timeUntilNextMessage, setTimeUntilNextMessage] = useState(0);
-  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
-  const [mediaTags, setMediaTags] = useState<string[][]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const { mutateAsync: uploadFile, isPending: isUploading } = useUploadFile();
 
   // Check if current user is NIP-05 verified
   const isNip05Verified = currentUserAuthor.data?.metadata?.nip05;
@@ -184,40 +152,13 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
     return () => clearInterval(interval);
   }, [getTimeUntilNextMessage]);
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    if (files.length > 0) {
-      setMediaFiles(prev => [...prev, ...files]);
-    }
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const removeMediaFile = (index: number) => {
-    setMediaFiles(prev => prev.filter((_, i) => i !== index));
-    setMediaTags(prev => prev.filter((_, i) => i !== index));
-  };
-
   const handleSendMessage = async () => {
-    if ((!message.trim() && mediaFiles.length === 0) || isSending || !user) return;
+    if (!message.trim() || isSending || !user) return;
 
     try {
       setIsSending(true);
-
-      // Upload media files if any
-      let finalMediaTags = [...mediaTags];
-      if (mediaFiles.length > 0) {
-        const uploadPromises = mediaFiles.map(file => uploadFile(file));
-        const uploadedTags = await Promise.all(uploadPromises);
-        finalMediaTags = [...finalMediaTags, ...uploadedTags];
-      }
-
-      await sendMessage(message.trim(), finalMediaTags);
+      await sendMessage(message.trim());
       setMessage('');
-      setMediaFiles([]);
-      setMediaTags([]);
     } catch (error) {
       // Rate limiting errors are handled by the disabled state and countdown
       console.error('Failed to send message:', error);
@@ -339,87 +280,25 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
               </div>
             ) : (
               <>
-                {/* Media file previews */}
-                {mediaFiles.length > 0 && (
-                  <div className="mb-3 space-y-2">
-                    {mediaFiles.map((file, index) => (
-                      <div key={index} className="flex items-center gap-2 p-2 bg-gray-800 rounded-md">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-300 truncate">
-                            {file.name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {(file.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeMediaFile(index)}
-                          disabled={isUploading}
-                          className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Message input with emoji support */}
-                <div className="space-y-3">
-                  <MentionTextarea
+                <div className="flex gap-2">
+                  <Input
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    onKeyDown={handleKeyPress}
+                    onKeyPress={handleKeyPress}
                     placeholder="Type your message..."
-                    disabled={isSending || !canSendMessage() || isUploading}
-                    className="bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-purple-500 min-h-[80px]"
-                    showEmojiPicker={true}
+                    disabled={isSending || !canSendMessage()}
+                    className="flex-1 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:border-purple-500"
                   />
-
-                  {/* Action buttons */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {/* Media upload button */}
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*,video/*,audio/*"
-                        multiple
-                        onChange={handleFileSelect}
-                        className="hidden"
-                        disabled={isUploading}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isSending || !canSendMessage() || isUploading}
-                        className="text-gray-400 hover:text-gray-300 hover:bg-gray-700"
-                      >
-                        <Paperclip className="h-4 w-4" />
-                        <span className="sr-only">Attach media</span>
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {/* Send button */}
-                      <Button
-                        onClick={handleSendMessage}
-                        disabled={(!message.trim() && mediaFiles.length === 0) || isSending || !canSendMessage() || isUploading}
-                        className="bg-purple-600 hover:bg-purple-700 text-white disabled:bg-gray-600"
-                      >
-                        <Send className="h-4 w-4" />
-                        {isUploading ? 'Uploading...' : 'Send'}
-                      </Button>
-                    </div>
-                  </div>
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={!message.trim() || isSending || !canSendMessage()}
+                    className="bg-purple-600 hover:bg-purple-700 text-white disabled:bg-gray-600"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
                 </div>
 
-                {/* Status indicators */}
+                {/* Rate limiting status */}
                 <div className="flex items-center justify-between mt-2 text-xs">
                   <div className="flex items-center gap-2 text-gray-500">
                     <MessageSquare className="h-3 w-3" />
