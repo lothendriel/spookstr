@@ -140,10 +140,10 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
                     };
 
                     return (
-                      <div key={index} className="rounded-md overflow-hidden max-w-sm">
+                      <div key={index} className="rounded-md overflow-hidden max-w-sm max-h-64">
                         <MediaDisplay
                           media={mediaItem}
-                          className="w-full"
+                          className="w-full h-full object-contain"
                         />
                       </div>
                     );
