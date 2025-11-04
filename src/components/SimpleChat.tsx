@@ -50,8 +50,8 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
 
   return (
     <div className={cn(
-      'flex gap-3 mb-4',
-      isOwnMessage && 'flex-row-reverse'
+      'flex gap-3 mb-4 w-full',
+      isOwnMessage ? 'flex-row-reverse justify-start' : 'justify-start'
     )}>
       <Avatar className={cn(
         'h-8 w-8 flex-shrink-0',
@@ -67,26 +67,26 @@ function ChatMessageComponent({ message, isOwnMessage }: ChatMessageComponentPro
       </Avatar>
 
       <div className={cn(
-        'flex flex-col max-w-[70%]',
-        isOwnMessage ? 'items-end' : 'items-start'
+        'flex flex-col',
+        isOwnMessage ? 'items-end max-w-[70%] ml-auto' : 'items-start max-w-[70%]'
       )}>
         <div className={cn(
-          'flex items-center gap-2 mb-1',
+          'flex items-center gap-2 mb-1 w-full',
           isOwnMessage ? 'flex-row-reverse' : ''
         )}>
           <span className={cn(
-            'text-xs font-medium',
+            'text-xs font-medium whitespace-nowrap',
             isOwnMessage ? 'text-purple-400' : 'text-gray-400'
           )}>
             {displayName}
           </span>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-gray-500 whitespace-nowrap">
             {timeAgo}
           </span>
         </div>
 
         <Card className={cn(
-          'px-3 py-2 max-w-[70%] w-full',
+          'px-3 py-2 w-full',
           isOwnMessage
             ? 'bg-purple-600 text-white'
             : 'bg-gray-800 text-gray-100'
@@ -282,7 +282,7 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="max-w-2xl h-[80vh] max-h-[600px] p-0 flex flex-col bg-gray-900 border-purple-500/20"
+        className="max-w-2xl h-[80vh] max-h-[600px] p-0 flex flex-col bg-gray-900 border-purple-500/20 overflow-hidden"
         aria-describedby="chat-description"
       >
         <DialogHeader className="p-4 pb-0">
@@ -317,9 +317,9 @@ export function SimpleChat({ isOpen, onClose }: SimpleChatProps) {
         </div>
 
         {/* Messages Area */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <ScrollArea
-            className="flex-1 px-4 py-2"
+            className="flex-1 px-4 py-2 overflow-hidden"
             ref={scrollAreaRef}
             onScroll={handleScroll}
           >
