@@ -103,17 +103,6 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     }
   }, [inView, quotedEventIds, prefetchAll]);
 
-  // DEBUG: Add logging to track useAuthor calls
-  if (import.meta.env.DEV) {
-    console.log('[ParanormalPost] useAuthor calls:', {
-      inView,
-      eventPubkey: event.pubkey?.slice(0, 8),
-      repostedEventPubkey: repostedEvent?.pubkey?.slice(0, 8),
-      authorEnabled: inView && !!event.pubkey,
-      repostedAuthorEnabled: inView && !!repostedEvent?.pubkey
-    });
-  }
-
   const author = useAuthor(inView ? event.pubkey : undefined);
   const repostedAuthor = useAuthor(inView && repostedEvent ? repostedEvent.pubkey : undefined);
   const { user } = useCurrentUser();

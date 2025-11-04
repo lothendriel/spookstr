@@ -4,7 +4,6 @@ import { useCurrentUser } from './useCurrentUser';
 import { useAppContext } from './useAppContext';
 import { useUserRelays } from './useUserRelays';
 import { useNotificationDiscovery } from './useContextualRelayDiscovery';
-import { useMultiRelayQuery } from './useMultiRelayQuery';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 import { useEffect } from 'react';
@@ -162,38 +161,14 @@ export function useNotifications() {
         filter.until = pageParam;
       }
 
-      // Use multi-relay querying for interactions
+      // Query for interactions
       let interactions;
       try {
-        // Query multiple relays in parallel for interactions
-        const relayUrls = [
-          'wss://spookstr2.nostr1.com',
-          'wss://relay.nostr.band',
-          'wss://relay.damus.io',
-          'wss://relay.primal.net'
-        ];
-
-        // Skip multi-relay for now due to dynamic import issues
-        // Fall back to existing relay group which works reliably
-        console.log(`[Notifications] 📡 Using relay group (multi-relay disabled due to import issues)`);
-
-        // Skip multi-relay implementation for now due to dynamic import issues
-        // Use existing relay group which works reliably
-        console.log(`[Notifications] 📡 Multi-relay skipped, using relay group only`);
-
-        // Skip multi-relay implementation for now due to dynamic import issues
-        // Use existing relay group which works reliably
-        console.log(`[Notifications] 📡 Multi-relay skipped, using relay group only`);
+        interactions = await relayGroup.query([filter], { signal });
+        console.log(`[Notifications] Found ${interactions.length} raw interactions from relays`);
       } catch (error) {
-        console.error('[Notifications] Error fetching interactions with multi-relay:', error);
-        // Fallback to single relay group if multi-relay fails
-        try {
-          interactions = await relayGroup.query([filter], { signal });
-          console.log(`[Notifications] Fallback: Found ${interactions.length} interactions from relay group`);
-        } catch (fallbackError) {
-          console.error('[Notifications] Fallback also failed:', fallbackError);
-          return { notifications: [], hasMore: false, oldestTimestamp: undefined };
-        }
+        console.error('[Notifications] Error fetching interactions:', error);
+        return { notifications: [], hasMore: false, oldestTimestamp: undefined };
       }
 
       // Filter out the user's own interactions

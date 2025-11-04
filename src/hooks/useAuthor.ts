@@ -1,8 +1,9 @@
 import { type NostrEvent, type NostrMetadata, NSchema as n } from '@nostrify/nostrify';
+import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
-import { useMultiRelayQuery } from './useMultiRelayQuery';
 
 export function useAuthor(pubkey: string | undefined) {
+  const { nostr } = useNostr();
 
   // Check localStorage for cached data
   let initialData;
@@ -18,80 +19,41 @@ export function useAuthor(pubkey: string | undefined) {
     }
   }
 
-  // Get raw profile events from multiple relays
-  const { data: rawProfileEvent, isLoading: isRawLoading, error: rawError } = useMultiRelayQuery({
-    filters: [{
-      kinds: [0],
-      authors: [pubkey!],
-      limit: 1,
-    }],
-    // Use high-performance relays for profile fetching
-    relayUrls: [
-      'wss://spookstr2.nostr1.com',
-      'wss://relay.nostr.band',
-      'wss://relay.damus.io',
-      'wss://relay.primal.net',
-      'wss://relay.mostr.pub'
-    ],
-    enabled: !!pubkey,
-    staleTime: 900000, // 15 minutes - profiles change very infrequently
-    gcTime: 1800000, // 30 minutes - keep profile data cached much longer
-    retry: 2,
-  });
-
-  // Debug logging for multi-relay profile fetching
-  if (import.meta.env.DEV) {
-    console.log('[Author Hook Debug] State:', {
-      pubkey: pubkey?.slice(0, 8),
-      enabled: !!pubkey,
-      isLoading: isRawLoading,
-      hasRawData: !!rawProfileEvent,
-      rawDataLength: rawProfileEvent?.length || 0,
-      error: rawError
-    });
-  }
-
-  // Debug logging for multi-relay profile fetching
-  if (import.meta.env.DEV) {
-    console.log('[Author Debug] State:', {
-      pubkey: pubkey?.slice(0, 8),
-      isLoading: isRawLoading,
-      hasRawData: !!rawProfileEvent,
-      rawDataLength: rawProfileEvent?.length || 0,
-      error: rawError
-    });
-  }
-
-  // Process and validate profile data
   return useQuery<{ event?: NostrEvent; metadata?: NostrMetadata }>({
-    queryKey: ['author', 'processed', pubkey ?? ''],
-    queryFn: () => {
-      if (!pubkey || !rawProfileEvent || rawProfileEvent.length === 0) {
-        console.log('[Author] No profile event found for pubkey:', pubkey?.slice(0, 8));
+    queryKey: ['author', pubkey ?? ''],
+    queryFn: async ({ signal }) => {
+      if (!pubkey) {
         return {};
       }
 
-      const event = rawProfileEvent[0];
-      console.log('[Author] Processing profile event for pubkey:', pubkey.slice(0, 8), 'from relay');
+      const [event] = await nostr.query(
+        [{ kinds: [0], authors: [pubkey!], limit: 1 }],
+        {
+          signal: AbortSignal.any([signal, AbortSignal.timeout(3000)]),
+        },
+      );
+
+      if (!event) {
+        return {};
+      }
 
       try {
         const metadata = n.json().pipe(n.metadata()).parse(event.content);
         const result = { metadata, event };
-
         // Cache data in localStorage
-        const cacheKey = `author-${pubkey}`;
-        localStorage.setItem(cacheKey, JSON.stringify(result));
-
-        console.log('[Author] Successfully parsed and cached profile for:', pubkey.slice(0, 8));
+        if (pubkey) {
+          const cacheKey = `author-${pubkey}`;
+          localStorage.setItem(cacheKey, JSON.stringify(result));
+        }
         return result;
-      } catch (error) {
-        console.warn('[Author] Failed to parse profile metadata for', pubkey.slice(0, 8), ':', error);
+      } catch {
         // Return event without metadata if parsing fails
         return { event };
       }
     },
     initialData,
-    enabled: !!pubkey && !!rawProfileEvent && rawProfileEvent.length > 0,
+    enabled: !!pubkey,
+    retry: 1,
     staleTime: 900000, // 15 minutes - profiles change very infrequently
     gcTime: 1800000, // 30 minutes - keep profile data cached much longer
     // Enhanced caching: Very infrequent background refresh for profiles

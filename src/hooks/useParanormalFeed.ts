@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
 import { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
@@ -8,7 +9,6 @@ import {
   getContentType,
   filterForMainFeed
 } from '@/lib/contentType';
-import { useMultiRelayQuery } from './useMultiRelayQuery';
 
 // Move large constant arrays to functions to prevent permanent memory retention
 const getParanormalTags = () => [
@@ -159,6 +159,8 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
 
 
 export function useParanormalFeed() {
+  const { nostr } = useNostr();
+
   // Cache filter function creation to avoid recreating on every render
   const filterFunctions = useMemo(() => {
     const BLOCKED_PUBKEYS = getBlockedPubkeys();
@@ -202,67 +204,45 @@ export function useParanormalFeed() {
     return { filterBlockedUsersCached, filterRepostsByTagsCached };
   }, []);
 
-  // Get the raw events from multiple relays
-  const { data: rawEvents, isLoading: isRawLoading, error: rawError } = useMultiRelayQuery({
-    filters: [
-      {
-        kinds: [1],
-        '#t': getParanormalTags(),
-        limit: 50,
-      },
-      {
-        kinds: [6], // Include reposts
-        limit: 20,
-      }
-    ],
-    // Use specific high-performance relays for better coverage
-    relayUrls: [
-      'wss://spookstr2.nostr1.com',
-      'wss://relay.nostr.band',
-      'wss://relay.damus.io',
-      'wss://relay.primal.net',
-      'wss://relay.mostr.pub'
-    ],
-    enabled: true,
-    staleTime: 120000, // 2 minutes
-    gcTime: 180000, // 3 minutes
-    retry: 2,
-  });
-
-  // Process and filter the events
   return useQuery({
-    queryKey: ['paranormal-feed', 'processed'],
-    queryFn: () => {
-      if (!rawEvents) {
-        console.log('[Paranormal Feed] No raw events to process');
-        return [];
-      }
+    queryKey: ['paranormal-feed'],
+    queryFn: async (c) => {
+      return await (async () => {
+        const PARANORMAL_TAGS = getParanormalTags();
 
-      console.log('[Paranormal Feed] Processing', rawEvents.length, 'raw events');
+        const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
-      // Filter out replies and community content to prevent cross-contamination
-      let filteredEvents = filterForMainFeed(rawEvents);
-      console.log('[Paranormal Feed] After main feed filter:', filteredEvents.length, 'events');
+        // Query for notes with paranormal tags AND reposts of paranormal content
+        const events = await nostr.query([
+          {
+            kinds: [1],
+            '#t': PARANORMAL_TAGS,
+            limit: 50,
+          },
+          {
+            kinds: [6], // Include reposts
+            limit: 20,
+          }
+        ], { signal });
 
-      // Filter out NSFW content
-      filteredEvents = filterNSFWContent(filteredEvents);
-      console.log('[Paranormal Feed] After NSFW filter:', filteredEvents.length, 'events');
+        // Filter out replies and community content to prevent cross-contamination
+        let filteredEvents = filterForMainFeed(events);
 
-      // Filter out blocked users
-      filteredEvents = filterFunctions.filterBlockedUsersCached(filteredEvents);
-      console.log('[Paranormal Feed] After blocked users filter:', filteredEvents.length, 'events');
+        // Filter out NSFW content
+        filteredEvents = filterNSFWContent(filteredEvents);
 
-      // Filter reposts to only include those with paranormal tags
-      filteredEvents = filterFunctions.filterRepostsByTagsCached(filteredEvents);
-      console.log('[Paranormal Feed] After reposts filter:', filteredEvents.length, 'events');
+        // Filter out blocked users
+        filteredEvents = filterFunctions.filterBlockedUsersCached(filteredEvents);
 
-      // Sort by created_at (newest first)
-      filteredEvents.sort((a, b) => b.created_at - a.created_at);
+        // Filter reposts to only include those with paranormal tags
+        filteredEvents = filterFunctions.filterRepostsByTagsCached(filteredEvents);
 
-      console.log('[Paranormal Feed] Final filtered events:', filteredEvents.length);
-      return filteredEvents;
+        // Sort by created_at (newest first)
+        filteredEvents.sort((a, b) => b.created_at - a.created_at);
+
+        return filteredEvents;
+      })();
     },
-    enabled: !!rawEvents,
     refetchOnWindowFocus: false,
     staleTime: 120000, // 2 minutes - increased to reduce refetches
     gcTime: 180000, // 3 minutes - aggressively clean up unused data
@@ -286,6 +266,8 @@ export function useParanormalFeed() {
 }
 
 export function useParanormalReplies(noteId: string) {
+  const { nostr } = useNostr();
+
   // Cache filter function for replies to avoid recreating on every render
   const filterBlockedUsersForReplies = useMemo(() => {
     const BLOCKED_PUBKEYS = getBlockedPubkeys();
@@ -296,48 +278,27 @@ export function useParanormalReplies(noteId: string) {
     };
   }, []);
 
-  // Get raw replies from multiple relays
-  const { data: rawReplies, isLoading: isRawRepliesLoading } = useMultiRelayQuery({
-    filters: [{
-      kinds: [1],
-      '#e': [noteId],
-      limit: 100,
-    }],
-    // Use same high-performance relays for replies
-    relayUrls: [
-      'wss://spookstr2.nostr1.com',
-      'wss://relay.nostr.band',
-      'wss://relay.damus.io',
-      'wss://relay.primal.net'
-    ],
-    enabled: !!noteId,
-    staleTime: 180000, // 3 minutes
-    gcTime: 180000, // 3 minutes
-    retry: 2,
-  });
-
-  // Process and filter the replies
   return useQuery({
-    queryKey: ['paranormal-replies', 'processed', noteId],
-    queryFn: () => {
-      if (!rawReplies) {
-        console.log('[Paranormal Replies] No raw replies to process for note:', noteId?.slice(0, 8));
-        return [];
-      }
+    queryKey: ['paranormal-replies', noteId],
+    queryFn: async (c) => {
+      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
 
-      console.log('[Paranormal Replies] Processing', rawReplies.length, 'raw replies for note:', noteId?.slice(0, 8));
+      const events = await nostr.query([{
+        kinds: [1],
+        '#e': [noteId],
+        limit: 100,
+      }], { signal });
 
       // Filter out NSFW content from replies as well
-      let filteredEvents = filterNSFWContent(rawReplies);
-      console.log('[Paranormal Replies] After NSFW filter:', filteredEvents.length, 'replies');
+      let filteredEvents = filterNSFWContent(events);
 
       // Filter out blocked users from replies
       filteredEvents = filterBlockedUsersForReplies(filteredEvents);
-      console.log('[Paranormal Replies] After blocked users filter:', filteredEvents.length, 'replies');
 
       return filteredEvents;
     },
-    enabled: !!rawReplies && !!noteId,
+    enabled: !!noteId,
+    refetchOnWindowFocus: false,
     staleTime: 180000, // 3 minutes - replies don't change as frequently as main feed
     gcTime: 180000, // 3 minutes - aggressively clean up reply data
     // Enhanced caching: Background refetch for active conversations
