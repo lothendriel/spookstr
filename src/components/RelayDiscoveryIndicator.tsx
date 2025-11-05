@@ -112,7 +112,7 @@ export function RelayDiscoveryIndicator({
             )}
           </div>
         </TooltipTrigger>
-        <TooltipContent side="top" align="center" className="z-50 bg-black border border-gray-700 text-white">
+        <TooltipContent side="top" align="center" className="z-50">
           <div className="text-xs font-medium">
             {hintsUsed ? `Enhanced discovery: ${eventsFound} events` : 'Standard discovery'}
           </div>
@@ -137,13 +137,13 @@ export function RelayDiscoveryIndicator({
             <span className="ml-1">{getStatusText()}</span>
           </Badge>
         </TooltipTrigger>
-        <TooltipContent side="top" align="center" className="z-50 max-w-xs bg-black border border-gray-700 text-white">
+        <TooltipContent side="top" align="center" className="z-50 max-w-xs">
           <div className="space-y-1">
             <div className="font-semibold flex items-center gap-1 text-sm">
               {getContextIcon(context)}
               {getContextLabel(context)} Discovery
             </div>
-            <div className="text-xs text-gray-300">
+            <div className="text-xs text-muted-foreground">
               {hintsUsed ? (
                 <>Enhanced relay discovery found {eventsFound} events using relay hints</>
               ) : (
