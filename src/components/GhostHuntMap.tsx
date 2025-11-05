@@ -37,6 +37,7 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
   const [selectedLocation, setSelectedLocation] = useState<ParanormalLocation | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([39.8283, -98.5795]); // Center of USA
   const [mapZoom, setMapZoom] = useState(4);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
 
@@ -197,10 +198,19 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
     }
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
-    <div className={cn('w-full h-full', className)}>
-      {/* Map Controls */}
-      <div className="absolute top-4 left-4 z-[1000] space-y-2">
+    <div className={cn('w-full h-full relative', className)}>
+      {/* Map Controls - positioned below header */}
+      <div className="absolute top-20 left-4 z-[1000] space-y-2">
         <Card className="w-64">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -235,21 +245,21 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
             </Button>
 
             <Button
-              onClick={() => refetch()}
+              onClick={handleRefresh}
               variant="outline"
               size="sm"
               className="w-full"
-              disabled={isLoading}
+              disabled={isRefreshing}
             >
-              <RotateCcw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />
+              <RotateCcw className={cn('h-4 w-4 mr-2', isRefreshing && 'animate-spin')} />
               Refresh
             </Button>
           </CardContent>
         </Card>
       </div>
 
-      {/* Location Stats */}
-      <div className="absolute top-4 right-4 z-[1000]">
+      {/* Location Stats - positioned below header */}
+      <div className="absolute top-20 right-4 z-[1000]">
         <Card className="w-48">
           <CardContent className="pt-4">
             <div className="text-center space-y-1">
