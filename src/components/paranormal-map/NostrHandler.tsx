@@ -33,20 +33,22 @@ export function useNostrHandler() {
     };
 
     try {
+      console.log('🗺️ Publishing paranormal location event:', event);
       const result = await publishEvent(event);
+      console.log('🗺️ Publish result:', result);
       return { success: true, eventId: result?.id, data: locationData };
     } catch (error) {
-      console.error('Failed to publish paranormal location:', error);
+      console.error('🗺️ Failed to publish paranormal location:', error);
       throw error;
     }
   };
 
   const fetchSubmissions = useCallback(async (): Promise<ParanormalLocation[]> => {
     try {
-      console.log('Fetching paranormal locations...');
-      
-      // Try to get events with a shorter timeout
-      const signal = AbortSignal.timeout(3000);
+      console.log('🗺️ Fetching paranormal locations...');
+
+      // Remove since parameter to get ALL events, not just recent ones
+      const signal = AbortSignal.timeout(8000);
       const events = await nostr.query(
         [{ kinds: [PARANORMAL_LOCATION_KIND], limit: 100 }],
         { signal }

@@ -1,19 +1,23 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import LocationSubmitForm from '@/components/paranormal-map/LocationSubmitForm';
 import ParanormalMap from '@/components/paranormal-map/ParanormalMap';
 import LocationList from '@/components/paranormal-map/LocationList';
 import LocationDetails from '@/components/paranormal-map/LocationDetails';
 import { useNostrHandler } from '@/components/paranormal-map/NostrHandler';
+import { RefreshCw } from 'lucide-react';
 import { ParanormalLocation } from '@/types/paranormal';
 
 export default function ParanormalMapPage() {
+  console.log('🗺️ ParanormalMapPage component mounting...');
   const [selectedLocation, setSelectedLocation] = useState<ParanormalLocation | null>(null);
   const [locations, setLocations] = useState<ParanormalLocation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { fetchSubmissions } = useNostrHandler();
+  console.log('🗺️ fetchSubmissions function:', typeof fetchSubmissions);
 
   const handleLocationSelect = (location: ParanormalLocation) => {
     setSelectedLocation(location);
@@ -27,30 +31,42 @@ export default function ParanormalMapPage() {
     setLocations(prev => [location, ...prev]);
   };
 
+  const handleRefreshLocations = async () => {
+    try {
+      console.log('🗺️ Manual refresh triggered...');
+      const refreshedLocations = await fetchSubmissions();
+      console.log('🗺️ Refreshed locations:', refreshedLocations.length);
+      setLocations(refreshedLocations);
+    } catch (error) {
+      console.error('🗺️ Failed to refresh locations:', error);
+    }
+  };
+
   // Fetch existing locations on component mount
   useEffect(() => {
+    console.log('🗺️ useEffect running for ParanormalMapPage...');
     let timeoutId: NodeJS.Timeout;
 
     const loadLocations = async () => {
       try {
-        console.log('Starting to load locations...');
+        console.log('🗺️ Starting to load locations...');
         setIsLoading(true);
 
         // Force loading to complete after 10 seconds regardless of network issues
         timeoutId = setTimeout(() => {
-          console.log('Loading timeout - showing empty state');
+          console.log('🗺️ Loading timeout - showing empty state');
           setIsLoading(false);
         }, 10000);
 
         const existingLocations = await fetchSubmissions();
-        console.log('Loaded locations:', existingLocations.length);
+        console.log('🗺️ Loaded locations:', existingLocations.length);
 
         // Clear the timeout since we got a response
         clearTimeout(timeoutId);
 
         setLocations(existingLocations);
       } catch (error) {
-        console.error('Failed to load paranormal locations:', error);
+        console.error('🗺️ Failed to load paranormal locations:', error);
         setLocations([]); // Ensure we have empty array on error
       } finally {
         clearTimeout(timeoutId);
@@ -87,7 +103,18 @@ export default function ParanormalMapPage() {
       <div className="max-w-7xl mx-auto p-4">
         {/* Page Header */}
         <div className="mb-6 text-center pt-4">
-          <h1 className="text-4xl font-bold text-lime-400 mb-2 tracking-wider">🕯️ Paranormal Map</h1>
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-4xl font-bold text-lime-400 mb-2 tracking-wider">🕯️ Paranormal Map</h1>
+            <Button
+              onClick={handleRefreshLocations}
+              variant="outline"
+              size="sm"
+              className="border-gray-600 text-gray-300 hover:bg-gray-700 hover:border-lime-500 hover:text-lime-400"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh Locations
+            </Button>
+          </div>
           <p className="text-gray-400">Explore and share paranormal locations worldwide</p>
         </div>
 
