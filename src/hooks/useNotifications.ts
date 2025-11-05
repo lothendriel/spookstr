@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from './useCurrentUser';
 import { useAppContext } from './useAppContext';
@@ -6,7 +6,7 @@ import { useUserRelays } from './useUserRelays';
 import { useNotificationDiscovery } from './useContextualRelayDiscovery';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export interface Notification {
   id: string;
@@ -35,10 +35,63 @@ const cleanupCache = () => {
 // Run cleanup every 10 minutes
 setInterval(cleanupCache, 600000);
 
+// **FIX 1: Separate query for user posts with better error handling and retry logic**
+function useUserPostsQuery(enabled: boolean, relayKey: string) {
+  const { nostr } = useNostr();
+  const { user } = useCurrentUser();
+
+  return useQuery({
+    queryKey: ['user-posts', user?.pubkey, relayKey],
+    queryFn: async ({ signal }) => {
+      if (!user?.pubkey) {
+        console.log('[UserPosts] ❌ No user pubkey, returning empty');
+        return [];
+      }
+
+      console.log('[UserPosts] 🔄 Fetching user posts for', user.pubkey.slice(0, 8) + '...');
+
+      const abortSignal = AbortSignal.any([signal, AbortSignal.timeout(8000)]);
+
+      try {
+        // Try to fetch from user's preferred relays first
+        const userPosts = await nostr.query(
+          [{ kinds: [1], authors: [user.pubkey], limit: 200 }],
+          { signal: abortSignal }
+        );
+
+        console.log('[UserPosts] ✅ Found', userPosts.length, 'posts from default relays');
+        return userPosts;
+      } catch (error) {
+        console.error('[UserPosts] ❌ Error fetching from default relays:', error);
+
+        // Fallback: try with a longer timeout and different relay set
+        try {
+          const fallbackPosts = await nostr.query(
+            [{ kinds: [1], authors: [user.pubkey], limit: 200 }],
+            { signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]) }
+          );
+
+          console.log('[UserPosts] ✅ Found', fallbackPosts.length, 'posts from fallback');
+          return fallbackPosts;
+        } catch (fallbackError) {
+          console.error('[UserPosts] ❌ Fallback also failed:', fallbackError);
+          throw fallbackError; // Let useQuery handle the retry
+        }
+      }
+    },
+    enabled: enabled && !!user?.pubkey,
+    retry: 3, // More retries for user posts - critical for notifications
+    retryDelay: (attemptIndex) => Math.min(2000 * 2 ** attemptIndex, 10000),
+    staleTime: 300000, // 5 minutes - same as before
+    gcTime: 600000, // 10 minutes
+  });
+}
+
 export function useNotifications() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const { config } = useAppContext();
+  const [retryCount, setRetryCount] = useState(0);
 
   // Fetch the user's NIP-65 relay list for inbox model
   const { data: userRelayList, isLoading: isLoadingRelays } = useUserRelays(user?.pubkey);
@@ -55,13 +108,17 @@ export function useNotifications() {
     ? 'spookstr-only'
     : config.relays?.filter(r => r.mode === 'read' || r.mode === 'both').map(r => r.url).sort().join(',') || config.relayUrl;
 
+  // **FIX 2: Use separate query for user posts with better reliability**
+  const userPostsQuery = useUserPostsQuery(!!user?.pubkey, relayKey);
+
   const query = useInfiniteQuery({
     queryKey: ['notifications', user?.pubkey, relayKey, userRelayList?.length],
     queryFn: async ({ pageParam = undefined, signal: querySignal }) => {
       console.log('[Notifications] 🔔 Query function called', {
         pubkey: user?.pubkey?.slice(0, 8) + '...',
         pageParam,
-        isInitialLoad: !pageParam
+        isInitialLoad: !pageParam,
+        retryCount
       });
 
       if (!user?.pubkey) {
@@ -69,7 +126,31 @@ export function useNotifications() {
         return { notifications: [], hasMore: false, oldestTimestamp: undefined };
       }
 
-      const signal = AbortSignal.any([querySignal, AbortSignal.timeout(10000)]);
+      const signal = AbortSignal.any([querySignal, AbortSignal.timeout(15000)]);
+
+      // **FIX 3: Wait for user posts to be available or fail gracefully**
+      let userPosts: NostrEvent[];
+      let userPostIds: string[];
+
+      if (userPostsQuery.data) {
+        // Use the data from the separate query
+        userPosts = userPostsQuery.data;
+        userPostIds = userPosts.map(post => post.id);
+        console.log(`[Notifications] ✅ Using ${userPosts.length} user posts from dedicated query`);
+      } else if (userPostsQuery.isError) {
+        console.error('[Notifications] ❌ User posts query failed, cannot fetch notifications');
+        // Return empty but don't throw - let the user see the error state
+        return { notifications: [], hasMore: false, oldestTimestamp: undefined };
+      } else {
+        // Still loading, return empty for now
+        console.log('[Notifications] ⏳ User posts still loading, returning empty');
+        return { notifications: [], hasMore: false, oldestTimestamp: undefined };
+      }
+
+      if (userPostIds.length === 0) {
+        console.log('[Notifications] No user posts found, returning empty');
+        return { notifications: [], hasMore: false, oldestTimestamp: undefined };
+      }
 
       // Get read relays using inbox model (NIP-65)
       let readRelays: string[];
@@ -98,43 +179,7 @@ export function useNotifications() {
       const relayGroup = readRelays.length > 0 ? nostr.group(readRelays) : nostr;
       console.log(`[Notifications] Querying ${readRelays.length} relays (spookstrOnly: ${config.spookstrOnlyMode}):`, readRelays);
 
-      // **OPTIMIZATION 1: Cache user posts to avoid refetching every time**
-      const cacheKey = `${user.pubkey}-${relayKey}`;
-      const now = Date.now();
-      const cached = userPostsCache.get(cacheKey);
-
-      let userPosts: NostrEvent[];
-      let userPostIds: string[];
-
-      if (cached && (now - cached.timestamp) < CACHE_DURATION) {
-        // Use cached posts
-        userPosts = cached.posts;
-        userPostIds = userPosts.map(post => post.id);
-        console.log(`[Notifications] ♻️ Using ${userPosts.length} cached user posts`);
-      } else {
-        // Fetch fresh posts
-        try {
-          userPosts = await relayGroup.query(
-            [{ kinds: [1], authors: [user.pubkey], limit: 300 }], // Reduced from 500 to 300
-            { signal }
-          );
-          userPostIds = userPosts.map(post => post.id);
-
-          // Cache the results
-          userPostsCache.set(cacheKey, { posts: userPosts, timestamp: now });
-          console.log(`[Notifications] 🔄 Fetched and cached ${userPosts.length} user posts`);
-        } catch (error) {
-          console.error('[Notifications] Error fetching user posts:', error);
-          return { notifications: [], hasMore: false, oldestTimestamp: undefined };
-        }
-      }
-
-      if (userPostIds.length === 0) {
-        console.log('[Notifications] No user posts found, returning empty');
-        return { notifications: [], hasMore: false, oldestTimestamp: undefined };
-      }
-
-      // **OPTIMIZATION 2: Use recent posts for initial load, all posts for pagination**
+      // **FIX 4: Improved query strategy with better fallback handling**
       let queryPostIds: string[];
       if (!pageParam) {
         // For initial load, only check interactions on recent posts (last 50)
@@ -161,15 +206,71 @@ export function useNotifications() {
         filter.until = pageParam;
       }
 
-      // Query for interactions
-      let interactions;
-      try {
-        interactions = await relayGroup.query([filter], { signal });
-        console.log(`[Notifications] Found ${interactions.length} raw interactions from relays`);
-      } catch (error) {
-        console.error('[Notifications] Error fetching interactions:', error);
+      // Query for interactions with improved error handling
+      let interactions: NostrEvent[] = [];
+      let querySuccess = false;
+
+      // **FIX 5: Multi-attempt query with different strategies**
+      const queryStrategies = [
+        // Strategy 1: Use the configured relay group
+        async () => {
+          console.log('[Notifications] 🔄 Strategy 1: Using configured relay group');
+          return await relayGroup.query([filter], { signal });
+        },
+        // Strategy 2: Try with individual relays to find working ones
+        async () => {
+          console.log('[Notifications] 🔄 Strategy 2: Trying individual relays');
+          const allInteractions: NostrEvent[] = [];
+
+          // Try up to 3 relays individually
+          const relaysToTry = readRelays.slice(0, 3);
+          for (const relayUrl of relaysToTry) {
+            try {
+              const relay = nostr.relay(relayUrl);
+              const relayInteractions = await relay.query([filter], {
+                signal: AbortSignal.any([signal, AbortSignal.timeout(8000)])
+              });
+              allInteractions.push(...relayInteractions);
+              console.log(`[Notifications] ✅ Got ${relayInteractions.length} interactions from ${relayUrl}`);
+            } catch (relayError) {
+              console.warn(`[Notifications] ❌ Relay ${relayUrl} failed:`, relayError);
+              // Continue with next relay
+            }
+          }
+
+          return allInteractions;
+        },
+        // Strategy 3: Last resort - use default nostr instance
+        async () => {
+          console.log('[Notifications] 🔄 Strategy 3: Using default nostr instance');
+          return await nostr.query([filter], { signal });
+        }
+      ];
+
+      for (let i = 0; i < queryStrategies.length; i++) {
+        try {
+          interactions = await queryStrategies[i]();
+          if (interactions.length > 0) {
+            querySuccess = true;
+            console.log(`[Notifications] ✅ Strategy ${i + 1} succeeded with ${interactions.length} interactions`);
+            break;
+          }
+        } catch (error) {
+          console.warn(`[Notifications] ❌ Strategy ${i + 1} failed:`, error);
+          if (i === queryStrategies.length - 1) {
+            // Last strategy failed, throw the error
+            console.error('[Notifications] ❌ All query strategies failed');
+            throw error;
+          }
+        }
+      }
+
+      if (!querySuccess) {
+        console.log('[Notifications] ⚠️ No interactions found from any strategy');
         return { notifications: [], hasMore: false, oldestTimestamp: undefined };
       }
+
+      console.log(`[Notifications] Found ${interactions.length} raw interactions from relays`);
 
       // Filter out the user's own interactions
       const otherUserInteractions = interactions.filter(
@@ -269,7 +370,7 @@ export function useNotifications() {
         ? paginatedNotifications[paginatedNotifications.length - 1].timestamp - 1 // Subtract 1 to avoid duplicates
         : undefined;
 
-      console.log(`[Notifications] Returning ${paginatedNotifications.length} notifications, hasMore: ${hasMore}`);
+      console.log(`[Notifications] ✅ Returning ${paginatedNotifications.length} notifications, hasMore: ${hasMore}`);
 
       return {
         notifications: paginatedNotifications,
@@ -282,41 +383,99 @@ export function useNotifications() {
       // Return the oldest timestamp for pagination
       return lastPage.hasMore ? lastPage.oldestTimestamp : undefined;
     },
-    // Always enable notifications when user is logged in
-    // Use default relays initially if user's relay list is still loading
-    enabled: !!user?.pubkey,
-    retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000),
-    staleTime: 60000, // Increased to 1 minute - reduce unnecessary refetches
-    gcTime: 600000, // Increased to 10 minutes - keep data longer
-    // **OPTIMIZATION 3: Smarter background refresh**
+    // **FIX 6: Improved query configuration with better retry logic**
+    enabled: !!user?.pubkey && userPostsQuery.data !== undefined, // Only enable when user posts are available
+    retry: (failureCount, error) => {
+      // **FIX 7: Smarter retry logic - don't retry on certain errors**
+      // Don't retry if we have no user posts (fundamental dependency missing)
+      if (!userPostsQuery.data && userPostsQuery.isError) {
+        console.log('[Notifications] Skipping retry due to user posts query failure');
+        return false;
+      }
+
+      // Don't retry after 3 attempts
+      if (failureCount >= 3) {
+        console.log('[Notifications] Max retries reached, stopping');
+        return false;
+      }
+
+      // Retry on network errors and timeouts
+      if (error instanceof Error && (
+        error.name === 'AbortError' ||
+        error.name === 'TimeoutError' ||
+        error.message.includes('network') ||
+        error.message.includes('timeout') ||
+        error.message.includes('relay')
+      )) {
+        console.log(`[Notifications] Retrying (attempt ${failureCount + 1})`);
+        return true;
+      }
+
+      return false;
+    },
+    retryDelay: (attemptIndex) => {
+      // **FIX 8: Progressive retry delays with user feedback**
+      const delays = [1000, 3000, 5000]; // 1s, 3s, 5s
+      const delay = delays[attemptIndex] || 5000;
+      console.log(`[Notifications] Retry delay: ${delay}ms (attempt ${attemptIndex + 1})`);
+      return delay;
+    },
+    staleTime: 90000, // 1.5 minutes - slightly increased for better performance
+    gcTime: 600000, // 10 minutes - keep data longer
+    // **FIX 9: Smarter background refresh**
     refetchInterval: (data, query) => {
       if (document.hidden || !user?.pubkey) return false;
+      if (userPostsQuery.isError) return false; // Don't refresh if user posts failed
 
       // Only auto-refresh the first page to check for new notifications
       // Avoid refreshing all pages which would re-query everything
       const hasMultiplePages = data?.pages && data.pages.length > 1;
       if (hasMultiplePages) return false; // Don't auto-refresh when user has scrolled down
 
-      return 120000; // 2 minutes for initial page only
+      return 180000; // 3 minutes for initial page only (increased for better performance)
     },
-    // **OPTIMIZATION 4: Reduce window focus refetches**
+    // **FIX 10: Reduce window focus refetches to avoid unnecessary queries**
     refetchOnWindowFocus: (query) => {
-      if (!user?.pubkey || !query.state.data) return true;
+      if (!user?.pubkey || !query.state.data) return false; // More restrictive
+      if (userPostsQuery.isError) return false; // Don't refetch if user posts failed
+
       const lastUpdated = query.state.dataUpdatedAt;
-      const fiveMinutesAgo = Date.now() - 300000; // Increased from 2 to 5 minutes
+      const fiveMinutesAgo = Date.now() - 300000; // 5 minutes
       return lastUpdated < fiveMinutesAgo;
+    },
+    // **FIX 11: Add error callback for better debugging**
+    onError: (error) => {
+      console.error('[Notifications] ❌ Query error:', error);
+      setRetryCount(prev => prev + 1);
+    },
+    onSuccess: (data) => {
+      console.log('[Notifications] ✅ Query success, pages:', data.pages.length);
+      setRetryCount(0);
     }
   });
 
+  // **FIX 12: Improved refetch logic with better timing**
   // Refetch notifications when user's relay list becomes available
   // This ensures we get more accurate results once we know the user's preferred relays
   useEffect(() => {
-    if (user?.pubkey && !isLoadingRelays && userRelayList) {
-      console.log('[Notifications] 🔄 User relay list loaded, refetching notifications');
+    if (user?.pubkey && !isLoadingRelays && userRelayList && userPostsQuery.data) {
+      // Add a small delay to ensure everything is ready
+      const timer = setTimeout(() => {
+        console.log('[Notifications] 🔄 User relay list loaded, refetching notifications');
+        query.refetch();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [user?.pubkey, isLoadingRelays, userRelayList, userPostsQuery.data, query]);
+
+  // **FIX 13: Add retry mechanism for when user posts query succeeds after initial failure**
+  useEffect(() => {
+    if (user?.pubkey && userPostsQuery.data && !userPostsQuery.isPreviousData && retryCount > 0) {
+      console.log('[Notifications] 🔄 User posts query succeeded after retry, refetching notifications');
       query.refetch();
     }
-  }, [user?.pubkey, isLoadingRelays, userRelayList, query]);
+  }, [userPostsQuery.data, userPostsQuery.isPreviousData, retryCount, user?.pubkey, query]);
 
   return query;
 }

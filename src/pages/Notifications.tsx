@@ -153,7 +153,10 @@ export default function Notifications() {
     isLoading,
     fetchNextPage,
     hasNextPage,
-    isFetchingNextPage
+    isFetchingNextPage,
+    error,
+    isFetching,
+    refetch
   } = useNotifications();
   const { isRead, markAsRead, markAllAsRead } = useNotificationState();
   const navigate = useNavigate();
@@ -162,6 +165,11 @@ export default function Notifications() {
   const isDiscovering = isLoading;
   const discoveredEvents = data?.pages.flatMap(page => page.notifications) || [];
   const hintsUsed = false; // Discovery hints are handled internally by useNotifications
+
+  // **FIX 14: Better loading and error state management**
+  const isInitialLoad = isLoading && !data;
+  const hasError = error && !isLoading;
+  const isEmpty = !isLoading && !error && notificationsWithReadState.length === 0;
 
   // Flatten all pages of notifications
   const allNotifications = useMemo(() => {
@@ -233,25 +241,47 @@ export default function Notifications() {
                 hintsUsed={hintsUsed}
                 isLoading={isDiscovering}
               />
+              {hasError && (
+                <Badge variant="destructive" className="bg-red-500/20 text-red-400 border-red-500/30">
+                  Connection Issues
+                </Badge>
+              )}
             </div>
-            {unreadCount > 0 && (
-              <Button
-                onClick={handleMarkAllAsRead}
-                variant="outline"
-                size="sm"
-                className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10"
-              >
-                <CheckCheck className="h-4 w-4 mr-2" />
-                Mark all as read
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {hasError && (
+                <Button
+                  onClick={() => refetch()}
+                  variant="outline"
+                  size="sm"
+                  className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+                  disabled={isFetching}
+                >
+                  {isFetching ? (
+                    <Ghost className="h-4 w-4 mr-2 animate-pulse" />
+                  ) : (
+                    'Retry'
+                  )}
+                </Button>
+              )}
+              {unreadCount > 0 && (
+                <Button
+                  onClick={handleMarkAllAsRead}
+                  variant="outline"
+                  size="sm"
+                  className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10"
+                >
+                  <CheckCheck className="h-4 w-4 mr-2" />
+                  Mark all as read
+                </Button>
+              )}
+            </div>
           </div>
           <p className="text-lime-500/60">
             Stay updated with all interactions on your posts
           </p>
         </div>
 
-        {isLoading && (
+        {isInitialLoad && (
           <div className="space-y-4">
             {[...Array(5)].map((_, i) => (
               <Card key={i} className="border-lime-500/20 bg-black/40">
@@ -270,7 +300,36 @@ export default function Notifications() {
           </div>
         )}
 
-        {!isLoading && notificationsWithReadState.length === 0 && (
+        {hasError && (
+          <Card className="border-red-500/20 bg-black/40">
+            <CardContent className="p-12 text-center">
+              <Ghost className="h-16 w-16 text-red-500/40 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-red-400 mb-2">
+                Failed to Load Notifications
+              </h3>
+              <p className="text-red-500/60 mb-6">
+                We're having trouble loading your notifications. This might be due to network issues or relay connectivity problems.
+              </p>
+              <Button
+                onClick={() => refetch()}
+                variant="outline"
+                className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+                disabled={isFetching}
+              >
+                {isFetching ? (
+                  <>
+                    <Ghost className="h-4 w-4 mr-2 animate-pulse" />
+                    Retrying...
+                  </>
+                ) : (
+                  'Try Again'
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {isEmpty && (
           <Card className="border-dashed border-lime-500/20 bg-black/20">
             <CardContent className="p-12 text-center">
               <Ghost className="h-16 w-16 text-lime-500/40 mx-auto mb-4" />
@@ -284,7 +343,7 @@ export default function Notifications() {
           </Card>
         )}
 
-        {!isLoading && notificationsWithReadState.length > 0 && (
+        {!isInitialLoad && !hasError && notificationsWithReadState.length > 0 && (
           <>
             <div className="space-y-3">
               {notificationsWithReadState.map((notification) => (
