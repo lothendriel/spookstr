@@ -49,10 +49,10 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
     selectedCategory === 'all' ? undefined : selectedCategory
   );
 
-  const filteredLocations = locations?.filter(location =>
+  const filteredLocations = (locations || []).filter(location =>
     location.coordinates &&
     (selectedCategory === 'all' || location.category === selectedCategory)
-  ) || [];
+  );
 
   // Initialize map
   useEffect(() => {
@@ -112,7 +112,7 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
     if (!mapRef.current) return;
 
     // Clear existing markers
-    markersRef.current.forEach(marker => {
+    [...markersRef.current].forEach(marker => {
       mapRef.current?.removeLayer(marker);
     });
     markersRef.current = [];
@@ -153,7 +153,7 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
 
     // Add global function for popup buttons
     (window as any).viewLocationDetails = (locationId: string) => {
-      const location = filteredLocations.find(loc => loc.id === locationId);
+      const location = (filteredLocations || []).find(loc => loc.id === locationId);
       if (location) {
         handleLocationClick(location);
       }
