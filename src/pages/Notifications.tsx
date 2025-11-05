@@ -169,7 +169,6 @@ export default function Notifications() {
   // **FIX 14: Better loading and error state management**
   const isInitialLoad = isLoading && !data;
   const hasError = error && !isLoading;
-  const isEmpty = !isLoading && !error && notificationsWithReadState.length === 0;
 
   // Flatten all pages of notifications
   const allNotifications = useMemo(() => {
@@ -183,6 +182,8 @@ export default function Notifications() {
       read: isRead(n.id),
     }));
   }, [allNotifications, isRead]);
+
+  const isEmpty = !isLoading && !error && notificationsWithReadState.length === 0;
 
   const unreadCount = useMemo(() => {
     return notificationsWithReadState.filter(n => !n.read).length;
