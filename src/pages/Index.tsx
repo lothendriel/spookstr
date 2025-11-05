@@ -16,10 +16,11 @@ import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { FeedContent } from '@/components/FeedContent';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Button } from '@/components/ui/button';
-import { RotateCcw, Ghost, Plus } from 'lucide-react';
+import { RotateCcw, Ghost, Plus, MapPin } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { ParanormalPodcastsCarousel } from '@/components/ParanormalPodcastsCarousel';
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   useSeoMeta({
@@ -27,6 +28,7 @@ const Index = () => {
     description: 'Discover and share paranormal experiences, UFO sightings, cryptid encounters, and supernatural stories on the Nostr network.',
   });
 
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: posts, isLoading, error, refetch } = useParanormalFeed();
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
@@ -266,6 +268,30 @@ const Index = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-lime-100">🕵️ Unexplained</span>
                   <span className="text-lime-500/60">#unexplained #mysterious</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border border-lime-500/20 rounded-lg p-6 bg-black/40 backdrop-blur-sm">
+              <h3 className="text-lg font-semibold text-lime-400 mb-4">
+                Ghost Hunt Maps
+              </h3>
+              <div className="space-y-3">
+                <p className="text-sm text-lime-100">
+                  Explore paranormal activity locations worldwide on our interactive map.
+                </p>
+                <Button
+                  onClick={() => navigate('/ghost-hunt-maps')}
+                  className="w-full bg-lime-500 hover:bg-lime-400 text-black"
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Explore Maps
+                </Button>
+                <div className="text-xs text-lime-500/60 space-y-1">
+                  <div>📍 Interactive paranormal location map</div>
+                  <div>👻 Filter by phenomenon type</div>
+                  <div>📷 Evidence galleries & details</div>
+                  <div>🌍 User-reported encounters</div>
                 </div>
               </div>
             </div>

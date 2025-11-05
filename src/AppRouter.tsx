@@ -17,6 +17,7 @@ const CommunityBrowsePage = lazy(() => import("./pages/CommunityBrowsePage"));
 const PostDetailPage = lazy(() => import("./pages/PostDetailPage"));
 const CommunityPostDetailPage = lazy(() => import("./pages/CommunityPostDetailPage"));
 const ModeratorPanel = lazy(() => import("./components/communities/ModeratorPanel").then(m => ({ default: m.ModeratorPanel })));
+const GhostHuntMapsPage = lazy(() => import("./pages/GhostHuntMapsPage"));
 
 export function AppRouter() {
   return (
@@ -28,6 +29,7 @@ export function AppRouter() {
         <Route path="/settings/relays" element={<RelaySettings />} />
         <Route path="/t/:tag" element={<Hashtag />} />
         <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/ghost-hunt-maps" element={<GhostHuntMapsPage />} />
         {/* Community Routes */}
         <Route path="/communities" element={<CommunityBrowsePage />} />
         <Route path="/community/:communityId" element={<CommunityPage />} />

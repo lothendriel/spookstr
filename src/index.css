@@ -2,6 +2,68 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Leaflet CSS */
+@import 'leaflet/dist/leaflet.css';
+
+/* Custom Leaflet styles for dark theme */
+.leaflet-container {
+  background: #000 !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(0, 0, 0, 0.8) !important;
+  color: #a3a3a3 !important;
+}
+
+.leaflet-control-attribution a {
+  color: #86efac !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: rgba(0, 0, 0, 0.9) !important;
+  color: #fff !important;
+  border-radius: 0.5rem !important;
+  border: 1px solid rgba(163, 230, 172, 0.2) !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  color: #fff !important;
+}
+
+.leaflet-popup-tip {
+  background: rgba(0, 0, 0, 0.9) !important;
+}
+
+.leaflet-popup-close-button {
+  color: #86efac !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #fff !important;
+}
+
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 24px !important;
+}
+
+/* Dark theme zoom controls */
+.leaflet-control-zoom a {
+  background: rgba(0, 0, 0, 0.8) !important;
+  color: #86efac !important;
+  border: 1px solid rgba(163, 230, 172, 0.2) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: rgba(163, 230, 172, 0.2) !important;
+  color: #fff !important;
+}
+
 @layer base {
   :root {
     --background: 0 0% 0%;
