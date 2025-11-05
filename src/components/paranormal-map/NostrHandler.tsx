@@ -30,15 +30,23 @@ export function useNostrHandler() {
         ['t', 'location'],
         ['alt', 'Paranormal location submission'],
       ],
+      created_at: Math.floor(Date.now() / 1000),
     };
 
     try {
       console.log('🗺️ Publishing paranormal location event:', event);
+      console.log('🗺️ User pubkey:', user.pubkey);
+      console.log('🗺️ Event being sent to publishEvent:', JSON.stringify(event, null, 2));
+
       const result = await publishEvent(event);
       console.log('🗺️ Publish result:', result);
+      console.log('🗺️ Result type:', typeof result);
+      console.log('🗺️ Result keys:', result ? Object.keys(result) : 'null/undefined');
+
       return { success: true, eventId: result?.id, data: locationData };
     } catch (error) {
       console.error('🗺️ Failed to publish paranormal location:', error);
+      console.error('🗺️ Error stack:', error instanceof Error ? error.stack : 'No stack available');
       throw error;
     }
   };
