@@ -51,17 +51,33 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
 
   // Initialize map
   useEffect(() => {
-    if (!mapRef.current) {
-      mapRef.current = L.map('ghost-hunt-map', {
-        center: mapCenter,
-        zoom: mapZoom,
-        zoomControl: true,
-      });
+    const initializeMap = () => {
+      const mapContainer = document.getElementById('ghost-hunt-map');
+      if (!mapContainer || mapRef.current) return;
 
-      // Add dark theme tile layer
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      }).addTo(mapRef.current);
+      try {
+        mapRef.current = L.map('ghost-hunt-map', {
+          center: mapCenter,
+          zoom: mapZoom,
+          zoomControl: true,
+        });
+
+        // Add dark theme tile layer
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        }).addTo(mapRef.current);
+      } catch (error) {
+        console.error('Failed to initialize map:', error);
+      }
+    };
+
+    // Try to initialize immediately
+    initializeMap();
+
+    // If container not found, try again after DOM is ready
+    if (!mapRef.current) {
+      const timer = setTimeout(initializeMap, 100);
+      return () => clearTimeout(timer);
     }
 
     return () => {
@@ -135,6 +151,13 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
       delete (window as any).viewLocationDetails;
     };
   }, [filteredLocations]);
+
+  // Update map view when center or zoom changes
+  useEffect(() => {
+    if (mapRef.current) {
+      mapRef.current.setView(mapCenter, mapZoom);
+    }
+  }, [mapCenter, mapZoom]);
 
   const handleLocationClick = (location: ParanormalLocation) => {
     setSelectedLocation(location);
@@ -233,9 +256,17 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
       </div>
 
       {/* Map Container */}
-      <div className="w-full h-full rounded-lg overflow-hidden border border-lime-500/20">
-        {isLoading ? (
-          <div className="w-full h-full flex items-center justify-center bg-black/40">
+      <div className="w-full h-full rounded-lg overflow-hidden border border-lime-500/20 relative">
+        {/* Always render map container */}
+        <div
+          id="ghost-hunt-map"
+          className="w-full h-full"
+          style={{ minHeight: '500px' }}
+        />
+
+        {/* Loading overlay */}
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10">
             <div className="text-center space-y-4">
               <Ghost className="h-12 w-12 text-lime-400 mx-auto animate-pulse" />
               <div className="space-y-2">
@@ -244,8 +275,11 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
               </div>
             </div>
           </div>
-        ) : error ? (
-          <div className="w-full h-full flex items-center justify-center bg-black/40">
+        )}
+
+        {/* Error overlay */}
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-10">
             <div className="text-center space-y-4">
               <Ghost className="h-12 w-12 text-lime-400 mx-auto" />
               <p className="text-lime-400">Unable to load paranormal locations</p>
@@ -254,12 +288,6 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
               </Button>
             </div>
           </div>
-        ) : (
-          <div
-            id="ghost-hunt-map"
-            className="w-full h-full"
-            style={{ minHeight: '500px' }}
-          />
         )}
       </div>
     </div>
