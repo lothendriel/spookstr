@@ -6,4 +6,5 @@ export interface ParanormalLocation {
   user_pubkey?: string;
   timestamp: number;
   id?: string; // Nostr event ID
+  media?: string[]; // URLs to uploaded images/videos
 }

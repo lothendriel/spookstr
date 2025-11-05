@@ -1,5 +1,5 @@
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MapPin, Clock, User } from 'lucide-react';
+import { MapPin, Clock, User, Image as ImageIcon } from 'lucide-react';
 import { ParanormalLocation } from '@/types/paranormal';
 
 interface LocationListProps {
@@ -41,9 +41,17 @@ export default function LocationList({ locations, onLocationSelect }: LocationLi
                 className="bg-gray-700 rounded-lg p-4 cursor-pointer hover:bg-gray-600 transition-all duration-200 hover:shadow-lg hover:shadow-lime-500/10 border border-gray-600 hover:border-lime-500/50"
               >
                 {/* Location Title */}
-                <h3 className="font-bold text-lime-400 mb-2 flex items-start gap-2">
-                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>{location.title}</span>
+                <h3 className="font-bold text-lime-400 mb-2 flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2">
+                    <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>{location.title}</span>
+                  </div>
+                  {location.media && location.media.length > 0 && (
+                    <div className="flex items-center gap-1 text-xs bg-gray-800 px-2 py-1 rounded">
+                      <ImageIcon className="w-3 h-3" />
+                      {location.media.length}
+                    </div>
+                  )}
                 </h3>
 
                 {/* Description Excerpt */}
