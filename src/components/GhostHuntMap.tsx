@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import * as L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { ParanormalLocation, useParanormalLocations } from '@/hooks/useParanormalLocations';
-import { useAuthor } from '@/hooks/useAuthor';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -112,9 +111,11 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
     if (!mapRef.current) return;
 
     // Clear existing markers
-    [...markersRef.current].forEach(marker => {
-      mapRef.current?.removeLayer(marker);
-    });
+    if (Array.isArray(markersRef.current)) {
+      markersRef.current.forEach(marker => {
+        mapRef.current?.removeLayer(marker);
+      });
+    }
     markersRef.current = [];
 
     // Add new markers

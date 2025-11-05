@@ -19,6 +19,11 @@ export interface ParanormalLocation {
 }
 
 function validateParanormalLocationEvent(event: NostrEvent): boolean {
+  // Check if event has tags
+  if (!event.tags || !Array.isArray(event.tags)) {
+    return false;
+  }
+
   // Check required tags
   const d = event.tags.find(([name]) => name === 'd')?.[1];
   const title = event.tags.find(([name]) => name === 'title')?.[1];
@@ -52,7 +57,7 @@ function parseParanormalLocationEvent(event: NostrEvent): ParanormalLocation | n
   const encounterType = event.tags.find(([name]) => name === 'encounter_type')?.[1];
   const encounterDate = event.tags.find(([name]) => name === 'encounter_date')?.[1];
   const evidenceLevel = event.tags.find(([name]) => name === 'evidence_level')?.[1] as 'none' | 'low' | 'medium' | 'high' | undefined;
-  
+
   const images = event.tags
     .filter(([name]) => name === 'image')
     .map(([, url]) => url);
@@ -86,7 +91,7 @@ function geohashToCoordinates(geohash: string): { lat: number; lng: number } {
   const base32 = '0123456789bcdefghjkmnpqrstuvwxyz';
   let lat = 0;
   let lng = 0;
-  
+
   // Simple conversion that gives us a rough center point
   // This is not accurate but works for basic positioning
   const hash = geohash.toLowerCase();
@@ -94,7 +99,7 @@ function geohashToCoordinates(geohash: string): { lat: number; lng: number } {
     const char = hash[i];
     const idx = base32.indexOf(char);
     if (idx === -1) continue;
-    
+
     // Alternate between longitude and latitude bits
     if (i % 2 === 0) {
       lng += (idx & 16) ? 90 / Math.pow(2, Math.floor(i / 2) + 1) : -90 / Math.pow(2, Math.floor(i / 2) + 1);
@@ -110,7 +115,7 @@ function geohashToCoordinates(geohash: string): { lat: number; lng: number } {
       lat += (idx & 1) ? 2.8125 / Math.pow(2, Math.floor(i / 2) + 1) : -2.8125 / Math.pow(2, Math.floor(i / 2) + 1);
     }
   }
-  
+
   return { lat, lng };
 }
 
@@ -121,18 +126,18 @@ export function useParanormalLocations(category?: string, geohash?: string) {
     queryKey: ['paranormal-locations', category, geohash],
     queryFn: async ({ signal }) => {
       const filters: any[] = [{ kinds: [7479] }];
-      
+
       if (category) {
         filters[0]['#t'] = [category];
       }
-      
+
       if (geohash) {
         filters[0]['#g'] = [geohash];
       }
 
       const events = await nostr.query(filters, { signal });
-      
-      const locations = events
+
+      const locations = (events || [])
         .map(parseParanormalLocationEvent)
         .filter((location): location is ParanormalLocation => location !== null);
 
@@ -150,8 +155,8 @@ export function useParanormalLocation(locationId: string) {
     queryKey: ['paranormal-location', locationId],
     queryFn: async ({ signal }) => {
       const events = await nostr.query([{ kinds: [7479], ids: [locationId] }], { signal });
-      
-      if (events.length === 0) {
+
+      if (!events || events.length === 0) {
         return null;
       }
 
