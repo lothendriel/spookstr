@@ -118,9 +118,12 @@ export default function LocationSubmitForm({ onLocationSubmit }: LocationSubmitF
         });
       }
     } catch (error) {
+      console.error('Location submission error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit location. Please try again.';
+
       toast({
         title: 'Submission failed',
-        description: 'Failed to submit location. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

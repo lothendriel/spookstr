@@ -66,6 +66,8 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
 
   // Initialize NPool only once
   if (!pool.current) {
+    console.log('🚀 Creating new NPool instance...');
+
     const basePool = new NPool({
       open(url: string) {
         return new NRelay1(url);
@@ -179,7 +181,17 @@ const NostrProvider: React.FC<NostrProviderProps> = (props) => {
     };
 
     pool.current = basePool;
+    console.log('✅ NPool instance created successfully');
+  } else {
+    console.log('♻️ Reusing existing NPool instance');
   }
+
+  console.log('🔗 NostrContext value:', {
+    nostr: pool.current ? 'NPool instance' : 'undefined',
+    nostrMethods: pool.current ? Object.getOwnPropertyNames(pool.current).filter(name => typeof pool.current[name] === 'function') : [],
+    relays: getReadRelays(),
+    writeRelays: getWriteRelays()
+  });
 
   return (
     <NostrContext.Provider value={{ nostr: pool.current }}>

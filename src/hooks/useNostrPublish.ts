@@ -20,8 +20,21 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
   const { user } = useCurrentUser();
   const { config } = useAppContext();
 
+  console.log('📝 useNostrPublish hook initialized:', {
+    nostrAvailable: !!nostr,
+    nostrType: typeof nostr,
+    nostrMethods: nostr ? Object.getOwnPropertyNames(nostr).filter(name => typeof nostr[name] === 'function') : [],
+    userAvailable: !!user,
+    userPubkey: user?.pubkey?.substring(0, 16) + '...',
+    configAvailable: !!config
+  });
+
   return useMutation({
     mutationFn: async ({ event, options }: { event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>; options?: PublishOptions }) => {
+      if (!nostr) {
+        throw new Error('Nostr connection not available');
+      }
+
       if (user) {
         const tags = event.tags ?? [];
 
@@ -39,11 +52,23 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
           throw new Error("Duplicate event: This appears to be a duplicate submission");
         }
 
-        const signedEvent = await user.signer.signEvent({
+        const eventData = {
           kind: event.kind,
           content: event.content ?? "",
           tags,
           created_at: event.created_at ?? Math.floor(Date.now() / 1000),
+        };
+
+        console.log('📝 About to sign event:', eventData);
+
+        const signedEvent = await user.signer.signEvent(eventData);
+
+        console.log('✅ Event signed successfully:', {
+          id: signedEvent.id,
+          kind: signedEvent.kind,
+          pubkey: signedEvent.pubkey,
+          tags: signedEvent.tags,
+          created_at: signedEvent.created_at
         });
 
         // Add the signature to our tracking set
@@ -56,22 +81,52 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
 
         if (options?.relayUrl) {
           // Publish to specific relay only
-          console.log('Publishing to specific relay:', options.relayUrl);
-          console.log('Event to publish:', signedEvent);
+          console.log('🎯 Publishing to specific relay:', options.relayUrl);
+          console.log('🎯 Event to publish:', {
+            id: signedEvent.id,
+            kind: signedEvent.kind,
+            pubkey: signedEvent.pubkey,
+            created_at: signedEvent.created_at,
+            content: signedEvent.content.substring(0, 100) + '...',
+            tags: signedEvent.tags
+          });
           try {
             // Create a direct relay connection instead of using the pool
             const relay = new NRelay1(options.relayUrl);
-            console.log('Direct relay connection created for:', options.relayUrl);
+            console.log('🎯 Direct relay connection created successfully');
             await relay.event(signedEvent, { signal: AbortSignal.timeout(8000) });
-            console.log('Successfully published to relay:', options.relayUrl);
+            console.log('✅ Successfully published to relay:', options.relayUrl);
           } catch (error) {
-            console.error('Error publishing to specific relay:', error);
+            console.error('❌ Error publishing to specific relay:', error);
             throw error;
           }
         } else {
           // Publish to all relays (default behavior)
-          console.log('Publishing to all relays');
-          await nostr.event(signedEvent, { signal: AbortSignal.timeout(8000) });
+          console.log('📡 Publishing to all relays...');
+          console.log('📡 Nostr event method available:', typeof nostr.event);
+          console.log('📡 Nostr object type:', typeof nostr);
+          console.log('📡 Signed event:', {
+            id: signedEvent.id,
+            kind: signedEvent.kind,
+            pubkey: signedEvent.pubkey,
+            created_at: signedEvent.created_at,
+            content: signedEvent.content.substring(0, 100) + '...',
+            tags: signedEvent.tags
+          });
+
+          try {
+            console.log('📡 About to call nostr.event...');
+            const result = await nostr.event(signedEvent, { signal: AbortSignal.timeout(8000) });
+            console.log('✅ Successfully published to all relays, result:', result);
+          } catch (publishError) {
+            console.error('❌ Failed to publish to all relays:', publishError);
+            console.error('❌ Publish error details:', {
+              message: publishError.message,
+              stack: publishError.stack,
+              name: publishError.name
+            });
+            throw publishError;
+          }
         }
 
         return signedEvent;
@@ -88,6 +143,11 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
     },
     onError: (error) => {
       console.error("Failed to publish event:", error);
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
     },
     onSuccess: (data) => {
       console.log("Event published successfully:", data);
