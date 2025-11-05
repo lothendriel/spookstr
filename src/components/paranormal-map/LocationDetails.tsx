@@ -31,7 +31,7 @@ export default function LocationDetails({ location, onClose }: LocationDetailsPr
 
   return (
     <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-gray-800 border-gray-700 text-gray-100 max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-gray-800 border-gray-700 text-gray-100 max-w-2xl max-h-[90vh] overflow-y-auto z-[99999] shadow-2xl border-2 border-lime-500/50">
         <DialogHeader className="border-b border-gray-700 pb-4">
           <DialogTitle className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-lime-400">
