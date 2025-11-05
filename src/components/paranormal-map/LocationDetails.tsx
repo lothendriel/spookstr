@@ -34,7 +34,7 @@ export default function LocationDetails({ location, onClose }: LocationDetailsPr
       <DialogContent className="bg-gray-800 border-gray-700 text-gray-100 max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="border-b border-gray-700 pb-4">
           <DialogTitle className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-blue-400">
+            <div className="flex items-center gap-2 text-lime-400">
               <MapPin className="w-5 h-5" />
               <span className="text-xl font-bold">{location.title}</span>
             </div>
@@ -53,7 +53,7 @@ export default function LocationDetails({ location, onClose }: LocationDetailsPr
           {/* Description */}
           <Card className="bg-gray-700 border-gray-600">
             <CardContent className="p-4">
-              <h3 className="text-lg font-semibold text-blue-300 mb-3">Experience Details</h3>
+              <h3 className="text-lg font-semibold text-lime-300 mb-3">Experience Details</h3>
               <div className="text-gray-200 whitespace-pre-wrap leading-relaxed">
                 {location.description}
               </div>
@@ -63,14 +63,14 @@ export default function LocationDetails({ location, onClose }: LocationDetailsPr
           {/* Location Information */}
           <Card className="bg-gray-700 border-gray-600">
             <CardContent className="p-4">
-              <h3 className="text-lg font-semibold text-blue-300 mb-3">Location Information</h3>
-              
+              <h3 className="text-lg font-semibold text-lime-300 mb-3">Location Information</h3>
+
               <div className="grid gap-4">
                 {/* Coordinates */}
                 <div className="flex items-center justify-between">
                   <span className="text-gray-300">Coordinates:</span>
                   <div className="flex items-center gap-2">
-                    <code className="bg-gray-800 px-3 py-1 rounded text-sm text-green-400 font-mono">
+                    <code className="bg-gray-800 px-3 py-1 rounded text-sm text-lime-400 font-mono">
                       {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
                     </code>
                     <Button
@@ -127,13 +127,13 @@ export default function LocationDetails({ location, onClose }: LocationDetailsPr
             <Button
               variant="outline"
               onClick={onClose}
-              className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-700"
+              className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-700 hover:border-lime-500 hover:text-lime-400"
             >
               Close
             </Button>
             <Button
               onClick={openInMaps}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 bg-lime-500 hover:bg-lime-400 text-black font-semibold"
             >
               <ExternalLink className="w-4 h-4 mr-2" />
               Open in Maps

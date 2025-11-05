@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { SpookstrHeader } from '@/components/SpookstrHeader';
 import LocationSubmitForm from '@/components/paranormal-map/LocationSubmitForm';
 import ParanormalMap from '@/components/paranormal-map/ParanormalMap';
 import LocationList from '@/components/paranormal-map/LocationList';
@@ -81,11 +82,12 @@ export default function ParanormalMapPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 p-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6 text-center">
-          <h1 className="text-4xl font-bold text-blue-400 mb-2">🕯️ Paranormal Map</h1>
+    <div className="min-h-screen bg-gray-900 text-gray-100">
+      <SpookstrHeader />
+      <div className="max-w-7xl mx-auto p-4">
+        {/* Page Header */}
+        <div className="mb-6 text-center pt-4">
+          <h1 className="text-4xl font-bold text-lime-400 mb-2 tracking-wider">🕯️ Paranormal Map</h1>
           <p className="text-gray-400">Explore and share paranormal locations worldwide</p>
         </div>
 
@@ -113,7 +115,7 @@ export default function ParanormalMapPage() {
           <div className="order-1 lg:order-2">
             <Card className="bg-gray-800 border-gray-700 h-[600px] overflow-hidden">
               <div className="p-4 border-b border-gray-700">
-                <h2 className="text-xl font-semibold text-blue-400">📍 Reported Locations</h2>
+                <h2 className="text-xl font-semibold text-lime-400">📍 Reported Locations</h2>
               </div>
               <LocationList
                 locations={locations}

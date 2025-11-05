@@ -64,7 +64,7 @@ export default function LocationSubmitForm({ onLocationSubmit }: LocationSubmitF
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.title.trim() || !formData.description.trim()) {
       toast({
         title: 'Missing required fields',
@@ -131,7 +131,7 @@ export default function LocationSubmitForm({ onLocationSubmit }: LocationSubmitF
   return (
     <Card className="bg-gray-800 border-gray-700">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-blue-400">
+        <CardTitle className="flex items-center gap-2 text-lime-400">
           <MapPin className="w-5 h-5" />
           Submit Paranormal Location
         </CardTitle>
@@ -146,7 +146,7 @@ export default function LocationSubmitForm({ onLocationSubmit }: LocationSubmitF
               value={formData.title}
               onChange={(e) => handleInputChange('title', e.target.value)}
               placeholder="e.g., Haunted Mansion, UFO Hotspot, etc."
-              className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-blue-500"
+              className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-lime-500"
               disabled={isSubmitting}
             />
           </div>
@@ -160,7 +160,7 @@ export default function LocationSubmitForm({ onLocationSubmit }: LocationSubmitF
               onChange={(e) => handleInputChange('description', e.target.value)}
               placeholder="Describe your paranormal experience or what makes this location special..."
               rows={4}
-              className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-blue-500 resize-none"
+              className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-lime-500 resize-none"
               disabled={isSubmitting}
             />
           </div>
@@ -176,7 +176,7 @@ export default function LocationSubmitForm({ onLocationSubmit }: LocationSubmitF
                 value={formData.latitude}
                 onChange={(e) => handleInputChange('latitude', e.target.value)}
                 placeholder="e.g., 40.7128"
-                className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-blue-500"
+                className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-lime-500"
                 disabled={isSubmitting}
               />
             </div>
@@ -191,7 +191,7 @@ export default function LocationSubmitForm({ onLocationSubmit }: LocationSubmitF
                 value={formData.longitude}
                 onChange={(e) => handleInputChange('longitude', e.target.value)}
                 placeholder="e.g., -74.0060"
-                className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-blue-500"
+                className="bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:border-lime-500"
                 disabled={isSubmitting}
               />
             </div>
@@ -203,7 +203,7 @@ export default function LocationSubmitForm({ onLocationSubmit }: LocationSubmitF
               variant="outline"
               onClick={handleUseMyLocation}
               disabled={isSubmitting}
-              className="flex items-center gap-2 border-gray-600 text-gray-300 hover:bg-gray-700"
+              className="flex items-center gap-2 border-gray-600 text-gray-300 hover:bg-gray-700 hover:border-lime-500 hover:text-lime-400"
             >
               <Navigation className="w-4 h-4" />
               Use My Location
@@ -212,7 +212,7 @@ export default function LocationSubmitForm({ onLocationSubmit }: LocationSubmitF
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 bg-lime-500 hover:bg-lime-400 text-black font-semibold"
             >
               {isSubmitting ? 'Submitting...' : 'Submit Location'}
             </Button>

@@ -38,10 +38,10 @@ export default function LocationList({ locations, onLocationSelect }: LocationLi
               <div
                 key={location.id}
                 onClick={() => onLocationSelect(location)}
-                className="bg-gray-700 rounded-lg p-4 cursor-pointer hover:bg-gray-600 transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/10 border border-gray-600 hover:border-blue-500/50"
+                className="bg-gray-700 rounded-lg p-4 cursor-pointer hover:bg-gray-600 transition-all duration-200 hover:shadow-lg hover:shadow-lime-500/10 border border-gray-600 hover:border-lime-500/50"
               >
                 {/* Location Title */}
-                <h3 className="font-bold text-blue-400 mb-2 flex items-start gap-2">
+                <h3 className="font-bold text-lime-400 mb-2 flex items-start gap-2">
                   <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
                   <span>{location.title}</span>
                 </h3>
@@ -80,7 +80,7 @@ export default function LocationList({ locations, onLocationSelect }: LocationLi
                 </div>
 
                 {/* Hover Effect Indicator */}
-                <div className="mt-2 text-xs text-blue-400 opacity-0 hover:opacity-100 transition-opacity">
+                <div className="mt-2 text-xs text-lime-400 opacity-0 hover:opacity-100 transition-opacity">
                   Click to view details and locate on map
                 </div>
               </div>

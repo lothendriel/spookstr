@@ -60,17 +60,17 @@ export default function ParanormalMap({ locations, onLocationSelect, selectedLoc
     // Add new markers
     locations.forEach(location => {
       const isSelected = selectedLocation?.id === location.id;
-      
+
       // Create custom ghostly icon
       const ghostIcon = L.divIcon({
         className: 'custom-ghost-marker',
         html: `
           <div class="relative">
-            <div class="w-8 h-8 bg-blue-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center ${isSelected ? 'animate-pulse' : ''}" 
-                 style="box-shadow: 0 0 15px rgba(59, 130, 246, 0.8);">
+            <div class="w-8 h-8 bg-lime-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center ${isSelected ? 'animate-pulse' : ''}"
+                 style="box-shadow: 0 0 15px rgba(163, 230, 53, 0.8);">
               <span class="text-white text-xs font-bold">👻</span>
             </div>
-            ${isSelected ? '<div class="absolute inset-0 w-8 h-8 bg-blue-400 rounded-full animate-ping opacity-30"></div>' : ''}
+            ${isSelected ? '<div class="absolute inset-0 w-8 h-8 bg-lime-400 rounded-full animate-ping opacity-30"></div>' : ''}
           </div>
         `,
         iconSize: [32, 32],
@@ -85,7 +85,7 @@ export default function ParanormalMap({ locations, onLocationSelect, selectedLoc
           <div class="text-gray-800">
             <h3 class="font-bold text-lg mb-2">${location.title}</h3>
             <p class="text-sm mb-2">${location.description.substring(0, 100)}${location.description.length > 100 ? '...' : ''}</p>
-            <button 
+            <button
               onclick="window.selectLocation && window.selectLocation('${location.id}')"
               class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
             >
@@ -128,16 +128,16 @@ export default function ParanormalMap({ locations, onLocationSelect, selectedLoc
 
   return (
     <div className="relative w-full h-full">
-      <div 
-        ref={mapRef} 
+      <div
+        ref={mapRef}
         className="w-full h-[600px] rounded-lg overflow-hidden"
         style={{ minHeight: '600px' }}
       />
-      
+
       {/* Map controls overlay */}
       <div className="absolute top-4 right-4 bg-gray-800 bg-opacity-90 rounded-lg p-3 text-xs text-gray-300">
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+          <div className="w-3 h-3 bg-lime-500 rounded-full"></div>
           <span>Paranormal Locations</span>
         </div>
         <div className="text-gray-400">
