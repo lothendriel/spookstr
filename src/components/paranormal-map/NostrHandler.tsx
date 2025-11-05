@@ -4,7 +4,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { ParanormalLocation } from '@/types/paranormal';
 
-const PARANORMAL_LOCATION_KIND = 7277;
+const PARANORMAL_LOCATION_KIND = 30023;
 
 export function useNostrHandler() {
   const { nostr } = useNostr();
@@ -26,9 +26,10 @@ export function useNostrHandler() {
       kind: PARANORMAL_LOCATION_KIND,
       content: JSON.stringify(locationData),
       tags: [
+        ['d', `paranormal-location-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`],
         ['t', 'paranormal'],
         ['t', 'location'],
-        ['alt', 'Paranormal location submission'],
+        ['alt', 'Paranormal location submission - Long-form content'],
       ],
       created_at: Math.floor(Date.now() / 1000),
     };
