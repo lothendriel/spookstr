@@ -10,6 +10,7 @@ import LocationDetails from '@/components/paranormal-map/LocationDetails';
 import { useNostrHandler } from '@/components/paranormal-map/NostrHandler';
 import { RefreshCw } from 'lucide-react';
 import { ParanormalLocation } from '@/types/paranormal';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 export default function ParanormalMapPage() {
   console.log('🗺️ ParanormalMapPage component mounting...');
@@ -84,82 +85,91 @@ export default function ParanormalMapPage() {
     };
   }, [fetchSubmissions]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background text-foreground p-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading paranormal locations...</p>
+  const renderMapContent = () => {
+    if (isLoading) {
+      return (
+        <div className="min-h-screen bg-background text-foreground p-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading paranormal locations...</p>
+            </div>
           </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <SpookstrHeader />
+        <div className="max-w-7xl mx-auto p-4">
+          {/* Page Header */}
+          <div className="mb-6 text-center pt-4">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-4xl font-bold text-lime-400 mb-2 tracking-wider">🕯️ Paranormal Map</h1>
+              <Button
+                onClick={handleRefreshLocations}
+                variant="outline"
+                size="sm"
+                className="border-gray-600 text-gray-300 hover:bg-gray-700 hover:border-lime-500 hover:text-lime-400"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh Locations
+              </Button>
+            </div>
+            <p className="text-muted-foreground">Explore and share paranormal locations worldwide</p>
+          </div>
+
+          {/* Submission Form */}
+          <div className="mb-6">
+            <LocationSubmitForm onLocationSubmit={handleNewLocation} />
+          </div>
+
+          <Separator className="mb-6 bg-gray-700" />
+
+          {/* Main Content */}
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Map */}
+            <div className="order-2 lg:order-1">
+              <Card className="bg-gray-800 border-gray-700 p-0 overflow-hidden">
+                <ParanormalMap
+                  locations={locations}
+                  onLocationSelect={handleLocationSelect}
+                  selectedLocation={selectedLocation}
+                />
+              </Card>
+            </div>
+
+            {/* Location List */}
+            <div className="order-1 lg:order-2">
+              <Card className="bg-gray-800 border-gray-700 h-[600px] overflow-hidden">
+                <div className="p-4 border-b border-gray-700">
+                  <h2 className="text-xl font-semibold text-lime-400">📍 Reported Locations</h2>
+                </div>
+                <LocationList
+                  locations={locations}
+                  onLocationSelect={handleLocationSelect}
+                />
+              </Card>
+            </div>
+          </div>
+
+          {/* Location Details Modal/Side Panel */}
+          {selectedLocation && (
+            <LocationDetails
+              location={selectedLocation}
+              onClose={handleCloseDetails}
+            />
+          )}
         </div>
       </div>
     );
-  }
+  };
 
+  // Wrap the entire page content in the ProtectedRoute component
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <SpookstrHeader />
-      <div className="max-w-7xl mx-auto p-4">
-        {/* Page Header */}
-        <div className="mb-6 text-center pt-4">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-4xl font-bold text-lime-400 mb-2 tracking-wider">🕯️ Paranormal Map</h1>
-            <Button
-              onClick={handleRefreshLocations}
-              variant="outline"
-              size="sm"
-              className="border-gray-600 text-gray-300 hover:bg-gray-700 hover:border-lime-500 hover:text-lime-400"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh Locations
-            </Button>
-          </div>
-          <p className="text-muted-foreground">Explore and share paranormal locations worldwide</p>
-        </div>
-
-        {/* Submission Form */}
-        <div className="mb-6">
-          <LocationSubmitForm onLocationSubmit={handleNewLocation} />
-        </div>
-
-        <Separator className="mb-6 bg-gray-700" />
-
-        {/* Main Content */}
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Map */}
-          <div className="order-2 lg:order-1">
-            <Card className="bg-gray-800 border-gray-700 p-0 overflow-hidden">
-              <ParanormalMap
-                locations={locations}
-                onLocationSelect={handleLocationSelect}
-                selectedLocation={selectedLocation}
-              />
-            </Card>
-          </div>
-
-          {/* Location List */}
-          <div className="order-1 lg:order-2">
-            <Card className="bg-gray-800 border-gray-700 h-[600px] overflow-hidden">
-              <div className="p-4 border-b border-gray-700">
-                <h2 className="text-xl font-semibold text-lime-400">📍 Reported Locations</h2>
-              </div>
-              <LocationList
-                locations={locations}
-                onLocationSelect={handleLocationSelect}
-              />
-            </Card>
-          </div>
-        </div>
-
-        {/* Location Details Modal/Side Panel */}
-        {selectedLocation && (
-          <LocationDetails
-            location={selectedLocation}
-            onClose={handleCloseDetails}
-          />
-        )}
-      </div>
-    </div>
+    <ProtectedRoute>
+      {renderMapContent()}
+    </ProtectedRoute>
   );
 }
