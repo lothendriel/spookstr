@@ -38,6 +38,9 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
   const [mapCenter, setMapCenter] = useState<[number, number]>([39.8283, -98.5795]); // Center of USA
   const [mapZoom, setMapZoom] = useState(4);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isPinpointMode, setIsPinpointMode] = useState(false);
+  const [pinpointLocation, setPinpointLocation] = useState<[number, number] | null>(null);
+  const [pinpointMarker, setPinpointMarker] = useRef<L.Marker | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -96,6 +99,13 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
       mapRef.current.setView(mapCenter, mapZoom);
     }
   }, [mapCenter, mapZoom]);
+
+  // Update map view when pinpoint location changes
+  useEffect(() => {
+    if (mapRef.current && pinpointLocation) {
+      mapRef.current.setView(pinpointLocation, mapZoom);
+    }
+  }, [pinpointLocation, mapZoom]);
 
   // Update markers when locations change
   useEffect(() => {
@@ -183,6 +193,47 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
     };
   }, []);
 
+  // Handle pinpoint mode
+  useEffect(() => {
+    if (!mapRef.current || !isPinpointMode) return;
+
+    // Remove existing pinpoint marker
+    if (pinpointMarker.current) {
+      mapRef.current.removeLayer(pinpointMarker.current);
+      pinpointMarker.current = null;
+    }
+
+    // Add new pinpoint marker if location is set
+    if (pinpointLocation) {
+      const icon = L.divIcon({
+        className: 'custom-marker',
+        html: '<div class="text-3xl text-red-500 animate-pulse">📍</div>',
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+      });
+
+      pinpointMarker.current = L.marker(pinpointLocation, {
+        icon,
+        draggable: true,
+        autoPan: true
+      }).addTo(mapRef.current);
+
+      // Handle marker drag events
+      pinpointMarker.current.on('dragend', (event) => {
+        const marker = event.target as L.Marker;
+        const newPos = marker.getLatLng();
+        setPinpointLocation([newPos.lat, newPos.lng]);
+      });
+    }
+
+    return () => {
+      if (pinpointMarker.current) {
+        mapRef.current?.removeLayer(pinpointMarker.current);
+        pinpointMarker.current = null;
+      }
+    };
+  }, [isPinpointMode, pinpointLocation]);
+
   const handleLocationClick = (location: ParanormalLocation) => {
     setSelectedLocation(location);
     onLocationSelect?.(location);
@@ -198,7 +249,9 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
         (position) => {
           const { latitude, longitude } = position.coords;
           setMapCenter([latitude, longitude]);
-          setMapZoom(10);
+          setMapZoom(15); // Higher zoom for pinpointing
+          setIsPinpointMode(true);
+          setPinpointLocation([latitude, longitude]);
         },
         (error) => {
           console.error('Error getting location:', error);
@@ -259,12 +312,15 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
 
             <Button
               onClick={handleUseMyLocation}
-              variant="outline"
+              variant={isPinpointMode ? 'default' : 'outline'}
               size="sm"
-              className="w-full"
+              className={cn(
+                'w-full',
+                isPinpointMode && 'bg-lime-500 text-black'
+              )}
             >
-              <MapPin className="h-4 w-4 mr-2" />
-              Use My Location
+              <MapPin className={cn('h-4 w-4 mr-2', isPinpointMode && 'animate-pulse')} />
+              {isPinpointMode ? 'Pinpointing...' : 'Use My Location'}
             </Button>
 
             <Button
@@ -280,6 +336,58 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
           </CardContent>
         </Card>
       </div>
+
+      {/* Pinpoint Mode Controls - only show when in pinpoint mode */}
+      {isPinpointMode && (
+        <div className="absolute bottom-4 left-4 z-[1000]">
+          <Card className="w-64">
+            <CardContent className="pt-4">
+              <div className="space-y-3">
+                <div className="text-center">
+                  <h4 className="text-sm font-semibold text-lime-400 mb-1">
+                    Pinpoint Location
+                  </h4>
+                  <p className="text-xs text-lime-500/60">
+                    Drag the red pin to adjust location
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      if (pinpointLocation) {
+                        // Here you could save the pinpointed location or use it for reporting
+                        console.log('Pinpointed location:', pinpointLocation);
+                        // For now, just exit pinpoint mode
+                        setIsPinpointMode(false);
+                        setPinpointLocation(null);
+                      }
+                    }}
+                    size="sm"
+                    className="flex-1 bg-lime-500 hover:bg-lime-600 text-black"
+                  >
+                    Use This Location
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setIsPinpointMode(false);
+                      setPinpointLocation(null);
+                    }}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+                {pinpointLocation && (
+                  <div className="text-xs text-lime-500/60 text-center">
+                    Coordinates: {pinpointLocation[0].toFixed(6)}, {pinpointLocation[1].toFixed(6)}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Location Stats - positioned below header */}
       <div className="absolute top-20 right-4 z-[1000]">
