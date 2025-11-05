@@ -86,11 +86,11 @@ export default function ParanormalMapPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-900 text-gray-100 p-4">
+      <div className="min-h-screen bg-background text-foreground p-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
-            <p className="text-gray-400">Loading paranormal locations...</p>
+            <p className="text-muted-foreground">Loading paranormal locations...</p>
           </div>
         </div>
       </div>
@@ -98,7 +98,7 @@ export default function ParanormalMapPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100">
+    <div className="min-h-screen bg-background text-foreground">
       <SpookstrHeader />
       <div className="max-w-7xl mx-auto p-4">
         {/* Page Header */}
@@ -115,7 +115,7 @@ export default function ParanormalMapPage() {
               Refresh Locations
             </Button>
           </div>
-          <p className="text-gray-400">Explore and share paranormal locations worldwide</p>
+          <p className="text-muted-foreground">Explore and share paranormal locations worldwide</p>
         </div>
 
         {/* Submission Form */}
