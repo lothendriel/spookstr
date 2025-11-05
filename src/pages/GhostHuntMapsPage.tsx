@@ -17,7 +17,7 @@ import {
   Calendar,
   Star
 } from 'lucide-react';
-import { ParanormalLocation } from '@/hooks/useParanormalLocations';
+import { ParanormalLocation, useParanormalLocations } from '@/hooks/useParanormalLocations';
 
 const GhostHuntMapsPage = () => {
   useSeoMeta({
