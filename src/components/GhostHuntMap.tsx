@@ -40,6 +40,7 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
   const [isRefreshing, setIsRefreshing] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const { data: locations, isLoading, error, refetch } = useParanormalLocations(
     selectedCategory === 'all' ? undefined : selectedCategory
@@ -159,6 +160,28 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
       mapRef.current.setView(mapCenter, mapZoom);
     }
   }, [mapCenter, mapZoom]);
+
+  // Handle window resize to make map responsive
+  useEffect(() => {
+    const handleResize = () => {
+      if (mapRef.current) {
+        mapRef.current.invalidateSize();
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Initial invalidate after mount
+    setTimeout(() => {
+      if (mapRef.current) {
+        mapRef.current.invalidateSize();
+      }
+    }, 100);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
 
   const handleLocationClick = (location: ParanormalLocation) => {
     setSelectedLocation(location);

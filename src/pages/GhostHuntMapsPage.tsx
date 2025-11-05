@@ -106,7 +106,7 @@ const GhostHuntMapsPage = () => {
                     Report Location
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto z-[2000]">
                   <DialogHeader>
                     <DialogTitle className="text-xl flex items-center gap-2">
                       <Ghost className="h-6 w-6 text-lime-400" />
@@ -125,9 +125,9 @@ const GhostHuntMapsPage = () => {
       </div>
 
       {/* Main Content */}
-      <main className="flex-1">
+      <main className="flex-1 min-h-0">
         {viewMode === 'map' ? (
-          <div className="h-[calc(100vh-120px)]">
+          <div className="h-full w-full">
             <GhostHuntMap onLocationSelect={handleLocationSelect} />
           </div>
         ) : (
