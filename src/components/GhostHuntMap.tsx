@@ -204,7 +204,7 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
     }
 
     // Add new pinpoint marker if location is set
-    if (pinpointLocation) {
+    if (pinpointLocation && mapRef.current) {
       const icon = L.divIcon({
         className: 'custom-marker',
         html: '<div class="text-3xl text-red-500 animate-pulse">📍</div>',
@@ -227,8 +227,8 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
     }
 
     return () => {
-      if (pinpointMarker.current) {
-        mapRef.current?.removeLayer(pinpointMarker.current);
+      if (pinpointMarker.current && mapRef.current) {
+        mapRef.current.removeLayer(pinpointMarker.current);
         pinpointMarker.current = null;
       }
     };
