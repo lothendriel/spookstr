@@ -28,19 +28,43 @@ export default function ParanormalMap() {
 
   // Fetch existing locations on component mount
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
     const loadLocations = async () => {
       try {
+        console.log('Starting to load locations...');
         setIsLoading(true);
+
+        // Force loading to complete after 10 seconds regardless of network issues
+        timeoutId = setTimeout(() => {
+          console.log('Loading timeout - showing empty state');
+          setIsLoading(false);
+        }, 10000);
+
         const existingLocations = await fetchSubmissions();
+        console.log('Loaded locations:', existingLocations.length);
+
+        // Clear the timeout since we got a response
+        clearTimeout(timeoutId);
+
         setLocations(existingLocations);
       } catch (error) {
         console.error('Failed to load paranormal locations:', error);
+        setLocations([]); // Ensure we have empty array on error
       } finally {
+        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     };
 
     loadLocations();
+
+    // Cleanup
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [fetchSubmissions]);
 
   if (isLoading) {

@@ -1,8 +1,7 @@
-import { useEffect } from 'react';
+import { useCallback } from 'react';
 import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { useAppContext } from '@/hooks/useAppContext';
 import { ParanormalLocation } from '@/types/paranormal';
 
 const PARANORMAL_LOCATION_KIND = 7277;
@@ -11,7 +10,6 @@ export function useNostrHandler() {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
   const { mutate: publishEvent } = useNostrPublish();
-  const { relayUrl } = useAppContext();
 
   const publishSubmission = async (data: Omit<ParanormalLocation, 'timestamp' | 'id'>) => {
     if (!user) {
@@ -43,13 +41,18 @@ export function useNostrHandler() {
     }
   };
 
-  const fetchSubmissions = async (): Promise<ParanormalLocation[]> => {
+  const fetchSubmissions = useCallback(async (): Promise<ParanormalLocation[]> => {
     try {
-      const signal = AbortSignal.timeout(5000);
+      console.log('Fetching paranormal locations...');
+      
+      // Try to get events with a shorter timeout
+      const signal = AbortSignal.timeout(3000);
       const events = await nostr.query(
         [{ kinds: [PARANORMAL_LOCATION_KIND], limit: 100 }],
         { signal }
       );
+
+      console.log('Received events:', events.length);
 
       const locations: ParanormalLocation[] = [];
 
@@ -67,13 +70,15 @@ export function useNostrHandler() {
         }
       }
 
+      console.log('Parsed locations:', locations.length);
       // Sort by timestamp (newest first)
       return locations.sort((a, b) => b.timestamp - a.timestamp);
     } catch (error) {
       console.error('Failed to fetch paranormal locations:', error);
+      // Return empty array on error to prevent hanging
       return [];
     }
-  };
+  }, [nostr]);
 
   return {
     publishSubmission,
