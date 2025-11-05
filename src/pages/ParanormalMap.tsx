@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import LocationSubmitForm from '@/components/paranormal-map/LocationSubmitForm';
-import ParanormalMapComponent from '@/components/paranormal-map/ParanormalMap';
+import ParanormalMap from '@/components/paranormal-map/ParanormalMap';
 import LocationList from '@/components/paranormal-map/LocationList';
 import LocationDetails from '@/components/paranormal-map/LocationDetails';
 import { useNostrHandler } from '@/components/paranormal-map/NostrHandler';
@@ -101,7 +101,7 @@ export default function ParanormalMapPage() {
           {/* Map */}
           <div className="order-2 lg:order-1">
             <Card className="bg-gray-800 border-gray-700 p-0 overflow-hidden">
-              <ParanormalMapComponent
+              <ParanormalMap
                 locations={locations}
                 onLocationSelect={handleLocationSelect}
                 selectedLocation={selectedLocation}

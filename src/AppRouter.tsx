@@ -17,7 +17,7 @@ const CommunityBrowsePage = lazy(() => import("./pages/CommunityBrowsePage"));
 const PostDetailPage = lazy(() => import("./pages/PostDetailPage"));
 const CommunityPostDetailPage = lazy(() => import("./pages/CommunityPostDetailPage"));
 const ModeratorPanel = lazy(() => import("./components/communities/ModeratorPanel").then(m => ({ default: m.ModeratorPanel })));
-const ParanormalMapPage = lazy(() => import("./pages/ParanormalMap").then(m => ({ default: m.ParanormalMapPage })));
+const ParanormalMapPage = lazy(() => import("./pages/ParanormalMap"));
 
 
 export function AppRouter() {
