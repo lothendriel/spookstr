@@ -178,8 +178,22 @@ export function GhostHuntMap({ className, onLocationSelect }: GhostHuntMapProps)
         },
         (error) => {
           console.error('Error getting location:', error);
+          let errorMessage = 'Unable to get your location';
+
+          if (error.code === error.PERMISSION_DENIED) {
+            errorMessage = 'Location access denied by user';
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            errorMessage = 'Location information is unavailable';
+          } else if (error.code === error.TIMEOUT) {
+            errorMessage = 'Location request timed out';
+          }
+
+          // You could show a toast notification here if desired
+          console.log(errorMessage);
         }
       );
+    } else {
+      console.error('Geolocation is not supported by this browser');
     }
   };
 
