@@ -19,7 +19,7 @@ const CommunityPostDetailPage = lazy(() => import("./pages/CommunityPostDetailPa
 const ModeratorPanel = lazy(() => import("./components/communities/ModeratorPanel").then(m => ({ default: m.ModeratorPanel })));
 const ParanormalMapPage = lazy(() => import("./pages/ParanormalMap"));
 const ArticlesPage = lazy(() => import("./pages/Articles"));
-const WriteArticlePage = lazy(() => import("./pages/WriteArticle"));
+const WriteArticlePage = lazy(() => import("./pages/WriteArticle").then(module => ({ default: module.default })));
 
 
 export function AppRouter() {
