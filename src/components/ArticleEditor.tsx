@@ -5,6 +5,7 @@ import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Youtube from '@tiptap/extension-youtube';
+import './RichTextEditorStyles.css';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -395,16 +396,6 @@ export function ArticleEditor({
           className="min-h-[300px] px-4 py-3 focus:outline-none"
         />
       </div>
-
-      <style jsx global>{`
-        .is-editor-empty:first-child::before {
-          content: attr(data-placeholder);
-          float: left;
-          color: rgba(163, 230, 53, 0.4);
-          pointer-events: none;
-          height: 0;
-        }
-      `}</style>
     </div>
   );
 }

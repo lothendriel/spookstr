@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback }
+
+export default WriteArticlePage; from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
@@ -72,7 +74,7 @@ function useDraft(draftId?: string) {
   });
 }
 
-export default function WriteArticlePage() {
+export function WriteArticlePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
