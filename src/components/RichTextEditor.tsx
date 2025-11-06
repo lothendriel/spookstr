@@ -81,10 +81,4 @@ export function CategoriesSelector({
       </div>
     </div>
   );
-}</function_results>
-
-Let's check if we have the getTagValue helper function in the lib directory, and create it if not:
-
-<function_calls>
-<invoke name="shell">
-<parameter name="command">find src/lib -name "*nostr*"
+}
