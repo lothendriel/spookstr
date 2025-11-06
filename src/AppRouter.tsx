@@ -18,8 +18,6 @@ const PostDetailPage = lazy(() => import("./pages/PostDetailPage"));
 const CommunityPostDetailPage = lazy(() => import("./pages/CommunityPostDetailPage"));
 const ModeratorPanel = lazy(() => import("./components/communities/ModeratorPanel").then(m => ({ default: m.ModeratorPanel })));
 const ParanormalMapPage = lazy(() => import("./pages/ParanormalMap"));
-const ArticlesPage = lazy(() => import("./pages/Articles"));
-const WriteArticlePage = lazy(() => import("./pages/WriteArticle").then(module => ({ default: module.default })));
 
 
 export function AppRouter() {
@@ -41,8 +39,6 @@ export function AppRouter() {
         <Route path="/create-community" element={<CreateCommunityPage />} />
         <Route path="/create-community/:communityId" element={<CreateCommunityPage />} />
         <Route path="/paranormal-map" element={<ParanormalMapPage />} />
-        <Route path="/articles" element={<ArticlesPage />} />
-        <Route path="/write-article" element={<WriteArticlePage />} />
         {/* NIP-19 route for npub1, note1, naddr1, nevent1, nevent1, nprofile1 */}
         <Route path="/:nip19" element={<NIP19Page />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

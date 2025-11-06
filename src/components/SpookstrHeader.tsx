@@ -1,14 +1,12 @@
-import { Ghost, Zap, Plus, Calendar, Users, MapPin, PenSquare, BookOpen, FileEdit } from 'lucide-react';
+import { Ghost, Zap, Plus, Calendar, Users, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CreatePostModal } from '@/components/CreatePostModal';
 import { useNavigate } from 'react-router-dom';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 export function SpookstrHeader() {
   const navigate = useNavigate();
-  const { user } = useCurrentUser();
 
   return (
     <header className="border-b border-lime-500/20 bg-black/40 backdrop-blur-sm sticky top-0 z-40">
@@ -47,18 +45,6 @@ export function SpookstrHeader() {
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline ml-2">Communities</span>
             </Button>
-
-            <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold" onClick={() => navigate('/articles')}>
-              <BookOpen className="h-4 w-4" />
-              <span className="hidden sm:inline ml-2">Articles</span>
-            </Button>
-
-            {user && (
-              <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold" onClick={() => navigate('/write-article')}>
-                <FileEdit className="h-4 w-4" />
-                <span className="hidden sm:inline ml-2">Write</span>
-              </Button>
-            )}
 
             <div className="hidden md:flex items-center space-x-2 text-lime-500/60">
               <Zap className="h-4 w-4" />
