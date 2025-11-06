@@ -1,4 +1,4 @@
-import { Ghost, Zap, Plus, Calendar, Users, MapPin } from 'lucide-react';
+import { Ghost, Zap, Plus, Calendar, Users, MapPin, FileEdit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -32,6 +32,10 @@ export function SpookstrHeader() {
                 <Plus className="h-4 w-4" />
               </Button>
             </CreatePostModal>
+
+            <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold" size="icon" onClick={() => navigate('/articles/write')}>
+              <FileEdit className="h-4 w-4" />
+            </Button>
 
             <Button className="bg-lime-500 hover:bg-lime-400 text-black font-semibold" size="icon" onClick={() => navigate('/paranormal-map')}>
               <MapPin className="h-4 w-4" />

@@ -2,6 +2,110 @@
 
 This document describes how Spookstr implements Nostr features in full compliance with established NIPs and custom event kinds for paranormal-specific functionality.
 
+## NIP-23: Long-form Content (Articles)
+
+Spookstr implements **Kind 30023** (Long-form Content) and **Kind 30024** (Draft Long-form Content) for paranormal article writing and publishing. This enables users to write in-depth paranormal investigations, encounter reports, research articles, and multimedia-rich content.
+
+### Published Articles (Kind 30023)
+
+Published articles are addressable events that can be updated and are permanently stored by relays.
+
+```json
+{
+  "kind": 30023,
+  "content": "<markdown-formatted-article-content>",
+  "tags": [
+    ["d", "<unique-article-identifier>"],
+    ["title", "<Article Title>"],
+    ["summary", "<Brief article summary>"],
+    ["published_at", "<unix-timestamp>"],
+    ["image", "<header-image-url>"],
+    ["t", "paranormal"],
+    ["t", "<additional-tags>"],
+    ["alt", "Paranormal article - Long-form content"]
+  ]
+}
+```
+
+### Draft Articles (Kind 30024)
+
+Drafts allow users to save work-in-progress articles before publishing.
+
+```json
+{
+  "kind": 30024,
+  "content": "<markdown-formatted-draft-content>",
+  "tags": [
+    ["d", "<unique-draft-identifier>"],
+    ["title", "<Draft Title>"],
+    ["summary", "<Brief summary>"],
+    ["image", "<header-image-url>"],
+    ["t", "paranormal"],
+    ["t", "<additional-tags>"],
+    ["alt", "Paranormal article draft - Long-form content draft"]
+  ]
+}
+```
+
+### Article Features
+
+- **Rich Text Editor**: Markdown editor with preview mode
+- **Draft System**: Auto-save and manual save functionality
+- **Multimedia Support**: Upload images, videos, audio (EVPs), and embed media
+- **Tagging System**: Categorization with paranormal-specific tags
+- **Reader Engagement**: Comments, zaps, and sharing via NIP-19 naddr links
+- **Search & Discovery**: Browse by tags, search by title/content
+
+### Article Multimedia
+
+All media files are uploaded via Blossom servers and embedded in articles using Markdown:
+
+```markdown
+# EVP Recording from Abandoned Hospital
+
+Here's the audio evidence we captured:
+
+[🎵 EVP_Recording_2024.mp3](https://blossom.example.com/audio.mp3)
+
+![Investigation Photo](https://blossom.example.com/photo.jpg)
+
+[📹 Video Evidence](https://blossom.example.com/video.mp4)
+```
+
+### Article Discovery
+
+Articles are discoverable through:
+
+1. **Browse Page**: `/articles` - All published articles with trending tags
+2. **Tag Filtering**: Filter by paranormal categories (ghost, ufo, cryptid, etc.)
+3. **Search**: Full-text search across title, summary, and content
+4. **NIP-19 Links**: Share articles via `naddr` identifiers
+
+### Query Examples
+
+```javascript
+// Get all paranormal articles
+const articles = await nostr.query([{
+  kinds: [30023],
+  '#t': ['paranormal'],
+  limit: 100
+}]);
+
+// Get user's drafts
+const drafts = await nostr.query([{
+  kinds: [30024],
+  authors: [userPubkey],
+  limit: 50
+}]);
+
+// Get specific article by identifier
+const article = await nostr.query([{
+  kinds: [30023],
+  authors: [authorPubkey],
+  '#d': ['article-identifier']
+}]);
+```
+
 ## NIP-30023: Paranormal Location Data (Long-form Content)
 
 Spookstr implements **Kind 30023** (Long-form Content) for storing and sharing paranormal encounter location data. This enables the Ghost Hunt Maps feature where users can pin and discover paranormal activity locations using standardized addressable events.
