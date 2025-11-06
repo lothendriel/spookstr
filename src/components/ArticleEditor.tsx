@@ -23,6 +23,7 @@ import {
   Undo,
   Redo,
   Trash,
+  Youtube,
 } from 'lucide-react';
 import { useUploadFile } from '@/hooks/useUploadFile';
 import { NostrEvent } from '@nostrify/nostrify';
@@ -85,8 +86,8 @@ export function ArticleEditor({
     },
     editorProps: {
       attributes: {
-        class: `prose prose-invert max-w-none focus:outline-none prose-headings:text-lime-300 
-        prose-p:text-lime-100 prose-a:text-lime-400 prose-blockquote:text-lime-200/80 
+        class: `prose prose-invert max-w-none focus:outline-none prose-headings:text-lime-300
+        prose-p:text-lime-100 prose-a:text-lime-400 prose-blockquote:text-lime-200/80
         prose-blockquote:border-lime-500 prose-img:rounded-lg ${className}`,
       },
     },
@@ -103,15 +104,15 @@ export function ArticleEditor({
 
   const setLink = useCallback(() => {
     if (!editor) return;
-    
+
     if (linkUrl === '') {
       editor.chain().focus().extendMarkRange('link').unsetLink().run();
       return;
     }
-    
+
     // If no protocol is specified, add https://
     const url = linkUrl.match(/^https?:\/\//) ? linkUrl : `https://${linkUrl}`;
-    
+
     editor
       .chain()
       .focus()
@@ -125,10 +126,10 @@ export function ArticleEditor({
 
   const addImage = useCallback(async (file: File) => {
     if (!editor || !file) return;
-    
+
     try {
       const [[_, url]] = await uploadFile(file);
-      
+
       editor
         .chain()
         .focus()
@@ -150,7 +151,7 @@ export function ArticleEditor({
 
   const addYoutubeVideo = useCallback(() => {
     if (!editor || !youtubeUrl) return;
-    
+
     editor
       .chain()
       .focus()
@@ -178,7 +179,7 @@ export function ArticleEditor({
         >
           <Bold className="h-4 w-4" />
         </Toggle>
-        
+
         <Toggle
           pressed={editor.isActive('italic')}
           onPressedChange={() => editor.chain().focus().toggleItalic().run()}
@@ -199,7 +200,7 @@ export function ArticleEditor({
         >
           <Heading2 className="h-4 w-4" />
         </Toggle>
-        
+
         {/* Lists */}
         <Toggle
           pressed={editor.isActive('bulletList')}
@@ -210,7 +211,7 @@ export function ArticleEditor({
         >
           <List className="h-4 w-4" />
         </Toggle>
-        
+
         <Toggle
           pressed={editor.isActive('orderedList')}
           onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
@@ -231,7 +232,7 @@ export function ArticleEditor({
         >
           <Quote className="h-4 w-4" />
         </Toggle>
-        
+
         {/* Link */}
         <Popover open={showLinkPopover} onOpenChange={setShowLinkPopover}>
           <PopoverTrigger asChild>
@@ -261,8 +262,8 @@ export function ArticleEditor({
               </div>
               <div className="flex justify-between">
                 {editor.isActive('link') && (
-                  <Button 
-                    variant="destructive" 
+                  <Button
+                    variant="destructive"
                     size="sm"
                     onClick={() => {
                       editor.chain().focus().extendMarkRange('link').unsetLink().run();
@@ -272,8 +273,8 @@ export function ArticleEditor({
                     Remove Link
                   </Button>
                 )}
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={setLink}
                   className="ml-auto border-lime-500/40 text-lime-300 hover:bg-lime-500/20"
@@ -338,8 +339,8 @@ export function ArticleEditor({
                   className="bg-black/60 border-lime-500/40 text-lime-100"
                 />
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={addYoutubeVideo}
                 className="ml-auto border-lime-500/40 text-lime-300 hover:bg-lime-500/20"
@@ -361,7 +362,7 @@ export function ArticleEditor({
           >
             <Undo className="h-4 w-4" />
           </Toggle>
-          
+
           <Toggle
             pressed={false}
             onPressedChange={() => editor.chain().focus().redo().run()}
@@ -371,7 +372,7 @@ export function ArticleEditor({
           >
             <Redo className="h-4 w-4" />
           </Toggle>
-          
+
           {/* Clear Editor */}
           <Toggle
             pressed={false}
@@ -387,14 +388,14 @@ export function ArticleEditor({
           </Toggle>
         </div>
       </div>
-      
+
       <div className="min-h-[300px] border border-lime-500/20 rounded-md overflow-hidden bg-black/20 focus-within:border-lime-500/40 transition-colors">
-        <EditorContent 
-          editor={editor} 
+        <EditorContent
+          editor={editor}
           className="min-h-[300px] px-4 py-3 focus:outline-none"
         />
       </div>
-      
+
       <style jsx global>{`
         .is-editor-empty:first-child::before {
           content: attr(data-placeholder);

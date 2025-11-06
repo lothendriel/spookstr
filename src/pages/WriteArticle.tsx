@@ -18,18 +18,18 @@ import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
 import { NostrEvent } from '@nostrify/nostrify';
 import { generateUniqueIdentifier, getTagValue } from '@/lib/nostrHelpers';
-import { 
-  PenSquare, 
+import {
+  PenSquare,
   Save,
-  Send, 
-  Eye, 
-  ChevronLeft, 
+  Send,
+  Eye,
+  ChevronLeft,
   AlertCircle,
-  GhostIcon,
-  ImageIcon,
-  MicIcon,
-  VideoIcon,
-  InfoIcon 
+  Ghost as GhostIcon,
+  Image as ImageIcon,
+  Mic as MicIcon,
+  Video as VideoIcon,
+  Info as InfoIcon
 } from 'lucide-react';
 
 // Define article categories
@@ -53,19 +53,19 @@ const ARTICLE_CATEGORIES = [
 
 function useDraft(draftId?: string) {
   const { nostr } = useNostr();
-  
+
   return useQuery({
     queryKey: ['draft', draftId],
     queryFn: async () => {
       if (!draftId) return null;
-      
+
       const events = await nostr.query([
         {
           ids: [draftId],
           kinds: [30024], // Draft article kind
         }
       ]);
-      
+
       return events.length > 0 ? events[0] : null;
     },
     enabled: !!draftId,
@@ -78,7 +78,7 @@ export default function WriteArticlePage() {
   const { toast } = useToast();
   const { user } = useCurrentUser();
   const { mutateAsync: publishEvent } = useNostrPublish();
-  
+
   // Parse draft ID from URL query parameters
   const queryParams = new URLSearchParams(location.search);
   const draftId = queryParams.get('draft') || undefined;
@@ -94,7 +94,7 @@ export default function WriteArticlePage() {
   const [publishAs, setPublishAs] = useState<'published' | 'draft'>('draft');
   const [allowComments, setAllowComments] = useState(true);
   const [tab, setTab] = useState('write');
-  
+
   // Set initial state from draft if available
   useEffect(() => {
     if (draftEvent) {
@@ -102,23 +102,23 @@ export default function WriteArticlePage() {
       setSummary(getTagValue(draftEvent, 'summary', ''));
       setContent(draftEvent.content || '');
       setIdentifier(getTagValue(draftEvent, 'd', ''));
-      
+
       // Extract categories from 't' tags
       const draftCategories = draftEvent.tags
         .filter(tag => tag[0] === 't')
         .map(tag => tag[1]);
       setCategories(draftCategories);
-      
+
       // Extract image URL
       const imageTag = draftEvent.tags.find(tag => tag[0] === 'image');
       setImage(imageTag ? imageTag[1] : '');
-      
+
       // Check comments setting
       const commentsDisabled = draftEvent.tags.some(tag => tag[0] === 'comments_disabled');
       setAllowComments(!commentsDisabled);
     }
   }, [draftEvent]);
-  
+
   // Generate a unique identifier if not editing a draft
   useEffect(() => {
     if (!draftEvent && !identifier) {
@@ -135,7 +135,7 @@ export default function WriteArticlePage() {
       });
       return false;
     }
-    
+
     if (title.length < 5) {
       toast({
         title: "Title too short",
@@ -144,7 +144,7 @@ export default function WriteArticlePage() {
       });
       return false;
     }
-    
+
     if (!summary.trim()) {
       toast({
         title: "Summary required",
@@ -153,7 +153,7 @@ export default function WriteArticlePage() {
       });
       return false;
     }
-    
+
     if (!content.trim() || content === '<p></p>') {
       toast({
         title: "Content required",
@@ -162,7 +162,7 @@ export default function WriteArticlePage() {
       });
       return false;
     }
-    
+
     if (categories.length === 0) {
       toast({
         title: "Categories required",
@@ -171,7 +171,7 @@ export default function WriteArticlePage() {
       });
       return false;
     }
-    
+
     return true;
   };
 
@@ -184,14 +184,14 @@ export default function WriteArticlePage() {
       });
       return;
     }
-    
+
     if (!validateArticle()) {
       return;
     }
-    
+
     try {
       const kind = asDraft ? 30024 : 30023; // 30024 for drafts, 30023 for published articles
-      
+
       // Build tags array
       const tags: string[][] = [
         ['d', identifier],
@@ -199,33 +199,33 @@ export default function WriteArticlePage() {
         ['summary', summary],
         ...categories.map(category => ['t', category]),
       ];
-      
+
       if (image) {
         tags.push(['image', image]);
       }
-      
+
       // If comments are disabled, add a tag
       if (!allowComments) {
         tags.push(['comments_disabled', '1']);
       }
-      
+
       // Add client tag
       tags.push(['client', 'spookstr']);
-      
+
       // Publish event
       await publishEvent({
         kind,
         content,
         tags,
       });
-      
+
       toast({
         title: asDraft ? "Draft saved" : "Article published",
-        description: asDraft 
-          ? "Your draft has been saved successfully" 
+        description: asDraft
+          ? "Your draft has been saved successfully"
           : "Your article has been published successfully",
       });
-      
+
       // Navigate to the articles page or the published article
       if (!asDraft) {
         navigate('/articles');
@@ -243,7 +243,7 @@ export default function WriteArticlePage() {
   const handleSave = useCallback(() => {
     saveArticle(true);
   }, [title, summary, content, identifier, categories, image, allowComments]);
-  
+
   const handlePublish = useCallback(() => {
     if (publishAs === 'draft') {
       saveArticle(true);
@@ -255,7 +255,7 @@ export default function WriteArticlePage() {
   const handlePreview = useCallback(() => {
     setTab('preview');
   }, []);
-  
+
   if (!user) {
     return (
       <div className="min-h-screen">
@@ -268,7 +268,7 @@ export default function WriteArticlePage() {
               <p className="text-lime-100 mb-6">
                 Please log in to create or edit articles
               </p>
-              <Button 
+              <Button
                 onClick={() => navigate('/')}
                 className="bg-lime-500 hover:bg-lime-400 text-black font-semibold"
               >
@@ -284,7 +284,7 @@ export default function WriteArticlePage() {
   return (
     <div className="min-h-screen">
       <SpookstrHeader />
-      
+
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
@@ -297,7 +297,7 @@ export default function WriteArticlePage() {
               <ChevronLeft className="h-5 w-5 mr-1" />
               Back
             </Button>
-            
+
             <div>
               <h1 className="text-2xl font-bold text-lime-400">
                 {draftEvent ? 'Edit Article' : 'Write New Article'}
@@ -307,7 +307,7 @@ export default function WriteArticlePage() {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-3">
             <Button
               variant="outline"
@@ -317,7 +317,7 @@ export default function WriteArticlePage() {
               <Save className="h-4 w-4 mr-2" />
               Save Draft
             </Button>
-            
+
             <Button
               onClick={handlePublish}
               className="bg-lime-500 hover:bg-lime-400 text-black font-semibold"
@@ -327,17 +327,17 @@ export default function WriteArticlePage() {
             </Button>
           </div>
         </div>
-        
+
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="mb-6 bg-lime-500/10 border border-lime-500/20">
-            <TabsTrigger 
+            <TabsTrigger
               value="write"
               className="data-[state=active]:bg-lime-500 data-[state=active]:text-black"
             >
               <PenSquare className="h-4 w-4 mr-2" />
               Write
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="preview"
               className="data-[state=active]:bg-lime-500 data-[state=active]:text-black"
               disabled={!content}
@@ -346,7 +346,7 @@ export default function WriteArticlePage() {
               Preview
             </TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="write" className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Main Editor Column */}
@@ -368,7 +368,7 @@ export default function WriteArticlePage() {
                         className="bg-black/60 border-lime-500/40 text-lime-100"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="summary" className="text-lime-200">
                         Summary <span className="text-lime-500">*</span>
@@ -382,7 +382,7 @@ export default function WriteArticlePage() {
                         className="bg-black/60 border-lime-500/40 text-lime-100 resize-none"
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="editor" className="text-lime-200">
                         Article Content <span className="text-lime-500">*</span>
@@ -395,7 +395,7 @@ export default function WriteArticlePage() {
                     </div>
                   </CardContent>
                 </Card>
-                
+
                 <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm">
                   <CardHeader>
                     <h2 className="text-xl font-semibold text-lime-400">Publication Settings</h2>
@@ -422,7 +422,7 @@ export default function WriteArticlePage() {
                         </span>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
                         <div className="text-lime-200">Comments</div>
@@ -444,7 +444,7 @@ export default function WriteArticlePage() {
                   </CardContent>
                 </Card>
               </div>
-              
+
               {/* Sidebar Column */}
               <div className="md:col-span-1 space-y-6">
                 <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm">
@@ -460,7 +460,7 @@ export default function WriteArticlePage() {
                     />
                   </CardContent>
                 </Card>
-                
+
                 <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm">
                   <CardHeader>
                     <h2 className="text-xl font-semibold text-lime-400">Featured Image</h2>
@@ -481,17 +481,17 @@ export default function WriteArticlePage() {
                         Add the URL of an image to represent your article
                       </p>
                     </div>
-                    
+
                     {image && (
                       <div className="relative aspect-video rounded-md overflow-hidden border border-lime-500/20">
-                        <img 
-                          src={image} 
-                          alt="Featured" 
+                        <img
+                          src={image}
+                          alt="Featured"
                           className="absolute inset-0 w-full h-full object-cover"
                         />
                       </div>
                     )}
-                    
+
                     {!image && (
                       <div className="border border-dashed border-lime-500/30 rounded-md p-8 text-center bg-black/20">
                         <ImageIcon className="h-8 w-8 text-lime-500/40 mx-auto mb-2" />
@@ -502,7 +502,7 @@ export default function WriteArticlePage() {
                     )}
                   </CardContent>
                 </Card>
-                
+
                 <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm">
                   <CardHeader>
                     <h2 className="text-xl font-semibold text-lime-400">Tips</h2>
@@ -515,28 +515,28 @@ export default function WriteArticlePage() {
                           Be authentic and specific when describing paranormal experiences.
                         </p>
                       </div>
-                      
+
                       <div className="flex items-start space-x-3">
                         <ImageIcon className="h-5 w-5 text-lime-400 mt-0.5" />
                         <p className="text-sm text-lime-100">
                           Include images of evidence when possible (UFOs, orbs, cryptids).
                         </p>
                       </div>
-                      
+
                       <div className="flex items-start space-x-3">
                         <MicIcon className="h-5 w-5 text-lime-400 mt-0.5" />
                         <p className="text-sm text-lime-100">
                           Add audio recordings of EVPs or unusual sounds to enhance credibility.
                         </p>
                       </div>
-                      
+
                       <div className="flex items-start space-x-3">
                         <VideoIcon className="h-5 w-5 text-lime-400 mt-0.5" />
                         <p className="text-sm text-lime-100">
                           Embed videos of paranormal activity or investigations when available.
                         </p>
                       </div>
-                      
+
                       <div className="flex items-start space-x-3">
                         <InfoIcon className="h-5 w-5 text-lime-400 mt-0.5" />
                         <p className="text-sm text-lime-100">
@@ -549,14 +549,14 @@ export default function WriteArticlePage() {
               </div>
             </div>
           </TabsContent>
-          
+
           <TabsContent value="preview" className="space-y-8">
             <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm overflow-hidden">
               {image && (
                 <div className="relative h-64 sm:h-80 md:h-96 w-full">
-                  <img 
-                    src={image} 
-                    alt={title} 
+                  <img
+                    src={image}
+                    alt={title}
                     className="absolute inset-0 w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
@@ -580,7 +580,7 @@ export default function WriteArticlePage() {
                   </div>
                 </div>
               )}
-              
+
               {!image && (
                 <CardHeader>
                   <div className="flex flex-wrap gap-2 mb-4">
@@ -601,18 +601,18 @@ export default function WriteArticlePage() {
                   </p>
                 </CardHeader>
               )}
-              
+
               <CardContent className={!image ? 'pt-0' : ''}>
                 <div className="prose prose-invert max-w-none prose-headings:text-lime-300 prose-p:text-lime-100 prose-a:text-lime-400 prose-blockquote:text-lime-200/80 prose-blockquote:border-lime-500 prose-img:rounded-lg my-8">
                   <div dangerouslySetInnerHTML={{ __html: content }} />
                 </div>
-                
+
                 <div className="mt-8 pt-8 border-t border-lime-500/20">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-lime-500/60">
                       {allowComments ? 'Comments are enabled' : 'Comments are disabled'}
                     </span>
-                    
+
                     <div className="flex items-center space-x-2">
                       <Button
                         variant="outline"
@@ -623,7 +623,7 @@ export default function WriteArticlePage() {
                         <PenSquare className="h-4 w-4 mr-2" />
                         Edit
                       </Button>
-                      
+
                       <Button
                         onClick={handlePublish}
                         size="sm"
