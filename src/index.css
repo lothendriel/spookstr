@@ -3,37 +3,18 @@
 @tailwind utilities;
 
 /* Markdown Editor Dark Theme */
-.wmde-markdown {
-  background-color: rgba(0, 0, 0, 0.6) !important;
-  color: rgb(229, 231, 235) !important;
-}
-
-.wmde-markdown pre {
-  background-color: rgba(0, 0, 0, 0.8) !important;
-}
-
-.wmde-markdown code {
-  background-color: rgba(132, 204, 22, 0.1) !important;
-  color: rgb(217, 249, 157) !important;
-}
-
-.wmde-markdown a {
-  color: rgb(163, 230, 53) !important;
-}
-
-.wmde-markdown blockquote {
-  border-left-color: rgb(132, 204, 22) !important;
-  color: rgb(217, 249, 157) !important;
-}
-
 .w-md-editor {
   background-color: rgba(0, 0, 0, 0.6) !important;
   color: rgb(229, 231, 235) !important;
+  border: 1px solid rgba(132, 204, 22, 0.3) !important;
+  border-radius: 0.5rem !important;
+  width: 100% !important;
 }
 
 .w-md-editor-toolbar {
   background-color: rgba(0, 0, 0, 0.8) !important;
   border-bottom: 1px solid rgba(132, 204, 22, 0.3) !important;
+  border-radius: 0.5rem 0.5rem 0 0 !important;
 }
 
 .w-md-editor-toolbar button {
@@ -44,14 +25,107 @@
   background-color: rgba(132, 204, 22, 0.2) !important;
 }
 
+.w-md-editor-content {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+}
+
 .w-md-editor-text-pre,
-.w-md-editor-text-input {
+.w-md-editor-text-input,
+.w-md-editor-text {
   color: rgb(229, 231, 235) !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
 }
 
 .w-md-editor-text-pre > code,
 .w-md-editor-text-input {
   color: rgb(229, 231, 235) !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+}
+
+.w-md-editor-area {
+  width: 100% !important;
+}
+
+.w-md-editor-text-pre,
+.w-md-editor-text-input {
+  line-height: 1.6 !important;
+  padding: 1rem !important;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace !important;
+  font-size: 0.875rem !important;
+}
+
+/* Markdown Preview Styling */
+.wmde-markdown {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+  color: rgb(229, 231, 235) !important;
+  padding: 1rem !important;
+}
+
+.wmde-markdown pre {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+}
+
+.wmde-markdown code {
+  background-color: rgba(132, 204, 22, 0.1) !important;
+  color: rgb(217, 249, 157) !important;
+  padding: 0.2em 0.4em !important;
+  border-radius: 0.25rem !important;
+}
+
+.wmde-markdown a {
+  color: rgb(163, 230, 53) !important;
+  text-decoration: underline !important;
+}
+
+.wmde-markdown blockquote {
+  border-left: 4px solid rgb(132, 204, 22) !important;
+  color: rgb(217, 249, 157) !important;
+  padding-left: 1rem !important;
+  margin-left: 0 !important;
+}
+
+.wmde-markdown h1,
+.wmde-markdown h2,
+.wmde-markdown h3,
+.wmde-markdown h4,
+.wmde-markdown h5,
+.wmde-markdown h6 {
+  color: rgb(217, 249, 157) !important;
+  margin-top: 1.5rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+.wmde-markdown ul,
+.wmde-markdown ol {
+  padding-left: 2rem !important;
+}
+
+.wmde-markdown img {
+  max-width: 100% !important;
+  height: auto !important;
+  border-radius: 0.5rem !important;
+  margin: 1rem 0 !important;
+}
+
+.wmde-markdown table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+  margin: 1rem 0 !important;
+}
+
+.wmde-markdown th,
+.wmde-markdown td {
+  border: 1px solid rgba(132, 204, 22, 0.3) !important;
+  padding: 0.5rem !important;
+}
+
+.wmde-markdown th {
+  background-color: rgba(132, 204, 22, 0.1) !important;
+  color: rgb(217, 249, 157) !important;
 }
 
 /* Leaflet CSS */

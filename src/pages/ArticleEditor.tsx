@@ -14,14 +14,14 @@ import { useNostr } from '@nostrify/react';
 import { useQuery } from '@tanstack/react-query';
 import { useToast } from '@/hooks/useToast';
 import { useUploadFile } from '@/hooks/useUploadFile';
-import { 
-  Save, 
-  Send, 
-  FileEdit, 
-  Eye, 
-  Image as ImageIcon, 
-  Film, 
-  Music, 
+import {
+  Save,
+  Send,
+  FileEdit,
+  Eye,
+  Image as ImageIcon,
+  Film,
+  Music,
   X,
   Plus,
   Loader2,
@@ -177,7 +177,7 @@ export default function ArticleEditor() {
 
     try {
       const [[_, url]] = await uploadFile(file);
-      
+
       let mediaType = 'file';
       if (file.type.startsWith('image/')) mediaType = 'image';
       else if (file.type.startsWith('video/')) mediaType = 'video';
@@ -275,7 +275,7 @@ export default function ArticleEditor() {
             title: 'Draft saved',
             description: 'Your article draft has been saved successfully',
           });
-          
+
           // Navigate to the draft editor with the draft ID
           if (!draftId) {
             navigate(`/articles/draft/${d}`, { replace: true });
@@ -420,7 +420,7 @@ export default function ArticleEditor() {
   return (
     <div className="min-h-screen bg-black">
       <SpookstrHeader />
-      
+
       <div className="max-w-6xl mx-auto px-4 py-6">
         {/* Editor Header */}
         <div className="mb-6">
@@ -436,7 +436,7 @@ export default function ArticleEditor() {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
               {lastSaved && (
                 <span className="text-xs text-lime-400/60">
@@ -529,17 +529,13 @@ export default function ArticleEditor() {
                   </TabsList>
 
                   <TabsContent value="write" className="mt-0">
-                    <div data-color-mode="dark">
+                    <div data-color-mode="dark" className="w-full">
                       <MDEditor
                         value={content}
                         onChange={(val) => setContent(val || '')}
                         preview="edit"
                         height={500}
-                        style={{
-                          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                          border: '1px solid rgba(132, 204, 22, 0.3)',
-                          borderRadius: '0.5rem',
-                        }}
+                        visibleDragbar={false}
                         textareaProps={{
                           placeholder: 'Write your paranormal article here... Supports Markdown formatting.',
                         }}
@@ -593,7 +589,7 @@ export default function ArticleEditor() {
                     </Button>
                   </div>
                 )}
-                
+
                 <div className="relative">
                   <input
                     type="file"
