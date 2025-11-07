@@ -1,12 +1,13 @@
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { HiddenUsersManager } from '@/components/HiddenUsersManager';
+import { HiddenHashtagsManager } from '@/components/HiddenHashtagsManager';
 import { Settings } from 'lucide-react';
 
 export default function UserSettings() {
   return (
     <div className="min-h-screen bg-background">
       <SpookstrHeader />
-      
+
       <main className="container max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-6">
@@ -19,8 +20,14 @@ export default function UserSettings() {
           </p>
         </div>
 
-        {/* Hidden Users Section */}
-        <HiddenUsersManager />
+        {/* Content Filtering */}
+        <div className="space-y-6">
+          {/* Hidden Users Section */}
+          <HiddenUsersManager />
+
+          {/* Hidden Hashtags Section */}
+          <HiddenHashtagsManager />
+        </div>
       </main>
     </div>
   );

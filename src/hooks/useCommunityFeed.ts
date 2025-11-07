@@ -3,6 +3,8 @@ import { useNostr } from './useNostr';
 import { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 import { useCurrentUser } from './useCurrentUser';
+import { useHiddenUsers } from './useHiddenUsers';
+import { useHiddenHashtags } from './useHiddenHashtags';
 import {
   isCommunityContent,
   validateCommunityEvent,
@@ -29,9 +31,11 @@ export interface CommunityFeedPost {
 export function useCommunityFeed(communityId?: string, communityAuthor?: string) {
   const { nostr } = useNostr();
   const { user } = useCurrentUser();
+  const { isUserHidden } = useHiddenUsers();
+  const { hasHiddenHashtag } = useHiddenHashtags();
 
   return useQuery({
-    queryKey: ['community-feed', communityId, communityAuthor, user?.pubkey],
+    queryKey: ['community-feed', communityId, communityAuthor, user?.pubkey, isUserHidden, hasHiddenHashtag],
     queryFn: async (context) => {
       if (!communityId || !communityAuthor) return [];
 
@@ -87,6 +91,18 @@ export function useCommunityFeed(communityId?: string, communityAuthor?: string)
           // Exclude denied posts
           if (deniedEventIds.has(event.id)) {
             console.log(`🚫 Excluding denied post: ${event.id.substring(0, 8)}...`);
+            return false;
+          }
+
+          // Exclude posts from hidden users
+          if (isUserHidden(event.pubkey)) {
+            console.log(`🙈 Excluding post from hidden user: ${event.id.substring(0, 8)}...`);
+            return false;
+          }
+
+          // Exclude posts with hidden hashtags
+          if (hasHiddenHashtag(event.tags)) {
+            console.log(`#️⃣ Excluding post with hidden hashtag: ${event.id.substring(0, 8)}...`);
             return false;
           }
 
@@ -183,6 +199,18 @@ export function useCommunityFeed(communityId?: string, communityAuthor?: string)
 
         // Filter out NSFW content AND replies (only show main topics)
         let filteredPosts = filterNSFWContent(approvedPosts).filter(event => {
+          // Exclude posts from hidden users
+          if (isUserHidden(event.pubkey)) {
+            console.log(`🙈 Excluding approved post from hidden user: ${event.id.substring(0, 8)}...`);
+            return false;
+          }
+
+          // Exclude posts with hidden hashtags
+          if (hasHiddenHashtag(event.tags)) {
+            console.log(`#️⃣ Excluding approved post with hidden hashtag: ${event.id.substring(0, 8)}...`);
+            return false;
+          }
+
           // CRITICAL: Exclude replies - only show main topics in community feed
           if (isReply(event)) {
             console.log(`💬 Excluding reply from approved community posts: ${event.id.substring(0, 8)}...`);

@@ -1,6 +1,8 @@
 import { NostrEvent, NostrFilter } from '@nostrify/nostrify';
 import { useRelayHintQuery } from '@/hooks/useRelayHintQuery';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
+import { useHiddenUsers } from '@/hooks/useHiddenUsers';
+import { useHiddenHashtags } from '@/hooks/useHiddenHashtags';
 import {
   isCommunityContent,
   getContentType,
@@ -14,6 +16,9 @@ interface ThreadNode {
 }
 
 export function useComments(root: NostrEvent | URL, limit?: number) {
+  const { isUserHidden } = useHiddenUsers();
+  const { hasHiddenHashtag } = useHiddenHashtags();
+
   const filter: NostrFilter = { kinds: [1, 1111] }; // Kind 1 for regular comments, kind 1111 for community comments
 
   if (root instanceof URL) {
@@ -41,8 +46,11 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
   // Process the events into thread structure
   const processedData = events ? (() => {
 
-    // Filter out NSFW content from comments
-    const filteredEvents = filterNSFWContent(events);
+    // Filter out NSFW content, hidden users, and hidden hashtags from comments
+    let filteredEvents = filterNSFWContent(events);
+    filteredEvents = filteredEvents.filter(event =>
+      !isUserHidden(event.pubkey) && !hasHiddenHashtag(event.tags)
+    );
 
     console.log('📥 [useComments] Query returned events:', filteredEvents.length);
     console.log('📋 [useComments] Root event:', {

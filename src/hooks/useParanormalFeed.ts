@@ -10,6 +10,7 @@ import {
   filterForMainFeed
 } from '@/lib/contentType';
 import { useHiddenUsers } from '@/hooks/useHiddenUsers';
+import { useHiddenHashtags } from '@/hooks/useHiddenHashtags';
 
 // Move large constant arrays to functions to prevent permanent memory retention
 const getParanormalTags = () => [
@@ -162,6 +163,7 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
 export function useParanormalFeed() {
   const { nostr } = useNostr();
   const { hiddenPubkeys } = useHiddenUsers();
+  const { hasHiddenHashtag } = useHiddenHashtags();
 
   // Cache filter function creation to avoid recreating on every render
   const filterFunctions = useMemo(() => {
@@ -170,7 +172,17 @@ export function useParanormalFeed() {
     const hiddenSet = new Set(hiddenPubkeys);
 
     const filterBlockedUsersCached = (events: NostrEvent[]) => {
-      return events.filter(event => !blockedSet.has(event.pubkey) && !hiddenSet.has(event.pubkey));
+      return events.filter(event => {
+        // Filter by blocked/hidden users
+        if (blockedSet.has(event.pubkey) || hiddenSet.has(event.pubkey)) {
+          return false;
+        }
+        // Filter by hidden hashtags
+        if (hasHiddenHashtag(event.tags)) {
+          return false;
+        }
+        return true;
+      });
     };
 
     const PARANORMAL_TAGS = getParanormalTags();
@@ -205,10 +217,10 @@ export function useParanormalFeed() {
     };
 
     return { filterBlockedUsersCached, filterRepostsByTagsCached };
-  }, [hiddenPubkeys]);
+  }, [hiddenPubkeys, hasHiddenHashtag]);
 
   return useQuery({
-    queryKey: ['paranormal-feed', hiddenPubkeys],
+    queryKey: ['paranormal-feed', hiddenPubkeys, hasHiddenHashtag],
     queryFn: async (c) => {
       return await (async () => {
         const PARANORMAL_TAGS = getParanormalTags();
@@ -271,6 +283,7 @@ export function useParanormalFeed() {
 export function useParanormalReplies(noteId: string) {
   const { nostr } = useNostr();
   const { hiddenPubkeys } = useHiddenUsers();
+  const { hasHiddenHashtag } = useHiddenHashtags();
 
   // Cache filter function for replies to avoid recreating on every render
   const filterBlockedUsersForReplies = useMemo(() => {
@@ -279,12 +292,22 @@ export function useParanormalReplies(noteId: string) {
     const hiddenSet = new Set(hiddenPubkeys);
 
     return (events: NostrEvent[]) => {
-      return events.filter(event => !blockedSet.has(event.pubkey) && !hiddenSet.has(event.pubkey));
+      return events.filter(event => {
+        // Filter by blocked/hidden users
+        if (blockedSet.has(event.pubkey) || hiddenSet.has(event.pubkey)) {
+          return false;
+        }
+        // Filter by hidden hashtags
+        if (hasHiddenHashtag(event.tags)) {
+          return false;
+        }
+        return true;
+      });
     };
-  }, [hiddenPubkeys]);
+  }, [hiddenPubkeys, hasHiddenHashtag]);
 
   return useQuery({
-    queryKey: ['paranormal-replies', noteId, hiddenPubkeys],
+    queryKey: ['paranormal-replies', noteId, hiddenPubkeys, hasHiddenHashtag],
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
 
