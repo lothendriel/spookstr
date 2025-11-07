@@ -539,6 +539,124 @@ export default function ArticleEditor() {
                         textareaProps={{
                           placeholder: 'Write your paranormal article here... Supports Markdown formatting.',
                         }}
+                        commands={[
+                          {
+                            name: 'bold',
+                            keyCommand: 'bold',
+                            buttonProps: { 'aria-label': 'Add bold text' },
+                            icon: <span style={{ fontWeight: 'bold' }}>B</span>,
+                          },
+                          {
+                            name: 'italic',
+                            keyCommand: 'italic',
+                            buttonProps: { 'aria-label': 'Add italic text' },
+                            icon: <span style={{ fontStyle: 'italic' }}>I</span>,
+                          },
+                          {
+                            name: 'strikethrough',
+                            keyCommand: 'strikethrough',
+                            buttonProps: { 'aria-label': 'Add strikethrough text' },
+                            icon: <span style={{ textDecoration: 'line-through' }}>S</span>,
+                          },
+                          {
+                            name: 'title1',
+                            keyCommand: 'title1',
+                            buttonProps: { 'aria-label': 'Insert title 1' },
+                            icon: <span style={{ fontWeight: 'bold' }}>H1</span>,
+                          },
+                          {
+                            name: 'title2',
+                            keyCommand: 'title2',
+                            buttonProps: { 'aria-label': 'Insert title 2' },
+                            icon: <span style={{ fontWeight: 'bold' }}>H2</span>,
+                          },
+                          {
+                            name: 'title3',
+                            keyCommand: 'title3',
+                            buttonProps: { 'aria-label': 'Insert title 3' },
+                            icon: <span style={{ fontWeight: 'bold' }}>H3</span>,
+                          },
+                          {
+                            name: 'title4',
+                            keyCommand: 'title4',
+                            buttonProps: { 'aria-label': 'Insert title 4' },
+                            icon: <span style={{ fontWeight: 'bold' }}>H4</span>,
+                          },
+                          {
+                            name: 'title5',
+                            keyCommand: 'title5',
+                            buttonProps: { 'aria-label': 'Insert title 5' },
+                            icon: <span style={{ fontWeight: 'bold' }}>H5</span>,
+                          },
+                          {
+                            name: 'title6',
+                            keyCommand: 'title6',
+                            buttonProps: { 'aria-label': 'Insert title 6' },
+                            icon: <span style={{ fontWeight: 'bold' }}>H6</span>,
+                          },
+                        ]}
+                        extraCommands={[
+                          {
+                            name: 'unorderedListCommand',
+                            keyCommand: 'unordered-list',
+                            buttonProps: { 'aria-label': 'Add unordered list' },
+                            icon: <span>•</span>,
+                          },
+                          {
+                            name: 'orderedListCommand',
+                            keyCommand: 'ordered-list',
+                            buttonProps: { 'aria-label': 'Add ordered list' },
+                            icon: <span>1.</span>,
+                          },
+                          {
+                            name: 'checkedListCommand',
+                            keyCommand: 'checked-list',
+                            buttonProps: { 'aria-label': 'Add checked list' },
+                            icon: <span>☑</span>,
+                          },
+                          {
+                            name: 'quote',
+                            keyCommand: 'quote',
+                            buttonProps: { 'aria-label': 'Add quote' },
+                            icon: <span>"</span>,
+                          },
+                          {
+                            name: 'code',
+                            keyCommand: 'code',
+                            buttonProps: { 'aria-label': 'Add code' },
+                            icon: <span style={{ fontFamily: 'monospace' }}>{'</>'}</span>,
+                          },
+                          {
+                            name: 'codeBlock',
+                            keyCommand: 'code-block',
+                            buttonProps: { 'aria-label': 'Add code block' },
+                            icon: <span style={{ fontFamily: 'monospace' }}>{ '```' }</span>,
+                          },
+                          {
+                            name: 'link',
+                            keyCommand: 'link',
+                            buttonProps: { 'aria-label': 'Add link' },
+                            icon: <span>🔗</span>,
+                          },
+                          {
+                            name: 'image',
+                            keyCommand: 'image',
+                            buttonProps: { 'aria-label': 'Add image' },
+                            icon: <span>🖼️</span>,
+                          },
+                          {
+                            name: 'table',
+                            keyCommand: 'table',
+                            buttonProps: { 'aria-label': 'Add table' },
+                            icon: <span>⊞</span>,
+                          },
+                          {
+                            name: 'hr',
+                            keyCommand: 'hr',
+                            buttonProps: { 'aria-label': 'Add horizontal rule' },
+                            icon: <span>―</span>,
+                          },
+                        ]}
                       />
                     </div>
                   </TabsContent>
