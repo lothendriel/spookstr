@@ -26,12 +26,23 @@ import {
   Plus,
   Loader2,
   BookOpen,
-  Tag
+  Tag,
+  Bold,
+  Italic,
+  Strikethrough,
+  Code,
+  Link as LinkIcon,
+  List,
+  ListOrdered,
+  Quote,
+  Heading1,
+  Heading2,
+  Heading3
 } from 'lucide-react';
-import MDEditor, { commands } from '@uiw/react-md-editor';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { nip19 } from 'nostr-tools';
+import TextareaAutosize from 'react-textarea-autosize';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 export default function ArticleEditor() {
@@ -140,6 +151,31 @@ export default function ArticleEditor() {
 
   const handleRemoveTag = (tagToRemove: string) => {
     setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  // Markdown formatting helpers
+  const insertMarkdown = (before: string, after: string = '') => {
+    const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
+    const newText = content.substring(0, start) + before + selectedText + after + content.substring(end);
+
+    setContent(newText);
+
+    // Set cursor position after insertion
+    setTimeout(() => {
+      textarea.focus();
+      const newPosition = start + before.length + selectedText.length;
+      textarea.setSelectionRange(newPosition, newPosition);
+    }, 0);
+  };
+
+  const insertHeading = (level: number) => {
+    const prefix = '#'.repeat(level) + ' ';
+    insertMarkdown(prefix);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -529,74 +565,153 @@ export default function ArticleEditor() {
                   </TabsList>
 
                   <TabsContent value="write" className="mt-0">
-                    <div data-color-mode="dark" className="w-full">
-                      <MDEditor
-                        value={content}
-                        onChange={(val) => setContent(val || '')}
-                        preview="edit"
-                        height={500}
-                        visibleDragbar={false}
-                        textareaProps={{
-                          placeholder: 'Write your paranormal article here... Supports Markdown formatting.',
-                        }}
-                        commands={[
-                          commands.bold,
-                          commands.italic,
-                          commands.strikethrough,
-                          commands.hr,
-                          commands.group(
-                            [
-                              {
-                                ...commands.title1,
-                                icon: <span style={{ fontWeight: 'bold', fontSize: '14px' }}>H1</span>,
-                              },
-                              {
-                                ...commands.title2,
-                                icon: <span style={{ fontWeight: 'bold', fontSize: '14px' }}>H2</span>,
-                              },
-                              {
-                                ...commands.title3,
-                                icon: <span style={{ fontWeight: 'bold', fontSize: '14px' }}>H3</span>,
-                              },
-                              {
-                                ...commands.title4,
-                                icon: <span style={{ fontWeight: 'bold', fontSize: '14px' }}>H4</span>,
-                              },
-                              {
-                                ...commands.title5,
-                                icon: <span style={{ fontWeight: 'bold', fontSize: '14px' }}>H5</span>,
-                              },
-                              {
-                                ...commands.title6,
-                                icon: <span style={{ fontWeight: 'bold', fontSize: '14px' }}>H6</span>,
-                              },
-                            ],
-                            {
-                              name: 'title',
-                              groupName: 'title',
-                              buttonProps: { 'aria-label': 'Insert title' },
-                              icon: <span style={{ fontWeight: 'bold', fontSize: '14px' }}>H</span>,
-                            }
-                          ),
-                          commands.divider,
-                          commands.link,
-                          commands.quote,
-                          commands.code,
-                          commands.codeBlock,
-                          commands.divider,
-                          commands.unorderedListCommand,
-                          commands.orderedListCommand,
-                          commands.checkedListCommand,
-                        ]}
-                        extraCommands={[
-                          commands.codeEdit,
-                          commands.codeLive,
-                          commands.codePreview,
-                          commands.divider,
-                          commands.fullscreen,
-                        ]}
-                      />
+                    {/* Markdown Toolbar */}
+                    <div className="flex flex-wrap gap-1 p-2 bg-black/80 border border-lime-500/30 rounded-t-lg border-b-0">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => insertMarkdown('**', '**')}
+                        className="h-8 w-8 p-0 hover:bg-lime-500/20"
+                        title="Bold"
+                      >
+                        <Bold className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => insertMarkdown('*', '*')}
+                        className="h-8 w-8 p-0 hover:bg-lime-500/20"
+                        title="Italic"
+                      >
+                        <Italic className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => insertMarkdown('~~', '~~')}
+                        className="h-8 w-8 p-0 hover:bg-lime-500/20"
+                        title="Strikethrough"
+                      >
+                        <Strikethrough className="h-4 w-4" />
+                      </Button>
+
+                      <div className="w-px h-8 bg-lime-500/30 mx-1"></div>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => insertHeading(1)}
+                        className="h-8 px-2 hover:bg-lime-500/20 text-xs font-bold"
+                        title="Heading 1"
+                      >
+                        H1
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => insertHeading(2)}
+                        className="h-8 px-2 hover:bg-lime-500/20 text-xs font-bold"
+                        title="Heading 2"
+                      >
+                        H2
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => insertHeading(3)}
+                        className="h-8 px-2 hover:bg-lime-500/20 text-xs font-bold"
+                        title="Heading 3"
+                      >
+                        H3
+                      </Button>
+
+                      <div className="w-px h-8 bg-lime-500/30 mx-1"></div>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => insertMarkdown('\n- ')}
+                        className="h-8 w-8 p-0 hover:bg-lime-500/20"
+                        title="Bullet List"
+                      >
+                        <List className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => insertMarkdown('\n1. ')}
+                        className="h-8 w-8 p-0 hover:bg-lime-500/20"
+                        title="Numbered List"
+                      >
+                        <ListOrdered className="h-4 w-4" />
+                      </Button>
+
+                      <div className="w-px h-8 bg-lime-500/30 mx-1"></div>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => insertMarkdown('[', '](url)')}
+                        className="h-8 w-8 p-0 hover:bg-lime-500/20"
+                        title="Link"
+                      >
+                        <LinkIcon className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => insertMarkdown('`', '`')}
+                        className="h-8 w-8 p-0 hover:bg-lime-500/20"
+                        title="Inline Code"
+                      >
+                        <Code className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => insertMarkdown('\n> ')}
+                        className="h-8 w-8 p-0 hover:bg-lime-500/20"
+                        title="Quote"
+                      >
+                        <Quote className="h-4 w-4" />
+                      </Button>
                     </div>
+
+                    {/* Textarea */}
+                    <TextareaAutosize
+                      value={content}
+                      onChange={(e) => setContent(e.target.value)}
+                      placeholder="Write your paranormal article here... Supports Markdown formatting.
+
+# Heading 1
+## Heading 2
+### Heading 3
+
+**Bold text**
+*Italic text*
+~~Strikethrough~~
+
+- Bullet point
+1. Numbered list
+
+[Link text](url)
+`inline code`
+
+> Quote"
+                      className="w-full min-h-[500px] p-4 bg-black/60 border border-lime-500/30 border-t-0 rounded-b-lg text-lime-100 placeholder:text-lime-400/40 focus:outline-none focus:ring-2 focus:ring-lime-500/50 resize-none font-mono text-sm"
+                      minRows={20}
+                    />
                   </TabsContent>
 
                   <TabsContent value="preview" className="mt-0">
