@@ -9,6 +9,14 @@ import {
   getCommunityTag
 } from '@/lib/contentType';
 
+/**
+ * Generates a consistent query key for comments
+ */
+export function getCommentsQueryKey(root: NostrEvent | URL, limit?: number) {
+  const rootId = root instanceof URL ? root.toString() : root.id;
+  return ['comments', rootId, limit];
+}
+
 interface ThreadNode {
   event: NostrEvent;
   children: ThreadNode[];
@@ -41,6 +49,7 @@ export function useComments(root: NostrEvent | URL, limit?: number) {
     retry: 1,
     maxRelays: 6, // Use more relays for comment discovery
     useRelayHints: true, // Enable relay hints for better thread discovery
+    queryKey: getCommentsQueryKey(root, limit), // Use consistent query key
   });
 
   // Process the events into thread structure

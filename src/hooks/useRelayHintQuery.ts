@@ -17,36 +17,39 @@ interface RelayHintQueryOptions {
   maxRelays?: number;
   /** Whether to use relay hints for this query */
   useRelayHints?: boolean;
+  /** Custom query key for cache invalidation */
+  queryKey?: any[];
 }
 
 /**
  * Enhanced Nostr query hook that automatically discovers and uses relay hints
  * from previously seen events to improve content discovery.
- * 
+ *
  * This hook:
  * 1. Analyzes your filters to find referenced event IDs, pubkeys, and addresses
  * 2. Checks the relay hint cache for known locations of these items
  * 3. Adds discovered relay hints to your base relay set
  * 4. Stores new relay hints from query results for future use
- * 
+ *
  * Use this for queries that reference specific content (replies, quotes, zaps, etc.)
  */
-export function useRelayHintQuery({ 
-  filters, 
-  enabled = true, 
+export function useRelayHintQuery({
+  filters,
+  enabled = true,
   staleTime = 30000,
   retry = 1,
   maxRelays = 6, // Slightly higher than normal to accommodate hints
   useRelayHints = true,
+  queryKey,
 }: RelayHintQueryOptions) {
   const { nostr } = useNostr();
   const { config, presetRelays = [] } = useAppContext();
 
   return useQuery({
-    queryKey: ['relay-hint-query', filters, useRelayHints],
+    queryKey: queryKey || ['relay-hint-query', filters, useRelayHints],
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
-      
+
       // Get base relays from user config
       let baseRelays: string[];
       if (config.relays && config.relays.length > 0) {
@@ -69,11 +72,11 @@ export function useRelayHintQuery({
       // Enhance with relay hints if enabled
       if (useRelayHints) {
         const { enhancedRelays, shouldUseHints } = enhanceFiltersWithHints(
-          filters, 
-          baseRelays, 
+          filters,
+          baseRelays,
           maxRelays
         );
-        
+
         if (shouldUseHints && enhancedRelays.length > baseRelays.length) {
           finalRelays = enhancedRelays;
           usedHints = true;
@@ -110,16 +113,16 @@ export function useRelayHintQuery({
           const relayGroup = nostr.group(finalRelays);
           events = await relayGroup.query(filters, { signal });
         }
-        
+
         console.log('RelayHintQuery: Found events:', events.length, usedHints ? '(with hints)' : '(base relays)');
-        
+
         // Store relay hints from discovered events for future queries
         if (useRelayHints) {
           for (const event of events) {
             relayHintCache.storeHints(event);
           }
         }
-        
+
         // Deduplicate events by ID
         const uniqueEvents = new Map<string, NostrEvent>();
         for (const event of events) {
@@ -127,22 +130,22 @@ export function useRelayHintQuery({
             uniqueEvents.set(event.id, event);
           }
         }
-        
+
         return Array.from(uniqueEvents.values());
       } catch (error) {
         console.error('RelayHintQuery: Error:', error);
-        
+
         // Fallback to default nostr instance
         events = await nostr.query(filters, { signal });
         console.log('RelayHintQuery: Found events from fallback:', events.length);
-        
+
         // Store hints even from fallback
         if (useRelayHints) {
           for (const event of events) {
             relayHintCache.storeHints(event);
           }
         }
-        
+
         return events;
       }
     },
@@ -164,6 +167,7 @@ export function useRelayHintEvent(eventId: string, enabled = true) {
     retry: 2,
     maxRelays: 8, // More relays for single event discovery
     useRelayHints: true,
+    queryKey: ['relay-hint-event', eventId], // Consistent query key for single events
   });
 }
 
@@ -173,16 +177,17 @@ export function useRelayHintEvent(eventId: string, enabled = true) {
  */
 export function useRelayHintInteractions(eventIds: string[], kinds?: number[], enabled = true) {
   return useRelayHintQuery({
-    filters: [{ 
+    filters: [{
       kinds: kinds || [1, 6, 7, 9735], // notes, reposts, likes, zaps
       '#e': eventIds,
-      limit: 100 
+      limit: 100
     }],
     enabled: enabled && eventIds.length > 0,
     staleTime: 15000, // Interactions change frequently
     retry: 1,
     maxRelays: 6,
     useRelayHints: true,
+    queryKey: ['relay-hint-interactions', eventIds, kinds], // Consistent query key for interactions
   });
 }
 
@@ -192,15 +197,16 @@ export function useRelayHintInteractions(eventIds: string[], kinds?: number[], e
  */
 export function useRelayHintProfile(pubkey: string, kinds?: number[], enabled = true) {
   return useRelayHintQuery({
-    filters: [{ 
+    filters: [{
       authors: [pubkey],
       kinds: kinds || [1, 6], // notes and reposts by default
-      limit: 20 
+      limit: 20
     }],
     enabled: enabled && !!pubkey,
     staleTime: 30000,
     retry: 1,
     maxRelays: 5,
     useRelayHints: true,
+    queryKey: ['relay-hint-profile', pubkey, kinds], // Consistent query key for profile
   });
 }

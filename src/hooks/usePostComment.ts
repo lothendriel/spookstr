@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { type NostrEvent } from '@nostrify/nostrify';
 import { extractMentions } from '@/lib/mentions';
+import { getCommentsQueryKey } from './useComments';
 
 interface PostCommentParams {
   root: NostrEvent | URL; // The root event to comment on
@@ -17,6 +18,11 @@ export function usePostComment() {
 
   return useMutation({
     mutationFn: async ({ root, reply, content, uploadedFiles = [] }: PostCommentParams) => {
+      // Get the query key for optimistic updates
+      const queryKey = getCommentsQueryKey(root);
+
+      // Get current user for optimistic update
+      const currentUser = queryClient.getQueryData(['current-user']);
       const tags: string[][] = [];
       let kind = 1; // Default to kind 1 for regular comments
       let communityTag: string | undefined;
@@ -121,16 +127,64 @@ export function usePostComment() {
 
       return event;
     },
-    onSuccess: (_, { root }) => {
-      // Invalidate and refetch comments
+    onMutate: async ({ root, reply, content, uploadedFiles = [] }) => {
+      const queryKey = getCommentsQueryKey(root);
+
+      // Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey });
+
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData(queryKey);
+
+      // Optimistically update to the new value
+      // This is a simple optimistic update - in a real app you'd construct the full event
+      queryClient.setQueryData(queryKey, (old: any) => {
+        if (!old) return old;
+
+        // For now, just trigger a refetch by marking the data as stale
+        // A more sophisticated approach would add the new comment to the cache
+        return {
+          ...old,
+          data: {
+            ...old.data,
+            topLevelComments: [
+              ...(old.data?.topLevelComments || []),
+              // We can't easily construct the full event here, so we'll just trigger a refetch
+            ]
+          }
+        };
+      });
+
+      return { previousData, queryKey };
+    },
+    onSuccess: (newEvent, { root }, context) => {
+      const queryKey = getCommentsQueryKey(root);
+
+      // Invalidate and refetch comments with the correct query key
       queryClient.invalidateQueries({
-        queryKey: ['comments', root instanceof URL ? root.toString() : root.id]
+        queryKey
       });
 
       // Also invalidate the main feed to ensure content separation is maintained
       queryClient.invalidateQueries({
         queryKey: ['paranormal-feed']
       });
+
+      // Show success toast
+      console.log('✅ Comment posted successfully:', newEvent?.id);
+    },
+    onError: (error, { root }, context) => {
+      // If the mutation fails, use the context returned from onMutate to roll back
+      if (context?.previousData) {
+        queryClient.setQueryData(context.queryKey, context.previousData);
+      }
+
+      console.error('❌ Failed to post comment:', error);
+    },
+    onSettled: (_, __, { root }, context) => {
+      // Always refetch after error or success to ensure we're in sync with the server
+      const queryKey = getCommentsQueryKey(root);
+      queryClient.invalidateQueries({ queryKey });
     },
   });
 }
