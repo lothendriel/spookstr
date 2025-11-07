@@ -9,6 +9,7 @@ const CalendarPage = lazy(() => import("./pages/Calendar"));
 const NIP19Page = lazy(() => import("./pages/NIP19Page").then(m => ({ default: m.NIP19Page })));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const RelaySettings = lazy(() => import("./pages/RelaySettings"));
+const UserSettings = lazy(() => import("./pages/UserSettings"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Hashtag = lazy(() => import("./pages/Hashtag"));
 const CommunityPage = lazy(() => import("./pages/CommunityPage"));
@@ -28,6 +29,7 @@ export function AppRouter() {
         <Route path="/" element={<Index />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/settings/relays" element={<RelaySettings />} />
+        <Route path="/settings/user" element={<UserSettings />} />
         <Route path="/t/:tag" element={<Hashtag />} />
         <Route path="/calendar" element={<CalendarPage />} />
 

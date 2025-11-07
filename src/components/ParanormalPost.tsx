@@ -13,7 +13,8 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useZaps } from '@/hooks/useZaps';
 import { useWallet } from '@/hooks/useWallet';
-import { Heart, Repeat, MessageCircle, Zap, Quote, RadioTower, MoreVertical, Copy, Check } from 'lucide-react';
+import { useHiddenUsers } from '@/hooks/useHiddenUsers';
+import { Heart, Repeat, MessageCircle, Zap, Quote, RadioTower, MoreVertical, Copy, Check, EyeOff } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
@@ -25,6 +26,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -108,6 +110,7 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const navigate = useNavigate();
+  const { hideUser } = useHiddenUsers();
   const [isQuoteDialogOpen, setIsQuoteDialogOpen] = useState(false);
   const [quoteContent, setQuoteContent] = useState('');
   const [postToSpookstr2Only, setPostToSpookstr2Only] = useState(false);

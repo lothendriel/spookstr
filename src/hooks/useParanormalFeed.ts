@@ -9,6 +9,7 @@ import {
   getContentType,
   filterForMainFeed
 } from '@/lib/contentType';
+import { useHiddenUsers } from '@/hooks/useHiddenUsers';
 
 // Move large constant arrays to functions to prevent permanent memory retention
 const getParanormalTags = () => [
@@ -160,14 +161,16 @@ export function filterRepostsByTags(events: NostrEvent[]): NostrEvent[] {
 
 export function useParanormalFeed() {
   const { nostr } = useNostr();
+  const { hiddenPubkeys } = useHiddenUsers();
 
   // Cache filter function creation to avoid recreating on every render
   const filterFunctions = useMemo(() => {
     const BLOCKED_PUBKEYS = getBlockedPubkeys();
     const blockedSet = new Set(BLOCKED_PUBKEYS);
+    const hiddenSet = new Set(hiddenPubkeys);
 
     const filterBlockedUsersCached = (events: NostrEvent[]) => {
-      return events.filter(event => !blockedSet.has(event.pubkey));
+      return events.filter(event => !blockedSet.has(event.pubkey) && !hiddenSet.has(event.pubkey));
     };
 
     const PARANORMAL_TAGS = getParanormalTags();
@@ -202,7 +205,7 @@ export function useParanormalFeed() {
     };
 
     return { filterBlockedUsersCached, filterRepostsByTagsCached };
-  }, []);
+  }, [hiddenPubkeys]);
 
   return useQuery({
     queryKey: ['paranormal-feed'],
@@ -267,16 +270,18 @@ export function useParanormalFeed() {
 
 export function useParanormalReplies(noteId: string) {
   const { nostr } = useNostr();
+  const { hiddenPubkeys } = useHiddenUsers();
 
   // Cache filter function for replies to avoid recreating on every render
   const filterBlockedUsersForReplies = useMemo(() => {
     const BLOCKED_PUBKEYS = getBlockedPubkeys();
     const blockedSet = new Set(BLOCKED_PUBKEYS);
+    const hiddenSet = new Set(hiddenPubkeys);
 
     return (events: NostrEvent[]) => {
-      return events.filter(event => !blockedSet.has(event.pubkey));
+      return events.filter(event => !blockedSet.has(event.pubkey) && !hiddenSet.has(event.pubkey));
     };
-  }, []);
+  }, [hiddenPubkeys]);
 
   return useQuery({
     queryKey: ['paranormal-replies', noteId],
