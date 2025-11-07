@@ -1,6 +1,6 @@
 import { useNostr } from "@nostrify/react";
 import { useMutation, type UseMutationResult } from "@tanstack/react-query";
-import { NRelay1, NSet } from "@nostrify/nostrify";
+import { NRelay1 } from "@nostrify/nostrify";
 
 import { useCurrentUser } from "./useCurrentUser";
 import { useAppContext } from "./useAppContext";
@@ -115,32 +115,9 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
           try {
             console.log('📡 About to call nostr.event...');
 
-            // The NPool.event() method calls the eventRouter and publishes to the returned relays
-            // It returns an array of relay URLs that it will publish to
-            const relayUrls = nostr.event(signedEvent);
-            console.log('✅ Event queued for publishing to relays:', relayUrls);
-
-            // Create a set to track successful publishes
-            const publishPromises: Promise<void>[] = [];
-
-            // Actually publish to each relay individually to ensure it goes through
-            for (const url of relayUrls) {
-              const relay = new NRelay1(url);
-              const promise = relay.event(signedEvent, { signal: AbortSignal.timeout(5000) })
-                .then(() => {
-                  console.log(`✅ Published to ${url}`);
-                })
-                .catch((err) => {
-                  console.warn(`⚠️ Failed to publish to ${url}:`, err.message);
-                });
-              publishPromises.push(promise);
-            }
-
-            // Wait for at least one relay to succeed
-            await Promise.race([
-              Promise.all(publishPromises),
-              Promise.any(publishPromises),
-            ]);
+            // NPool.event() returns a Promise in this version of Nostrify
+            // Wait for the publish to complete
+            await nostr.event(signedEvent, { signal: AbortSignal.timeout(8000) });
 
             console.log('✅ Successfully published to relays');
           } catch (publishError) {
