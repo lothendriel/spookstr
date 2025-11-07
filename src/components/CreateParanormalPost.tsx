@@ -387,77 +387,58 @@ export function CreateParanormalPost({ onSuccess }: CreateParanormalPostProps) {
             Choose a paranormal category for your post (required):
           </p>
 
-          <div className="space-y-3 mb-4">
+          <div className="flex flex-wrap gap-2 mb-4">
             {PARANORMAL_CATEGORIES.map((category) => (
-              <div
+              <Button
                 key={category.id}
+                type="button"
                 onClick={() => !formDisabled && handleCategorySelect(category.id)}
-                className={`relative p-4 border rounded-lg cursor-pointer transition-all ${
-                  formDisabled
-                    ? "cursor-not-allowed opacity-50"
-                    : "hover:border-lime-400/60"
-                } ${
+                disabled={formDisabled}
+                variant="outline"
+                className={`transition-all ${
                   selectedCategory === category.id
-                    ? "border-lime-500 bg-lime-500/10"
-                    : "border-lime-500/20 bg-black/20"
+                    ? "border-lime-500 bg-lime-500/20 text-lime-300 hover:bg-lime-500/30 hover:text-lime-200"
+                    : "border-lime-500/30 bg-black/20 text-lime-500/80 hover:border-lime-400/60 hover:bg-black/30 hover:text-lime-400"
                 }`}
               >
-                <div className="flex items-start space-x-3">
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
-                    selectedCategory === category.id
-                      ? "border-lime-500 bg-lime-500"
-                      : "border-lime-500/50"
-                  }`}>
-                    {selectedCategory === category.id && (
-                      <div className="w-2 h-2 bg-black rounded-full" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <span className="text-lg">{category.icon}</span>
-                      <h3 className="font-semibold text-lime-300">{category.name}</h3>
-                    </div>
-                    <p className="text-xs text-lime-500/70 mb-2">
-                      Includes {category.tags.length} hashtag{category.tags.length === 1 ? '' : 's'}
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {category.tags.slice(0, 8).map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-xs text-lime-500/60 bg-black/30 px-2 py-0.5 rounded"
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                      {category.tags.length > 8 && (
-                        <span className="text-xs text-lime-500/40 bg-black/30 px-2 py-0.5 rounded">
-                          +{category.tags.length - 8} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+                <span className="mr-1.5">{category.icon}</span>
+                {category.name}
+              </Button>
             ))}
           </div>
 
-          <div className="mt-4">
-            <p className="text-xs text-lime-500/60 text-center">
-              {selectedCategory
-                ? `Category: ${PARANORMAL_CATEGORIES.find(cat => cat.id === selectedCategory)?.name}`
-                : 'Please select a category'
-              }
-            </p>
+          {selectedCategory && (
+            <div className="mb-4 p-3 border border-lime-500/20 rounded-lg bg-black/10">
+              <p className="text-xs text-lime-500/70 mb-2">
+                Selected category includes {PARANORMAL_CATEGORIES.find(cat => cat.id === selectedCategory)?.tags.length} hashtag
+                {PARANORMAL_CATEGORIES.find(cat => cat.id === selectedCategory)?.tags.length === 1 ? '' : 's'}:
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {PARANORMAL_CATEGORIES.find(cat => cat.id === selectedCategory)?.tags.slice(0, 12).map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-xs text-lime-500/60 bg-black/30 px-2 py-0.5 rounded"
+                  >
+                    #{tag}
+                  </span>
+                ))}
+                {(PARANORMAL_CATEGORIES.find(cat => cat.id === selectedCategory)?.tags.length ?? 0) > 12 && (
+                  <span className="text-xs text-lime-500/40 bg-black/30 px-2 py-0.5 rounded">
+                    +{(PARANORMAL_CATEGORIES.find(cat => cat.id === selectedCategory)?.tags.length ?? 0) - 12} more
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
-            <Button
-              onClick={handleSubmit}
-              disabled={!content.trim() || !selectedCategory || formDisabled}
-              className="bg-lime-500 hover:bg-lime-400 text-black font-semibold w-full mt-2"
-            >
-              <Send className="h-4 w-4 mr-2" />
-              {formDisabled ? 'Sharing...' : 'Share Experience'}
-            </Button>
-          </div>
+          <Button
+            onClick={handleSubmit}
+            disabled={!content.trim() || !selectedCategory || formDisabled}
+            className="bg-lime-500 hover:bg-lime-400 text-black font-semibold w-full"
+          >
+            <Send className="h-4 w-4 mr-2" />
+            {formDisabled ? 'Sharing...' : 'Share Experience'}
+          </Button>
         </div>
       </CardContent>
     </Card>
