@@ -117,7 +117,11 @@ const Index = () => {
           {/* Left Sidebar */}
           <div className="lg:col-span-1 space-y-6">
             <div className="hidden lg:block">
-              <RedditParanormalFeed />
+              {/* Reddit feed removed - placeholder for future sidebar content */}
+              <div className="border border-lime-500/20 rounded-lg p-6 bg-black/40">
+                <h3 className="text-lg font-semibold text-lime-400 mb-4">Community Links</h3>
+                <p className="text-sm text-lime-500/60">Community features coming soon...</p>
+              </div>
             </div>
             <div className="hidden lg:block">
               <DeveloperTip />
@@ -197,12 +201,14 @@ const Index = () => {
 
             {!isLoading && !error && posts && posts.length > 0 && (
               <div className="space-y-4">
-                {/* Use memoized FeedContent component for better performance */}
-                <FeedContent
-                  posts={posts}
-                  postsToShow={postsToShow}
-                  onPostClick={handlePostClick}
-                />
+                {/* Render posts directly */}
+                {posts.slice(0, postsToShow).map((post) => (
+                  <ParanormalPost
+                    key={post.id}
+                    event={post}
+                    onClick={() => handlePostClick(post)}
+                  />
+                ))}
 
                 {/* Load More Button - Shown on all devices when more posts available */}
                 {postsToShow < posts.length && (
