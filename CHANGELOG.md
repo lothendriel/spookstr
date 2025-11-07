@@ -4,13 +4,48 @@ This document tracks major changes, bug fixes, and development decisions for the
 
 ---
 
+## 2025-11-07
+
+### Notifications Pagination Fix
+
+**Issue**: The "Load More Notifications" button would appear but clicking it wouldn't load additional notifications beyond the initial 10.
+
+**Root Cause**:
+- The pagination logic was slicing the notifications array to only return 10 items per page: `sortedNotifications.slice(0, pageSize)`
+- This slice was always from index 0, meaning every page returned the same first 10 notifications
+- The artificial pagination was conflicting with the query's timestamp-based pagination system
+
+**Fixes Applied**:
+
+**Commit 5fa0dea** - Fix notifications pagination - load more button now works correctly
+- Removed the artificial `slice(0, pageSize)` pagination that was limiting results
+- Now returns all fetched notifications (up to 100 per query) instead of just 10
+- Fixed `hasMore` detection to check if we received the full limit of interactions (100)
+- Properly relies on the timestamp-based `until` filter for subsequent page queries
+
+**Technical Details**:
+- The query was already fetching 100 interactions per request with `limit: 100`
+- The `until` parameter correctly handles getting older events on subsequent pages
+- The bug was in the artificial slicing happening after the query completed
+- Each notification represents an interaction (like, repost, zap, or comment) on the user's posts
+
+**How Pagination Works Now**:
+1. **First Load**: Fetches up to 100 interactions, converts to notifications, displays all
+2. **Click "Load More"**: Uses oldest notification's timestamp for `until` filter
+3. **Subsequent Pages**: Each page loads the next batch of older interactions
+4. **End Detection**: `hasMore` is false when less than 100 interactions are returned
+
+**Result**: Users can now successfully load all their notifications by clicking "Load More" repeatedly. Each click fetches the next older batch of notifications.
+
+---
+
 ## 2025-01-06
 
 ### Media Parsing Fixes - Video Display Issues
 
 **Issue**: Videos with `imeta` tags were displaying as "External Media" cards instead of inline video players.
 
-**Root Cause**: 
+**Root Cause**:
 - URLs from `imeta` tags were being parsed twice (once from imeta, once from content)
 - The duplicate detection only tracked `blossom.primal.net` file IDs
 - Videos from `video.nostr.build` were being rendered as external links
