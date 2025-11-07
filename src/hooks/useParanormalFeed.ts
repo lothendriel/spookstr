@@ -208,7 +208,7 @@ export function useParanormalFeed() {
   }, [hiddenPubkeys]);
 
   return useQuery({
-    queryKey: ['paranormal-feed'],
+    queryKey: ['paranormal-feed', hiddenPubkeys],
     queryFn: async (c) => {
       return await (async () => {
         const PARANORMAL_TAGS = getParanormalTags();
@@ -284,7 +284,7 @@ export function useParanormalReplies(noteId: string) {
   }, [hiddenPubkeys]);
 
   return useQuery({
-    queryKey: ['paranormal-replies', noteId],
+    queryKey: ['paranormal-replies', noteId, hiddenPubkeys],
     queryFn: async (c) => {
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(3000)]);
 
