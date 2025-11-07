@@ -360,20 +360,17 @@ export function useNotifications() {
       // Sort by timestamp (newest first)
       const sortedNotifications = notifications.sort((a, b) => b.timestamp - a.timestamp);
 
-      // Return only 10 notifications per page
-      const pageSize = 10;
-      const paginatedNotifications = sortedNotifications.slice(0, pageSize);
-
-      // Determine if there are more notifications to load
-      const hasMore = sortedNotifications.length >= pageSize;
-      const oldestTimestamp = paginatedNotifications.length > 0
-        ? paginatedNotifications[paginatedNotifications.length - 1].timestamp - 1 // Subtract 1 to avoid duplicates
+      // For pagination, we need to determine if there might be more events
+      // If we got the full limit of interactions, there might be more
+      const hasMore = interactions.length >= filter.limit;
+      const oldestTimestamp = sortedNotifications.length > 0
+        ? sortedNotifications[sortedNotifications.length - 1].timestamp - 1 // Subtract 1 to avoid duplicates
         : undefined;
 
-      console.log(`[Notifications] ✅ Returning ${paginatedNotifications.length} notifications, hasMore: ${hasMore}`);
+      console.log(`[Notifications] ✅ Returning ${sortedNotifications.length} notifications, hasMore: ${hasMore}`);
 
       return {
-        notifications: paginatedNotifications,
+        notifications: sortedNotifications,
         hasMore,
         oldestTimestamp,
       };
