@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, TrendingUp, Users, Clock } from 'lucide-react';
+import { ExternalLink, TrendingUp, Users, Clock, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RedditPost {
@@ -17,76 +17,111 @@ interface RedditPost {
 }
 
 export function RedditParanormalFeed() {
-  const [posts, setPosts] = useState<RedditPost[]>([]);
+  const [displayedPosts, setDisplayedPosts] = useState<RedditPost[]>([]);
+  const [allPosts, setAllPosts] = useState<RedditPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchRedditPosts = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+  // Function to get 3 random posts from all posts
+  const getRandomPosts = useCallback((posts: RedditPost[], count: number = 3) => {
+    if (posts.length <= count) return posts;
 
-        // Fetch from multiple paranormal subreddits
-        const subreddits = ['Paranormal', 'Ghosts', 'UFOs', 'HighStrangeness', 'Thetruthishere'];
-        const allPosts: RedditPost[] = [];
-
-        for (const subreddit of subreddits) {
-          try {
-            const response = await fetch(
-              `https://www.reddit.com/r/${subreddit}/hot.json?limit=5&t=day`,
-              {
-                headers: {
-                  'User-Agent': 'Spookstr:1.0.0 (by /u/spookstr_bot)',
-                },
-              }
-            );
-
-            if (response.ok) {
-              const data = await response.json();
-              const subredditPosts = data.data.children.map((child: any) => ({
-                id: child.data.id,
-                title: child.data.title,
-                url: `https://reddit.com${child.data.permalink}`,
-                score: child.data.score,
-                num_comments: child.data.num_comments,
-                created_utc: child.data.created_utc,
-                permalink: child.data.permalink,
-                subreddit: child.data.subreddit,
-                author: child.data.author,
-              }));
-              allPosts.push(...subredditPosts);
-            }
-          } catch (err) {
-            console.warn(`Failed to fetch from r/${subreddit}:`, err);
-          }
-        }
-
-        // Sort by score and take top posts
-        const topPosts = allPosts
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 8);
-
-        setPosts(topPosts);
-      } catch (err) {
-        console.error('Error fetching Reddit posts:', err);
-        setError('Failed to load Reddit posts');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchRedditPosts();
-
-    // Refresh every 10 minutes
-    const interval = setInterval(fetchRedditPosts, 10 * 60 * 1000);
-    return () => clearInterval(interval);
+    const shuffled = [...posts].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, count);
   }, []);
+
+  // Function to fetch Reddit posts
+  const fetchRedditPosts = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      setError(null);
+
+      // Fetch from multiple paranormal subreddits
+      const subreddits = ['Paranormal', 'Ghosts', 'UFOs', 'HighStrangeness', 'Thetruthishere'];
+      const allFetchedPosts: RedditPost[] = [];
+
+      for (const subreddit of subreddits) {
+        try {
+          const response = await fetch(
+            `https://www.reddit.com/r/${subreddit}/hot.json?limit=15&t=day`,
+            {
+              headers: {
+                'User-Agent': 'Spookstr:1.0.0 (by /u/spookstr_bot)',
+              },
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            const subredditPosts = data.data.children.map((child: any) => ({
+              id: child.data.id,
+              title: child.data.title,
+              url: `https://reddit.com${child.data.permalink}`,
+              score: child.data.score,
+              num_comments: child.data.num_comments,
+              created_utc: child.data.created_utc,
+              permalink: child.data.permalink,
+              subreddit: child.data.subreddit,
+              author: child.data.author,
+            }));
+            allFetchedPosts.push(...subredditPosts);
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch from r/${subreddit}:`, err);
+        }
+      }
+
+      // Filter out posts with very low scores and sort
+      const qualityPosts = allFetchedPosts
+        .filter(post => post.score > 5) // Only show posts with decent engagement
+        .sort((a, b) => b.score - a.score);
+
+      setAllPosts(qualityPosts);
+
+      // Set initial 3 random posts
+      const randomPosts = getRandomPosts(qualityPosts, 3);
+      setDisplayedPosts(randomPosts);
+
+    } catch (err) {
+      console.error('Error fetching Reddit posts:', err);
+      setError('Failed to load Reddit posts');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [getRandomPosts]);
+
+  // Function to refresh with new random posts
+  const handleRefresh = useCallback(() => {
+    if (allPosts.length > 3) {
+      setIsRefreshing(true);
+
+      // Get new random posts from existing data
+      setTimeout(() => {
+        const newRandomPosts = getRandomPosts(allPosts, 3);
+        setDisplayedPosts(newRandomPosts);
+        setIsRefreshing(false);
+      }, 500); // Small delay for UX feedback
+    } else {
+      // If we don't have enough posts, fetch new data
+      fetchRedditPosts(true);
+    }
+  }, [allPosts, getRandomPosts, fetchRedditPosts]);
+
+  // Initial load
+  useEffect(() => {
+    fetchRedditPosts();
+  }, [fetchRedditPosts]);
 
   const formatTimeAgo = (timestamp: number) => {
     const now = Date.now() / 1000;
     const diff = now - timestamp;
-    
+
     if (diff < 3600) {
       return `${Math.floor(diff / 60)}m ago`;
     } else if (diff < 86400) {
@@ -141,7 +176,7 @@ export function RedditParanormalFeed() {
       <CardContent className="space-y-3">
         {isLoading ? (
           <div className="space-y-3">
-            {[...Array(5)].map((_, i) => (
+            {[...Array(3)].map((_, i) => (
               <div key={i} className="animate-pulse">
                 <div className="h-4 bg-lime-500/10 rounded mb-2" />
                 <div className="flex gap-2">
@@ -152,9 +187,9 @@ export function RedditParanormalFeed() {
               </div>
             ))}
           </div>
-        ) : posts.length > 0 ? (
+        ) : displayedPosts.length > 0 ? (
           <>
-            {posts.map((post) => (
+            {displayedPosts.map((post) => (
               <div
                 key={post.id}
                 className="group cursor-pointer p-3 rounded-lg bg-lime-500/5 hover:bg-lime-500/10 transition-colors border border-lime-500/10 hover:border-lime-500/20"
@@ -186,15 +221,27 @@ export function RedditParanormalFeed() {
               </div>
             ))}
 
-            {/* View More Button */}
-            <div className="pt-2 border-t border-lime-500/10">
+            {/* Refresh Random Posts Button */}
+            <div className="pt-2 border-t border-lime-500/10 space-y-2">
               <Button
                 size="sm"
                 variant="ghost"
                 className="w-full text-lime-400 hover:text-lime-300 hover:bg-lime-500/10"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+              >
+                <RotateCcw className={cn("h-3 w-3 mr-2", isRefreshing && "animate-spin")} />
+                {isRefreshing ? 'Loading...' : 'More Random Posts'}
+              </Button>
+
+              {/* View All on Reddit Button */}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="w-full text-lime-400/80 hover:text-lime-300 hover:bg-lime-500/10 text-xs"
                 onClick={() => window.open('https://reddit.com/r/paranormal+ghosts+ufos+highstrangeness+thetruthishere', '_blank')}
               >
-                View More on Reddit
+                View All on Reddit
                 <ExternalLink className="h-3 w-3 ml-1" />
               </Button>
             </div>
@@ -208,9 +255,9 @@ export function RedditParanormalFeed() {
               size="sm"
               variant="outline"
               className="border-lime-500/30 text-lime-400 hover:bg-lime-500/10"
-              onClick={() => window.open('https://reddit.com/r/paranormal', '_blank')}
+              onClick={() => fetchRedditPosts()}
             >
-              Visit r/Paranormal
+              Try Again
             </Button>
           </div>
         )}
