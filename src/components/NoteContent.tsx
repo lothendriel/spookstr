@@ -51,6 +51,7 @@ export function NoteContent({
       ...item,
       normalizedUrl: item.url.startsWith('http') ? item.url : `https://${item.url}`,
       urlWithoutQuery: item.url.split('?')[0],
+      baseUrl: item.url.split('?')[0].toLowerCase(),
     }));
 
     // Process each media item and the text around it
@@ -71,24 +72,62 @@ export function NoteContent({
           mediaIndex = processedText.indexOf(urlWithoutQuery);
           foundUrl = urlWithoutQuery;
         } else {
-          // As a fallback, try to find just the Instagram ID in the URL
-          const instagramIdMatch = media.url.match(/\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
-          if (instagramIdMatch) {
-            const instagramId = instagramIdMatch[1];
-            const possibleUrls = [
-              `/p/${instagramId}`,
-              `/reel/${instagramId}`,
-              `instagram.com/p/${instagramId}`,
-              `instagram.com/reel/${instagramId}`,
-              `www.instagram.com/p/${instagramId}`,
-              `www.instagram.com/reel/${instagramId}`,
-            ];
+          // Try finding filename-based match for blossom or other similar CDN links
+          const filenameParts = media.url.split('/');
+          const filename = filenameParts[filenameParts.length - 1];
 
-            for (const possibleUrl of possibleUrls) {
-              if (processedText.includes(possibleUrl)) {
-                mediaIndex = processedText.indexOf(possibleUrl);
-                foundUrl = possibleUrl;
+          if (filename && processedText.includes(filename)) {
+            // Look for any URL containing this filename
+            const lines = processedText.split('\n');
+            for (const line of lines) {
+              if (line.includes(filename)) {
+                mediaIndex = processedText.indexOf(line);
+                foundUrl = line;
                 break;
+              }
+            }
+          }
+
+          // If still not found, try matching any URL with the same file hash/ID
+          if (mediaIndex < 0) {
+            // Extract file hash/ID from URL (common in CDN URLs)
+            const fileIdMatch = media.url.match(/\/([a-f0-9]{32,})\./i);
+            if (fileIdMatch && fileIdMatch[1]) {
+              const fileId = fileIdMatch[1];
+              if (processedText.includes(fileId)) {
+                // Find a line containing this file ID
+                const lines = processedText.split('\n');
+                for (const line of lines) {
+                  if (line.includes(fileId)) {
+                    mediaIndex = processedText.indexOf(line);
+                    foundUrl = line;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+
+          // As a fallback, try to find just the Instagram ID in the URL
+          if (mediaIndex < 0) {
+            const instagramIdMatch = media.url.match(/\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
+            if (instagramIdMatch) {
+              const instagramId = instagramIdMatch[1];
+              const possibleUrls = [
+                `/p/${instagramId}`,
+                `/reel/${instagramId}`,
+                `instagram.com/p/${instagramId}`,
+                `instagram.com/reel/${instagramId}`,
+                `www.instagram.com/p/${instagramId}`,
+                `www.instagram.com/reel/${instagramId}`,
+              ];
+
+              for (const possibleUrl of possibleUrls) {
+                if (processedText.includes(possibleUrl)) {
+                  mediaIndex = processedText.indexOf(possibleUrl);
+                  foundUrl = possibleUrl;
+                  break;
+                }
               }
             }
           }
@@ -134,6 +173,22 @@ export function NoteContent({
       } else {
         console.warn('Could not find media URL in text for removal:', media.url);
         console.warn('Current processed text:', processedText);
+
+        // For debugging - log media and event details
+        console.debug('Media item that failed to match:', {
+          type: media.type,
+          url: media.url,
+          filename: media.url.split('/').pop(),
+        });
+
+        // Log the full event for debugging
+        if (event.tags.some(tag => tag[0] === 'imeta')) {
+          console.debug('Event with imeta tags had URL matching issues:', {
+            id: event.id.substring(0, 8) + '...',
+            imetaTags: event.tags.filter(tag => tag[0] === 'imeta'),
+            contentExcerpt: event.content.substring(0, 100) + '...',
+          });
+        }
       }
     });
 

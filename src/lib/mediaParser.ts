@@ -121,12 +121,76 @@ function isAudioContext(event: NostrEvent): boolean {
 export function parseMediaFromEvent(event: NostrEvent): MediaItem[] {
   const mediaItems: MediaItem[] = [];
 
-  // Special handling for kind 1222 (Yakbak audio notes)
-  if (event.kind === 1222) {
-    // Look for imeta tags which contain audio metadata
-    const imetaTags = event.tags.filter(tag => tag[0] === 'imeta');
+  // Process imeta tags for all event kinds
+  const imetaTags = event.tags.filter(tag => tag[0] === 'imeta');
+  if (imetaTags.length > 0) {
+    console.log(`🖼️ Found ${imetaTags.length} imeta tags in event ${event.id.substring(0, 8)}...`);
 
     for (const imetaTag of imetaTags) {
+      // Parse the imeta tag to extract URL and metadata
+      let url = '';
+      let mime = '';
+      let dimensions = '';
+      let blurhash = '';
+      let alt = '';
+
+      // Extract all metadata from imeta tag
+      for (const part of imetaTag.slice(1)) {
+        if (part.startsWith('url ')) {
+          url = part.substring(4);
+        } else if (part.startsWith('m ')) {
+          mime = part.substring(2);
+        } else if (part.startsWith('dim ')) {
+          dimensions = part.substring(4);
+        } else if (part.startsWith('blurhash ')) {
+          blurhash = part.substring(9);
+        } else if (part.startsWith('alt ')) {
+          alt = part.substring(4);
+        }
+      }
+
+      if (url) {
+        console.log(`🖼️ Found media in imeta tag: ${url} (${mime || 'unknown type'})`);
+
+        // Determine media type based on mime type
+        let type: MediaItem['type'] = 'external';
+
+        if (mime.startsWith('image/')) {
+          type = 'image';
+        } else if (mime.startsWith('video/')) {
+          type = 'video';
+        } else if (mime.startsWith('audio/')) {
+          type = 'audio';
+        }
+
+        // Parse dimensions if available
+        let width, height;
+        if (dimensions) {
+          const [w, h] = dimensions.split('x');
+          width = parseInt(w);
+          height = parseInt(h);
+        }
+
+        // Create media item
+        mediaItems.push({
+          type,
+          url: normalizeUrl(url),
+          alt: alt || 'Image from imeta tag',
+          metadata: {
+            format: url.split('.').pop()?.split('?')[0]?.toLowerCase() || 'unknown',
+          },
+          ...(width && height ? { dimensions: { width, height } } : {}),
+        });
+      }
+    }
+  }
+
+  // Special handling for kind 1222 (Yakbak audio notes) if not already handled by general imeta processing
+  if (event.kind === 1222 && mediaItems.length === 0) {
+    // Look for imeta tags which contain audio metadata
+    const yakbakTags = event.tags.filter(tag => tag[0] === 'imeta');
+
+    for (const imetaTag of yakbakTags) {
       // Parse the imeta tag to extract URL and metadata
       let url = '';
       let hasWaveform = false;
@@ -154,11 +218,6 @@ export function parseMediaFromEvent(event: NostrEvent): MediaItem[] {
           }
         });
       }
-    }
-
-    // If we found audio from imeta tags, return early
-    if (mediaItems.length > 0) {
-      return mediaItems;
     }
   }
 
