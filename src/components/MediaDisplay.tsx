@@ -6,6 +6,7 @@ import { Play, Pause, Volume2, VolumeX, Maximize, ExternalLink, Minimize, SkipBa
 import { IMDBPreview } from './IMDBPreview';
 import { cn } from '@/lib/utils';
 import { LinkPreview } from '@/components/LinkPreview';
+import { fetchInstagramOEmbed } from '@/lib/instagramAuth';
 
 // Instagram Embed Component
 function InstagramEmbed({ url, instagramId, instagramType }: { url: string; instagramId: string; instagramType: string }) {
@@ -21,42 +22,11 @@ function InstagramEmbed({ url, instagramId, instagramType }: { url: string; inst
         setIsLoading(true);
         setError(null);
 
-        // Use Instagram's official oEmbed endpoint
-        const oembedUrl = `https://graph.facebook.com/v16.0/instagram_oembed?url=${encodeURIComponent(url)}&access_token=&omitscript=true`;
+        // Use our Instagram authentication utility
+        const data = await fetchInstagramOEmbed(url);
 
-        // Try to fetch through a CORS proxy
-        const corsProxies = [
-          `https://corsproxy.io/?${encodeURIComponent(oembedUrl)}`,
-          `https://api.allorigins.win/raw?url=${encodeURIComponent(oembedUrl)}`,
-        ];
-
-        let fetchedHtml = '';
-        for (const proxyUrl of corsProxies) {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-            const response = await fetch(proxyUrl, {
-              signal: controller.signal,
-            });
-
-            clearTimeout(timeoutId);
-
-            if (response.ok) {
-              const data = await response.json();
-              if (data.html) {
-                fetchedHtml = data.html;
-                break;
-              }
-            }
-          } catch (err) {
-            console.warn('Failed to fetch from proxy:', proxyUrl, err);
-            continue;
-          }
-        }
-
-        if (fetchedHtml) {
-          setEmbedHtml(fetchedHtml);
+        if (data && data.html) {
+          setEmbedHtml(data.html);
           setIsLoading(false);
 
           // Load Instagram embed script if not already loaded
