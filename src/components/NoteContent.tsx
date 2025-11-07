@@ -5,7 +5,7 @@ import { nip19 } from 'nostr-tools';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
 import { cn } from '@/lib/utils';
-import { parseMediaFromContent } from '@/lib/mediaParser';
+import { parseMediaFromContent, parseMediaFromEvent } from '@/lib/mediaParser';
 import { MediaDisplay } from '@/components/MediaDisplay';
 import { QuotedEvent } from '@/components/QuotedEvent';
 
@@ -23,8 +23,8 @@ export function NoteContent({
   const content = useMemo(() => {
     const text = event.content;
 
-    // First, extract media items from the content
-    const mediaItems = parseMediaFromContent(text);
+    // First, extract media items - use event-aware parser for special handling
+    const mediaItems = parseMediaFromEvent(event);
 
     // If no media found, use the original logic
     if (mediaItems.length === 0) {

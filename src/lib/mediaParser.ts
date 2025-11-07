@@ -102,6 +102,55 @@ function normalizeUrl(url: string): string {
   }
 }
 
+// Helper function to parse media from Nostr events with kind-specific logic
+export function parseMediaFromEvent(event: NostrEvent): MediaItem[] {
+  const mediaItems: MediaItem[] = [];
+
+  // Special handling for kind 1222 (Yakbak audio notes)
+  if (event.kind === 1222) {
+    // Look for imeta tags which contain audio metadata
+    const imetaTags = event.tags.filter(tag => tag[0] === 'imeta');
+
+    for (const imetaTag of imetaTags) {
+      // Parse the imeta tag to extract URL and metadata
+      let url = '';
+      let hasWaveform = false;
+      let hasDuration = false;
+
+      for (const part of imetaTag.slice(1)) {
+        if (part.startsWith('url ')) {
+          url = part.substring(4);
+        } else if (part.startsWith('waveform ')) {
+          hasWaveform = true;
+        } else if (part.startsWith('duration ')) {
+          hasDuration = true;
+        }
+      }
+
+      // If we have a URL and audio-specific metadata, treat it as audio
+      if (url && (hasWaveform || hasDuration)) {
+        console.log('🎵 Detected Yakbak audio note (kind 1222) with URL:', url);
+        mediaItems.push({
+          type: 'audio',
+          url: normalizeUrl(url),
+          title: 'Yakbak Audio Note',
+          metadata: {
+            format: url.split('.').pop()?.split('?')[0]?.toLowerCase() || 'mp4',
+          }
+        });
+      }
+    }
+
+    // If we found audio from imeta tags, return early
+    if (mediaItems.length > 0) {
+      return mediaItems;
+    }
+  }
+
+  // Fallback to parsing from content
+  return parseMediaFromContent(event.content);
+}
+
 export function parseMediaFromContent(content: string): MediaItem[] {
   const mediaItems: MediaItem[] = [];
   const processedUrls = new Set<string>(); // Track URLs we've already processed
