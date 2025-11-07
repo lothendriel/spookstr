@@ -11,6 +11,7 @@ import { CreateParanormalPost } from '@/components/CreateParanormalPost';
 import { DeveloperTip } from '@/components/DeveloperTip';
 import { PostDetailView } from '@/components/PostDetailView';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
+import { RedditParanormalFeed } from '@/components/RedditParanormalFeed';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Button } from '@/components/ui/button';
 import { RotateCcw, Ghost, Plus } from 'lucide-react';
@@ -117,11 +118,7 @@ const Index = () => {
           {/* Left Sidebar */}
           <div className="lg:col-span-1 space-y-6">
             <div className="hidden lg:block">
-              {/* Reddit feed removed - placeholder for future sidebar content */}
-              <div className="border border-lime-500/20 rounded-lg p-6 bg-black/40">
-                <h3 className="text-lg font-semibold text-lime-400 mb-4">Community Links</h3>
-                <p className="text-sm text-lime-500/60">Community features coming soon...</p>
-              </div>
+              <RedditParanormalFeed />
             </div>
             <div className="hidden lg:block">
               <DeveloperTip />
