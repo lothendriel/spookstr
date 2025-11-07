@@ -223,11 +223,25 @@ export function parseMediaFromEvent(event: NostrEvent): MediaItem[] {
     }
   }
 
+  // Extract blossom file IDs from imeta tags to prevent duplicate detection in content
+  const blossomIds = new Set<string>();
+  for (const item of mediaItems) {
+    if (item.url.includes('blossom.primal.net')) {
+      const urlParts = item.url.split('/');
+      const filename = urlParts[urlParts.length - 1];
+      const fileId = filename.split('.')[0];
+      if (fileId) {
+        blossomIds.add(fileId);
+        console.log('🔑 Blossom file ID from imeta:', fileId);
+      }
+    }
+  }
+
   // Check if this event has audio context (hashtags/keywords)
   const hasAudioContext = isAudioContext(event);
 
-  // Parse media from content
-  const parsedMedia = parseMediaFromContent(event.content);
+  // Parse media from content, passing blossom IDs to avoid duplicates
+  const parsedMedia = parseMediaFromContent(event.content, blossomIds);
 
   // If we detected audio context, convert .mp4/.m4a video items to audio
   if (hasAudioContext) {
@@ -255,8 +269,9 @@ export function parseMediaFromEvent(event: NostrEvent): MediaItem[] {
     return mediaItems;
   }
 
-  // No audio context detected, return media as-is
-  return parsedMedia;
+  // CRITICAL FIX: Combine imeta items with content-parsed items
+  // Previously we were only returning parsedMedia, which excluded imeta items!
+  return [...mediaItems, ...parsedMedia];
 }
 
 export function parseMediaFromContent(content: string, blossomIds: Set<string> = new Set()): MediaItem[] {
@@ -300,6 +315,20 @@ export function parseMediaFromContent(content: string, blossomIds: Set<string> =
     while ((match = regex.exec(content)) !== null) {
       const url = match[0];
       const normalizedUrl = normalizeUrl(url);
+
+      // Special check for blossom.primal.net URLs - skip if already in blossomIds
+      if (url.includes('blossom.primal.net') && blossomIds.size > 0) {
+        const urlParts = url.split('/');
+        const filename = urlParts[urlParts.length - 1];
+        const fileId = filename.split('.')[0];
+
+        if (fileId && blossomIds.has(fileId)) {
+          console.log(`⏭️ Skipping blossom URL (already in imeta): ${url}`);
+          processedUrls.add(normalizedUrl); // Mark as processed to avoid duplicates
+          continue;
+        }
+      }
+
       if (!processedUrls.has(normalizedUrl)) {
         console.log(`✅ Matched as ${type}:`, url);
         const mediaItem = createMediaItem(url, type, match);
@@ -400,6 +429,16 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
     const cleanUrl = normalizeUrl(fullUrl);
 
     switch (type) {
+      case 'blossomPrimal':
+        // Special handling for blossom.primal.net
+        console.log('🌸 Creating blossomPrimal media item:', cleanUrl);
+        return {
+          type: 'image',
+          url: cleanUrl,
+          alt: extractAltText(url, match),
+          metadata: extractImageMetadata(cleanUrl)
+        };
+
       case 'directImage':
       case 'imageHosting':
       case 'genericCDN':

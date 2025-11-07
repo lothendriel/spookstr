@@ -56,6 +56,8 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
   const [currentQuality, setCurrentQuality] = useState<string>('auto');
   const [availableQualities, setAvailableQualities] = useState<Array<{ id: string; name: string; height: number }>>([]);
   const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [currentImageSrc, setCurrentImageSrc] = useState(media.url);
+  const [retryCount, setRetryCount] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout>();
@@ -63,6 +65,33 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
   const handleMediaError = () => {
     setError('Failed to load media');
     setIsLoading(false);
+
+    // Special handling for blossom.primal.net URLs - try alternate URLs
+    if (media.type === 'image' && media.url.includes('blossom.primal.net') && retryCount < 2) {
+      console.log(`⚠️ Blossom CDN image failed to load: ${media.url} - Attempting fallback (${retryCount + 1}/2)`);
+
+      // Extract the file ID from the blossom URL
+      const urlParts = media.url.split('/');
+      const fileName = urlParts[urlParts.length - 1];
+      const fileId = fileName.split('.')[0];
+
+      // Try different URL patterns for the same file
+      let fallbackUrl: string;
+
+      if (retryCount === 0) {
+        // First retry: Try nostr.build as a fallback
+        fallbackUrl = `https://nostr.build/i/${fileId}.jpg`;
+      } else {
+        // Second retry: Try Cloudflare IPFS gateway
+        fallbackUrl = `https://cloudflare-ipfs.com/ipfs/${fileId}`;
+      }
+
+      console.log(`🔄 Trying fallback URL: ${fallbackUrl}`);
+      setCurrentImageSrc(fallbackUrl);
+      setError(null);
+      setIsLoading(true);
+      setRetryCount(retryCount + 1);
+    }
   };
 
   const handleMediaLoad = () => {
@@ -437,7 +466,7 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
               <div className="absolute inset-0 bg-lime-500/10 animate-pulse rounded-lg" />
             )}
             <img
-              src={media.url}
+              src={currentImageSrc}
               alt={media.alt || 'Image'}
               className={cn(
                 "w-full h-auto rounded-lg transition-all duration-300",
@@ -449,7 +478,24 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
             />
             {error && (
               <div className="p-4 text-center text-lime-500/60 bg-lime-500/5 rounded-lg">
-                Failed to load image
+                <div className="mb-2">Failed to load image</div>
+                <div className="text-sm opacity-70 mb-2 break-all">
+                  {media.url}
+                </div>
+                {media.url.includes('blossom.primal.net') && (
+                  <div className="text-xs bg-lime-500/10 p-2 rounded-md mb-2">
+                    This image from blossom.primal.net appears to be unavailable.
+                    Try viewing it directly or checking if the CDN is operational.
+                  </div>
+                )}
+                <div className="flex justify-center space-x-2 pt-2">
+                  <button
+                    className="bg-lime-500/20 hover:bg-lime-500/30 text-lime-200 px-3 py-1 rounded text-xs"
+                    onClick={() => window.open(media.url, '_blank')}
+                  >
+                    Open URL directly
+                  </button>
+                </div>
               </div>
             )}
           </div>
