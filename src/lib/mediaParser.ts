@@ -154,7 +154,7 @@ export function parseMediaFromEvent(event: NostrEvent): MediaItem[] {
       if (url) {
         console.log(`🖼️ Found media in imeta tag: ${url} (${mime || 'unknown type'})`);
 
-        // Determine media type based on mime type
+        // Determine media type based on mime type OR file extension
         let type: MediaItem['type'] = 'external';
 
         if (mime.startsWith('image/')) {
@@ -163,6 +163,21 @@ export function parseMediaFromEvent(event: NostrEvent): MediaItem[] {
           type = 'video';
         } else if (mime.startsWith('audio/')) {
           type = 'audio';
+        } else if (!mime || mime === 'unknown type') {
+          // If no mime type, try to infer from file extension
+          const fileExtension = url.split('.').pop()?.split('?')[0]?.toLowerCase();
+
+          const videoExtensions = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'flv', 'ogv', '3gp', 'm4v', 'wmv'];
+          const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'avif'];
+          const audioExtensions = ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'opus'];
+
+          if (fileExtension && videoExtensions.includes(fileExtension)) {
+            type = 'video';
+          } else if (fileExtension && imageExtensions.includes(fileExtension)) {
+            type = 'image';
+          } else if (fileExtension && audioExtensions.includes(fileExtension)) {
+            type = 'audio';
+          }
         }
 
         // Parse dimensions if available
