@@ -67,53 +67,64 @@
   background-color: rgba(0, 0, 0, 0.4) !important;
 }
 
+/* Fix cursor alignment - exact synchronization */
 .w-md-editor-text-pre,
-.w-md-editor-text-input,
-.w-md-editor-text {
-  color: rgb(229, 231, 235) !important;
-  white-space: pre-wrap !important;
-  word-wrap: break-word !important;
-  line-height: 1.5 !important;
-  padding: 12px !important;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace !important;
-  font-size: 14px !important;
-}
-
-.w-md-editor-text-pre > code,
 .w-md-editor-text-input {
   color: rgb(229, 231, 235) !important;
   white-space: pre-wrap !important;
   word-wrap: break-word !important;
-  line-height: 1.5 !important;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace !important;
   font-size: 14px !important;
+  line-height: 20px !important;
+  padding: 10px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  vertical-align: top !important;
+  box-sizing: border-box !important;
+}
+
+.w-md-editor-text-pre > code {
+  color: rgb(229, 231, 235) !important;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  display: block !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+}
+
+.w-md-editor-text {
+  color: rgb(229, 231, 235) !important;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
 }
 
 .w-md-editor-area {
   width: 100% !important;
 }
 
-.w-md-editor-text-pre,
 .w-md-editor-input {
-  line-height: 1.5 !important;
+  line-height: 20px !important;
 }
 
-/* Fix cursor alignment */
-.w-md-editor-text-pre,
-.w-md-editor-text-input {
-  vertical-align: top !important;
-}
-
-.w-md-editor-text-pre > code {
-  line-height: 1.5 !important;
-  display: block !important;
+/* Ensure text area wrapper has no extra spacing */
+.w-md-editor-aree {
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .w-md-editor-aree > .w-md-editor-text-pre {
-  padding: 12px !important;
+  padding: 10px !important;
+  margin: 0 !important;
 }
 
 .w-md-editor-aree > .w-md-editor-text-input {
-  padding: 12px !important;
+  padding: 10px !important;
+  margin: 0 !important;
 }
 
 /* Markdown Preview Styling */
