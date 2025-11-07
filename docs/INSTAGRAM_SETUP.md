@@ -9,9 +9,9 @@ Instagram posts and reels are embedded in Spookstr using Instagram's official oE
 ## 🔑 Current Credentials
 
 **Your Instagram App:**
-- **App ID:** `1151704059951596`
+- **App ID:** `1343445420487893`
 - **App Secret:** `5bfbf4ac01d5ff1476e976debbb0fe6a`
-- **Dashboard:** https://developers.facebook.com/apps/1151704059951596/
+- **Dashboard:** https://developers.facebook.com/apps/1343445420487893/
 
 ## ✅ Setup Checklist
 

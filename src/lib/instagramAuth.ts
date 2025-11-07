@@ -5,8 +5,8 @@
  */
 
 // Try to get credentials from environment first, fallback to hardcoded values
-const APP_ID = import.meta.env.VITE_INSTAGRAM_APP_ID || '1151704059951596';
-const APP_SECRET = import.meta.env.VITE_INSTAGRAM_APP_SECRET || '5bfbf4ac01d5ff1476e976debbb0fe6a';
+const APP_ID = import.meta.env.VITE_INSTAGRAM_APP_ID || '1343445420487893';
+const APP_SECRET = import.meta.env.VITE_INSTAGRAM_APP_SECRET || 'xyrlaSq0mho4UMTdNVIVpBaAfQQ';
 
 // Debug: Log if credentials are loaded
 console.log('🔑 Instagram credentials loaded:', {

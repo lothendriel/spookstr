@@ -6,121 +6,6 @@ import { Play, Pause, Volume2, VolumeX, Maximize, ExternalLink, Minimize, SkipBa
 import { IMDBPreview } from './IMDBPreview';
 import { cn } from '@/lib/utils';
 import { LinkPreview } from '@/components/LinkPreview';
-import { fetchInstagramOEmbed } from '@/lib/instagramAuth';
-
-// Instagram Embed Component
-function InstagramEmbed({ url, instagramId, instagramType }: { url: string; instagramId: string; instagramType: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [embedHtml, setEmbedHtml] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Fetch Instagram oEmbed data
-    const fetchEmbed = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        // Use our Instagram authentication utility
-        const data = await fetchInstagramOEmbed(url);
-
-        if (data && data.html) {
-          setEmbedHtml(data.html);
-          setIsLoading(false);
-
-          // Load Instagram embed script if not already loaded
-          if (!(window as any).instgrm) {
-            const script = document.createElement('script');
-            script.src = '//www.instagram.com/embed.js';
-            script.async = true;
-            script.onload = () => {
-              if ((window as any).instgrm?.Embeds?.process) {
-                (window as any).instgrm.Embeds.process();
-              }
-            };
-            document.body.appendChild(script);
-          } else {
-            // Script already loaded, just process embeds
-            setTimeout(() => {
-              if ((window as any).instgrm?.Embeds?.process) {
-                (window as any).instgrm.Embeds.process();
-              }
-            }, 100);
-          }
-        } else {
-          throw new Error('Could not fetch Instagram embed data');
-        }
-      } catch (err) {
-        console.error('Error fetching Instagram embed:', err);
-        setError('Unable to load Instagram embed');
-        setIsLoading(false);
-      }
-    };
-
-    fetchEmbed();
-  }, [url]);
-
-  if (isLoading) {
-    return (
-      <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20 p-8">
-        <div className="flex flex-col items-center justify-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
-          <p className="text-sm text-purple-300">Loading Instagram {instagramType}...</p>
-        </div>
-      </Card>
-    );
-  }
-
-  if (error || !embedHtml) {
-    return (
-      <Card className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/20 p-4 hover:bg-purple-500/15 transition-colors cursor-pointer group">
-        <div className="flex items-start space-x-3" onClick={() => window.open(url, '_blank')}>
-          <div className="flex-shrink-0">
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-lg flex items-center justify-center group-hover:from-purple-500/40 group-hover:to-pink-500/40 transition-colors">
-              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-              </svg>
-            </div>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-purple-100 group-hover:text-purple-50 transition-colors">
-              Instagram {instagramType.charAt(0).toUpperCase() + instagramType.slice(1)}
-            </p>
-            <p className="text-xs text-purple-400 truncate">
-              Click to view on Instagram
-            </p>
-            <p className="text-xs text-purple-500/60 truncate mt-1">
-              ID: {instagramId}
-            </p>
-          </div>
-          <div className="flex-shrink-0">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 w-8 p-0 text-purple-400 hover:text-purple-300 hover:bg-purple-500/20"
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open(url, '_blank');
-              }}
-              title="View on Instagram"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </Card>
-    );
-  }
-
-  return (
-    <div
-      ref={containerRef}
-      className="instagram-embed-container rounded-lg overflow-hidden"
-      dangerouslySetInnerHTML={{ __html: embedHtml }}
-    />
-  );
-}
 
 // Dynamic imports for streaming libraries
 let Hls: any = null;
@@ -1375,40 +1260,69 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
         const instagramId = extractInstagramId(media.url);
         const instagramType = media.url.includes('/reel/') ? 'reel' : 'post';
 
-        if (!instagramId) {
-          return (
-            <Card className="bg-lime-500/5 border-lime-500/20 p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
+        // Beautiful Instagram preview card - no API required!
+        return (
+          <Card className="bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-orange-500/10 border-purple-500/20 hover:border-purple-500/40 transition-all duration-300 overflow-hidden group cursor-pointer">
+            <div
+              className="relative"
+              onClick={() => window.open(media.url, '_blank')}
+            >
+              {/* Instagram gradient bar at top */}
+              <div className="h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500" />
+
+              <div className="p-6">
+                <div className="flex items-start space-x-4">
+                  {/* Instagram Logo */}
                   <div className="flex-shrink-0">
-                    <div className="w-12 h-12 bg-lime-500/20 rounded-lg flex items-center justify-center">
-                      <ExternalLink className="h-6 w-6 text-lime-500" />
+                    <div className="w-16 h-16 bg-gradient-to-br from-purple-500/30 via-pink-500/30 to-orange-500/30 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                      <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                      </svg>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-lime-100">
-                      Invalid Instagram URL
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-lg font-semibold text-white group-hover:text-purple-200 transition-colors">
+                        Instagram {instagramType === 'reel' ? 'Reel' : 'Post'}
+                      </h3>
+                      <ExternalLink className="h-5 w-5 text-purple-400 group-hover:text-purple-300 transition-colors" />
+                    </div>
+
+                    <p className="text-sm text-purple-200/80 mb-3">
+                      Click to view this {instagramType === 'reel' ? 'reel' : 'post'} on Instagram
                     </p>
-                    <p className="text-xs text-lime-500/60 truncate max-w-xs">
-                      {media.url}
-                    </p>
+
+                    {instagramId && (
+                      <div className="flex items-center space-x-2 text-xs text-purple-400/60">
+                        <span className="px-2 py-1 bg-purple-500/20 rounded-full">
+                          {instagramType === 'reel' ? '🎬 Reel' : '📸 Post'}
+                        </span>
+                        <span className="font-mono truncate max-w-[200px]">
+                          {instagramId}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-lime-500/30 text-lime-400 hover:bg-lime-500/10"
-                  onClick={() => window.open(media.url, '_blank')}
-                >
-                  Open
-                </Button>
-              </div>
-            </Card>
-          );
-        }
 
-        // Use blockquote embed approach which Instagram officially supports
-        return <InstagramEmbed url={media.url} instagramId={instagramId} instagramType={instagramType} />;
+                {/* Hover indicator */}
+                <div className="mt-4 pt-4 border-t border-purple-500/20">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-purple-300/80">Open in Instagram</span>
+                    <div className="flex items-center space-x-1 text-purple-400 group-hover:translate-x-1 transition-transform">
+                      <span>View</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        );
 
       case 'twitter':
         const tweetId = extractTwitterId(media.url);
