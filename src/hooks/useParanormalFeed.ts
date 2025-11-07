@@ -11,6 +11,7 @@ import {
 } from '@/lib/contentType';
 import { useHiddenUsers } from '@/hooks/useHiddenUsers';
 import { useHiddenHashtags } from '@/hooks/useHiddenHashtags';
+import { usePersonalizedHashtags } from '@/hooks/usePersonalizedHashtags';
 
 // Move large constant arrays to functions to prevent permanent memory retention
 const getParanormalTags = () => [
@@ -164,6 +165,7 @@ export function useParanormalFeed() {
   const { nostr } = useNostr();
   const { hiddenPubkeys } = useHiddenUsers();
   const { hasHiddenHashtag } = useHiddenHashtags();
+  const { personalizedHashtags } = usePersonalizedHashtags();
 
   // Cache filter function creation to avoid recreating on every render
   const filterFunctions = useMemo(() => {
@@ -220,25 +222,45 @@ export function useParanormalFeed() {
   }, [hiddenPubkeys, hasHiddenHashtag]);
 
   return useQuery({
-    queryKey: ['paranormal-feed', hiddenPubkeys, hasHiddenHashtag],
+    queryKey: ['paranormal-feed', hiddenPubkeys, hasHiddenHashtag, personalizedHashtags],
     queryFn: async (c) => {
       return await (async () => {
         const PARANORMAL_TAGS = getParanormalTags();
 
         const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
-        // Query for notes with paranormal tags AND reposts of paranormal content
-        const events = await nostr.query([
-          {
+        // Combine paranormal tags with personalized hashtags
+        const allTags = [...PARANORMAL_TAGS];
+        if (personalizedHashtags.length > 0) {
+          allTags.push(...personalizedHashtags);
+        }
+
+        // Build queries based on whether we have personalized hashtags
+        const queries = [];
+
+        // Always query for paranormal content
+        queries.push({
+          kinds: [1],
+          '#t': PARANORMAL_TAGS,
+          limit: personalizedHashtags.length > 0 ? 30 : 50, // Reduce limit if we have personalized content
+        });
+
+        // Add personalized hashtag query if any exist
+        if (personalizedHashtags.length > 0) {
+          queries.push({
             kinds: [1],
-            '#t': PARANORMAL_TAGS,
-            limit: 50,
-          },
-          {
-            kinds: [6], // Include reposts
+            '#t': personalizedHashtags,
             limit: 20,
-          }
-        ], { signal });
+          });
+        }
+
+        // Always include reposts
+        queries.push({
+          kinds: [6], // Include reposts
+          limit: 20,
+        });
+
+        const events = await nostr.query(queries, { signal });
 
         // Filter out replies and community content to prevent cross-contamination
         let filteredEvents = filterForMainFeed(events);

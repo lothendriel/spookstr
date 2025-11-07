@@ -1,6 +1,7 @@
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { HiddenUsersManager } from '@/components/HiddenUsersManager';
 import { HiddenHashtagsManager } from '@/components/HiddenHashtagsManager';
+import { PersonalizedHashtagsManager } from '@/components/PersonalizedHashtagsManager';
 import { Settings } from 'lucide-react';
 
 export default function UserSettings() {
@@ -22,6 +23,9 @@ export default function UserSettings() {
 
         {/* Content Filtering */}
         <div className="space-y-6">
+          {/* Personalized Hashtags Section */}
+          <PersonalizedHashtagsManager />
+
           {/* Hidden Users Section */}
           <HiddenUsersManager />
 
