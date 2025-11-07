@@ -102,6 +102,21 @@ function normalizeUrl(url: string): string {
   }
 }
 
+// Helper function to check if event content/tags suggest audio content
+function isAudioContext(event: NostrEvent): boolean {
+  // Check for audio-related hashtags
+  const audioHashtags = ['songstr', 'music', 'audio', 'song', 'podcast', 'recording', 'songwriting', 'vocals', 'instrumental', 'cover', 'original', 'demo', 'track', 'album', 'ep', 'single'];
+  const tags = event.tags.filter(tag => tag[0] === 't').map(tag => tag[1]?.toLowerCase());
+  const hasAudioTag = tags.some(tag => audioHashtags.includes(tag));
+
+  // Check for audio-related keywords in content
+  const audioKeywords = ['song', 'music', 'audio', 'recording', 'track', 'vocals', 'singing', 'sang', 'played', 'instrumental', 'cover', 'original'];
+  const contentLower = event.content.toLowerCase();
+  const hasAudioKeyword = audioKeywords.some(keyword => contentLower.includes(keyword));
+
+  return hasAudioTag || hasAudioKeyword;
+}
+
 // Helper function to parse media from Nostr events with kind-specific logic
 export function parseMediaFromEvent(event: NostrEvent): MediaItem[] {
   const mediaItems: MediaItem[] = [];
@@ -147,8 +162,40 @@ export function parseMediaFromEvent(event: NostrEvent): MediaItem[] {
     }
   }
 
-  // Fallback to parsing from content
-  return parseMediaFromContent(event.content);
+  // Check if this event has audio context (hashtags/keywords)
+  const hasAudioContext = isAudioContext(event);
+
+  // Parse media from content
+  const parsedMedia = parseMediaFromContent(event.content);
+
+  // If we detected audio context, convert .mp4/.m4a video items to audio
+  if (hasAudioContext) {
+    for (const item of parsedMedia) {
+      if (item.type === 'video') {
+        const format = item.metadata?.format?.toLowerCase();
+        // Convert video to audio if it's an mp4 or m4a file
+        if (format === 'mp4' || format === 'm4a') {
+          console.log('🎵 Converting video to audio based on context:', item.url);
+          mediaItems.push({
+            ...item,
+            type: 'audio',
+            title: 'Audio Recording',
+          });
+        } else {
+          // Keep as video for other formats
+          mediaItems.push(item);
+        }
+      } else {
+        // Keep non-video items as-is
+        mediaItems.push(item);
+      }
+    }
+
+    return mediaItems;
+  }
+
+  // No audio context detected, return media as-is
+  return parsedMedia;
 }
 
 export function parseMediaFromContent(content: string): MediaItem[] {
