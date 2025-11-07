@@ -32,6 +32,7 @@ const AppConfigSchema: z.ZodType<AppConfig, z.ZodTypeDef, unknown> = z.object({
   spookstrOnlyMode: z.boolean().optional(),
   searchRelays: z.array(z.string().url()).optional(),
   blossomServers: z.array(z.string().url()).optional(),
+  includeClientTag: z.boolean().optional(),
 });
 
 export function AppProvider(props: AppProviderProps) {
