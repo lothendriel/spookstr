@@ -238,25 +238,19 @@ export function parseMediaFromEvent(event: NostrEvent): MediaItem[] {
     }
   }
 
-  // Extract blossom file IDs from imeta tags to prevent duplicate detection in content
-  const blossomIds = new Set<string>();
+  // Extract all URLs from imeta tags to prevent duplicate detection in content
+  const imetaUrls = new Set<string>();
   for (const item of mediaItems) {
-    if (item.url.includes('blossom.primal.net')) {
-      const urlParts = item.url.split('/');
-      const filename = urlParts[urlParts.length - 1];
-      const fileId = filename.split('.')[0];
-      if (fileId) {
-        blossomIds.add(fileId);
-        console.log('🔑 Blossom file ID from imeta:', fileId);
-      }
-    }
+    // Add normalized URL to the set to prevent duplicate parsing from content
+    imetaUrls.add(normalizeUrl(item.url));
+    console.log('🔑 URL from imeta (will skip in content):', item.url);
   }
 
   // Check if this event has audio context (hashtags/keywords)
   const hasAudioContext = isAudioContext(event);
 
-  // Parse media from content, passing blossom IDs to avoid duplicates
-  const parsedMedia = parseMediaFromContent(event.content, blossomIds);
+  // Parse media from content, passing imeta URLs to avoid duplicates
+  const parsedMedia = parseMediaFromContent(event.content, imetaUrls);
 
   // If we detected audio context, convert .mp4/.m4a video items to audio
   if (hasAudioContext) {
@@ -289,7 +283,7 @@ export function parseMediaFromEvent(event: NostrEvent): MediaItem[] {
   return [...mediaItems, ...parsedMedia];
 }
 
-export function parseMediaFromContent(content: string, blossomIds: Set<string> = new Set()): MediaItem[] {
+export function parseMediaFromContent(content: string, skipUrls: Set<string> = new Set()): MediaItem[] {
   const mediaItems: MediaItem[] = [];
   const processedUrls = new Set<string>(); // Track URLs we've already processed
 
@@ -331,17 +325,11 @@ export function parseMediaFromContent(content: string, blossomIds: Set<string> =
       const url = match[0];
       const normalizedUrl = normalizeUrl(url);
 
-      // Special check for blossom.primal.net URLs - skip if already in blossomIds
-      if (url.includes('blossom.primal.net') && blossomIds.size > 0) {
-        const urlParts = url.split('/');
-        const filename = urlParts[urlParts.length - 1];
-        const fileId = filename.split('.')[0];
-
-        if (fileId && blossomIds.has(fileId)) {
-          console.log(`⏭️ Skipping blossom URL (already in imeta): ${url}`);
-          processedUrls.add(normalizedUrl); // Mark as processed to avoid duplicates
-          continue;
-        }
+      // Skip URLs that were already processed from imeta tags
+      if (skipUrls.has(normalizedUrl)) {
+        console.log(`⏭️ Skipping URL (already in imeta): ${url}`);
+        processedUrls.add(normalizedUrl); // Mark as processed to avoid duplicates
+        continue;
       }
 
       if (!processedUrls.has(normalizedUrl)) {
@@ -365,18 +353,10 @@ export function parseMediaFromContent(content: string, blossomIds: Set<string> =
       const url = match[0];
       const normalizedUrl = normalizeUrl(url);
 
-      // Special handling for blossom.primal.net URLs - check against passed blossomIds
-      if (url.includes('blossom.primal.net') && blossomIds.size > 0) {
-        // Extract the file ID from the URL
-        const urlParts = url.split('/');
-        const filename = urlParts[urlParts.length - 1];
-        const fileId = filename.split('.')[0];
-
-        // If this file ID is in our blossomIds set, it means it was already processed from imeta tags
-        if (blossomIds.has(fileId)) {
-          console.log('⏭️ Skipping blossom URL already handled by imeta:', url);
-          continue;
-        }
+      // Skip URLs that were already processed from imeta tags
+      if (skipUrls.has(normalizedUrl)) {
+        console.log('⏭️ Skipping URL already handled by imeta:', url);
+        continue;
       }
 
       if (!processedUrls.has(normalizedUrl)) {
