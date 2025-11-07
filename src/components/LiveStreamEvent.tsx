@@ -1,0 +1,429 @@
+import { useState, useRef, useEffect } from 'react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuthor } from '@/hooks/useAuthor';
+import { getDisplayName } from '@/lib/getDisplayName';
+import { Play, Users, Calendar, ExternalLink, Radio } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import type { NostrEvent } from '@nostrify/nostrify';
+import Hls from 'hls.js';
+
+// Helper function to extract URL from text that might contain description + URL
+function extractUrlFromText(text: string): string | undefined {
+  // Look for https:// URLs in the text
+  const urlMatch = text.match(/https?:\/\/[^\s]+/);
+  return urlMatch ? urlMatch[0] : text; // Return the URL if found, otherwise return original text
+}
+
+interface LiveStreamEventProps {
+  event: NostrEvent;
+  className?: string;
+  showPlayer?: boolean;
+}
+
+export function LiveStreamEvent({ event, className, showPlayer = false }: LiveStreamEventProps) {
+  const [isPlayerOpen, setIsPlayerOpen] = useState(showPlayer);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const author = useAuthor(event.pubkey);
+  const metadata = author.data?.metadata;
+  const displayName = getDisplayName(metadata, event.pubkey);
+
+  // Extract stream data from tags
+  const title = event.tags.find(([name]) => name === 'title')?.[1] || 'Untitled Stream';
+  const summary = event.tags.find(([name]) => name === 'summary')?.[1] || '';
+  const image = event.tags.find(([name]) => name === 'image')?.[1] || '';
+  const thumb = event.tags.find(([name]) => name === 'thumb')?.[1] || image;
+  const status = event.tags.find(([name]) => name === 'status')?.[1] || 'unknown';
+  const starts = event.tags.find(([name]) => name === 'starts')?.[1];
+  const ends = event.tags.find(([name]) => name === 'ends')?.[1];
+  const streaming = event.tags.find(([name]) => name === 'streaming')?.[1];
+  const recording = event.tags.find(([name]) => name === 'recording')?.[1];
+  const service = event.tags.find(([name]) => name === 'service')?.[1];
+  const altTag = event.tags.find(([name]) => name === 'alt')?.[1];
+  // Extract URL from alt tag (it might contain text like "Watch live on https://...")
+  const altLink = altTag ? extractUrlFromText(altTag) : undefined;
+  const currentParticipants = event.tags.find(([name]) => name === 'current_participants')?.[1];
+  const totalParticipants = event.tags.find(([name]) => name === 'total_participants')?.[1];
+
+  // Extract hashtags
+  const hashtags = event.tags.filter(([name]) => name === 't').map(([, tag]) => tag);
+
+  // Extract participants (p tags with roles)
+  const participants = event.tags
+    .filter(([name]) => name === 'p')
+    .map(([, pubkey, relay, role]) => ({ pubkey, relay, role: role || 'Participant' }));
+
+  // Determine stream URL (prefer recording if ended, otherwise streaming URL)
+  const streamUrl = status === 'ended' && recording ? recording : streaming;
+
+  // Format timestamps
+  const startTime = starts ? new Date(parseInt(starts) * 1000) : null;
+  const endTime = ends ? new Date(parseInt(ends) * 1000) : null;
+
+  // Get status styling
+  const getStatusBadge = () => {
+    switch (status) {
+      case 'live':
+        return (
+          <Badge variant="destructive" className="bg-red-600 hover:bg-red-700">
+            <Radio className="h-3 w-3 mr-1" />
+            LIVE
+          </Badge>
+        );
+      case 'planned':
+        return (
+          <Badge variant="secondary" className="bg-yellow-600 hover:bg-yellow-700">
+            <Calendar className="h-3 w-3 mr-1" />
+            Scheduled
+          </Badge>
+        );
+      case 'ended':
+        return (
+          <Badge variant="outline" className="border-gray-500 text-gray-400">
+            Ended
+          </Badge>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // Extract streaming service info
+  const getStreamingPlatform = () => {
+    if (service?.includes('streamstr.net')) return 'Streamstr';
+    if (altLink?.includes('zap.stream')) return 'Zap.Stream';
+    if (streaming?.includes('youtube.com')) return 'YouTube';
+    if (streaming?.includes('twitch.tv')) return 'Twitch';
+    return 'Stream';
+  };
+
+  const handleWatchClick = () => {
+    console.log('handleWatchClick called:', { status, streaming, altLink, streamUrl, isPlayerOpen });
+
+    if (status === 'live' && streaming) {
+      // For live streams with streaming URL, show embedded player
+      console.log('Toggling live stream player from', isPlayerOpen, 'to', !isPlayerOpen);
+      setIsPlayerOpen(!isPlayerOpen);
+    } else if (status === 'ended' && altLink) {
+      // For ended streams, open recording on zap.stream
+      console.log('Opening altLink for ended stream:', altLink);
+      window.open(altLink, '_blank', 'noopener,noreferrer');
+    } else if (altLink) {
+      // Fallback to alt link
+      console.log('Opening altLink fallback:', altLink);
+      window.open(altLink, '_blank', 'noopener,noreferrer');
+    } else if (streamUrl) {
+      // Fallback to stream URL
+      console.log('Opening streamUrl fallback:', streamUrl);
+      window.open(streamUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  // Debug the button rendering logic
+  console.log('LiveStreamEvent render:', {
+    status,
+    altLink: !!altLink,
+    shouldShowExternalButton: !!(altLink && status !== 'ended'),
+    statusCheck: status !== 'ended'
+  });
+
+  // Initialize HLS player when the player is opened and we have a streaming URL
+  useEffect(() => {
+    if (isPlayerOpen && streaming && videoRef.current) {
+      const video = videoRef.current;
+
+      if (streaming.includes('.m3u8')) {
+        // HLS Stream - use hls.js
+        if (Hls.isSupported()) {
+          console.log('Initializing HLS player for:', streaming);
+          const hls = new Hls({
+            enableWorker: false,
+          });
+
+          hls.loadSource(streaming);
+          hls.attachMedia(video);
+
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            console.log('HLS manifest parsed, starting playback');
+            video.play().catch(console.error);
+          });
+
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            console.error('HLS error:', event, data);
+          });
+
+          hlsRef.current = hls;
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          // Native HLS support (Safari)
+          console.log('Using native HLS support for:', streaming);
+          video.src = streaming;
+          video.play().catch(console.error);
+        } else {
+          console.error('HLS is not supported in this browser');
+        }
+      } else {
+        // Regular video
+        console.log('Loading regular video:', streaming);
+        video.src = streaming;
+        video.play().catch(console.error);
+      }
+    }
+
+    // Cleanup function
+    return () => {
+      if (hlsRef.current) {
+        console.log('Destroying HLS player');
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [isPlayerOpen, streaming]);
+
+  return (
+    <Card className={`border-purple-500/30 bg-gradient-to-br from-purple-900/20 to-pink-900/20 backdrop-blur-sm ${className}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between">
+          <div className="flex items-center space-x-3">
+            <Avatar className="h-10 w-10 border-2 border-purple-500/30">
+              <AvatarImage src={metadata?.picture} alt={displayName} />
+              <AvatarFallback className="bg-purple-500/20 text-purple-400">
+                {displayName.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="font-semibold text-purple-300">{displayName}</div>
+              <div className="text-xs text-purple-400/70">
+                {getStreamingPlatform()} • {startTime && formatDistanceToNow(startTime, { addSuffix: true })}
+              </div>
+            </div>
+          </div>
+          {getStatusBadge()}
+        </div>
+      </CardHeader>
+
+      <CardContent className="pt-0">
+        {/* Thumbnail/Video Player */}
+        <div className="relative mb-4 rounded-lg overflow-hidden bg-black/40">
+          {isPlayerOpen && streaming && status === 'live' ? (
+            <div className="aspect-video">
+              <video
+                ref={videoRef}
+                className="w-full h-full"
+                controls
+                playsInline
+                poster={thumb}
+                muted
+              >
+                Your browser does not support video playback.
+              </video>
+            </div>
+          ) : (
+            <div
+              className={`aspect-video relative group ${
+                status === 'live' && streaming ? 'cursor-pointer' :
+                status === 'ended' && altLink ? 'cursor-pointer' :
+                'cursor-default'
+              }`}
+              onClick={(status === 'live' && streaming) || (status === 'ended' && altLink) ? handleWatchClick : undefined}
+            >
+              {thumb ? (
+                <img
+                  src={thumb}
+                  alt={title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-purple-800/50 to-pink-800/50 flex items-center justify-center">
+                  <Play className="h-16 w-16 text-white/70" />
+                </div>
+              )}
+
+              {/* Play overlay - only show if stream is playable */}
+              {((status === 'live' && streaming) || (status === 'ended' && altLink)) && (
+                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 transition-colors flex items-center justify-center">
+                  <div className="bg-white/90 rounded-full p-4 group-hover:scale-110 transition-transform">
+                    <Play className="h-8 w-8 text-black fill-black" />
+                  </div>
+                </div>
+              )}
+
+              {/* Inactive overlay for ended streams without recording */}
+              {status === 'ended' && !altLink && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                  <div className="bg-gray-500/80 rounded-full p-4">
+                    <Play className="h-8 w-8 text-gray-300" />
+                  </div>
+                </div>
+              )}
+
+              {/* Duration badge for recorded streams */}
+              {status === 'ended' && startTime && endTime && (
+                <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+                  {Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60))}m
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Stream Info */}
+        <div className="space-y-3">
+          <div>
+            <h3 className="font-bold text-lg text-purple-100 mb-1">{title}</h3>
+            {summary && (
+              <p className="text-sm text-purple-200/80 line-clamp-2">{summary}</p>
+            )}
+          </div>
+
+          {/* Stream Stats */}
+          <div className="flex items-center gap-4 text-xs text-purple-300/70">
+            {currentParticipants && (
+              <div className="flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                {currentParticipants} watching
+              </div>
+            )}
+            {totalParticipants && (
+              <div className="flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                {totalParticipants} total
+              </div>
+            )}
+            {startTime && (
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {startTime.toLocaleDateString()}
+              </div>
+            )}
+          </div>
+
+          {/* Hashtags */}
+          {hashtags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {hashtags.slice(0, 5).map((tag) => (
+                <Badge
+                  key={tag}
+                  variant="outline"
+                  className="text-xs border-purple-500/30 text-purple-300 hover:bg-purple-500/10"
+                >
+                  #{tag}
+                </Badge>
+              ))}
+              {hashtags.length > 5 && (
+                <Badge variant="outline" className="text-xs border-purple-500/30 text-purple-300/70">
+                  +{hashtags.length - 5} more
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 pt-2">
+            {status === 'live' && streaming ? (
+              <Button
+                onClick={handleWatchClick}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Watch Live
+              </Button>
+            ) : status === 'ended' && altLink ? (
+              <Button
+                onClick={handleWatchClick}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Watch Recording
+              </Button>
+            ) : status === 'live' && !streaming ? (
+              <Button
+                disabled
+                className="flex-1 bg-gray-600 text-gray-400 cursor-not-allowed"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Stream Unavailable
+              </Button>
+            ) : (
+              <Button
+                disabled
+                className="flex-1 bg-gray-600 text-gray-400 cursor-not-allowed"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Recording Unavailable
+              </Button>
+            )}
+
+            {altLink && status !== 'ended' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(altLink, '_blank', 'noopener,noreferrer')}
+                className="border-purple-500/30 text-purple-300 hover:bg-purple-500/10"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          {/* Participants */}
+          {participants.length > 0 && (
+            <details className="text-sm">
+              <summary className="cursor-pointer text-purple-300/70 hover:text-purple-300">
+                {participants.length} participant{participants.length !== 1 ? 's' : ''}
+              </summary>
+              <div className="mt-2 space-y-1 pl-4">
+                {participants.slice(0, 10).map(({ pubkey, role }) => (
+                  <ParticipantItem key={pubkey} pubkey={pubkey} role={role} />
+                ))}
+                {participants.length > 10 && (
+                  <div className="text-xs text-purple-300/50">
+                    +{participants.length - 10} more participants
+                  </div>
+                )}
+              </div>
+            </details>
+          )}
+        </div>
+
+        {/* Embedded Player Toggle for Live Streams */}
+        {status === 'live' && streaming && (
+          <div className="mt-3 pt-3 border-t border-purple-500/20">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsPlayerOpen(!isPlayerOpen)}
+              className="text-purple-300/70 hover:text-purple-300"
+            >
+              {isPlayerOpen ? 'Hide Player' : 'Show Embedded Player'}
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Helper component for participant display
+function ParticipantItem({ pubkey, role }: { pubkey: string; role: string }) {
+  const author = useAuthor(pubkey);
+  const metadata = author.data?.metadata;
+  const displayName = getDisplayName(metadata, pubkey);
+
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <Avatar className="h-4 w-4">
+        <AvatarImage src={metadata?.picture} alt={displayName} />
+        <AvatarFallback className="bg-purple-500/20 text-purple-400 text-[8px]">
+          {displayName.charAt(0).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
+      <span className="text-purple-200">{displayName}</span>
+      <Badge variant="outline" className="text-[10px] px-1 py-0 border-purple-500/30 text-purple-300/70">
+        {role}
+      </Badge>
+    </div>
+  );
+}

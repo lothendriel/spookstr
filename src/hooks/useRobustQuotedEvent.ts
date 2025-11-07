@@ -2,7 +2,7 @@ import { useNostr } from '@nostrify/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppContext } from './useAppContext';
 import { relayHintCache, extractRelayHints } from '@/lib/relayHints';
-
+import { RelayHintPopulator } from '@/lib/relayHintPopulator';
 import type { NostrEvent, Filter } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
 
@@ -104,7 +104,7 @@ export function useRobustQuotedEvent(
         }], { signal: AbortSignal.timeout(5000) });
 
         if (referencingEvents.length > 0) {
-          // Relay hint processing removed
+          RelayHintPopulator.processEvents(referencingEvents);
         }
       } catch (error) {
         // Silently handle fallback extraction errors
@@ -148,7 +148,7 @@ async function tryWithRelayHints(nostr: any, filter: Filter, targetId: string, o
     }
 
     if (events[0]) {
-      // Relay hint processing removed
+      RelayHintPopulator.processEvent(events[0]);
       return events[0];
     }
 

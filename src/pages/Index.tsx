@@ -8,10 +8,12 @@ import { useFeedDiscovery } from '@/hooks/useContextualRelayDiscovery';
 import { SmartRelayDiscoveryIndicator } from '@/components/RelayDiscoveryIndicator';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { CreateParanormalPost } from '@/components/CreateParanormalPost';
+import { CreatePostModal } from '@/components/CreatePostModal';
+import { RedditParanormalFeed } from '@/components/RedditParanormalFeed';
 import { DeveloperTip } from '@/components/DeveloperTip';
 import { PostDetailView } from '@/components/PostDetailView';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
-import { RedditParanormalFeed } from '@/components/RedditParanormalFeed';
+import { FeedContent } from '@/components/FeedContent';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Button } from '@/components/ui/button';
 import { RotateCcw, Ghost, Plus } from 'lucide-react';
@@ -198,14 +200,12 @@ const Index = () => {
 
             {!isLoading && !error && posts && posts.length > 0 && (
               <div className="space-y-4">
-                {/* Render posts directly */}
-                {posts.slice(0, postsToShow).map((post) => (
-                  <ParanormalPost
-                    key={post.id}
-                    event={post}
-                    onClick={() => handlePostClick(post)}
-                  />
-                ))}
+                {/* Use memoized FeedContent component for better performance */}
+                <FeedContent
+                  posts={posts}
+                  postsToShow={postsToShow}
+                  onPostClick={handlePostClick}
+                />
 
                 {/* Load More Button - Shown on all devices when more posts available */}
                 {postsToShow < posts.length && (

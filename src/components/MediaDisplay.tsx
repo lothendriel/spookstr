@@ -3,7 +3,9 @@ import { MediaItem } from '@/lib/mediaParser';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, Volume2, VolumeX, Maximize, ExternalLink, Minimize, SkipBack, SkipForward, Settings, PictureInPicture2, Star } from 'lucide-react';
+import { IMDBPreview } from './IMDBPreview';
 import { cn } from '@/lib/utils';
+import { LinkPreview } from '@/components/LinkPreview';
 
 // Dynamic imports for streaming libraries
 let Hls: any = null;
@@ -1252,35 +1254,7 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
         );
 
       case 'imdb':
-        return (
-          <Card className="bg-lime-500/5 border-lime-500/20 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-lime-500/20 rounded-lg flex items-center justify-center">
-                    <Star className="h-6 w-6 text-lime-500" />
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-lime-100">
-                    IMDb Link
-                  </p>
-                  <p className="text-xs text-lime-500/60 truncate max-w-xs">
-                    {media.url}
-                  </p>
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-lime-500/30 text-lime-400 hover:bg-lime-500/10"
-                onClick={() => window.open(media.url, '_blank')}
-              >
-                Open
-              </Button>
-            </div>
-          </Card>
-        );
+        return <IMDBPreview url={media.url} />;
 
       case 'instagram':
         const instagramId = extractInstagramId(media.url);
@@ -1671,35 +1645,7 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
         );
 
       case 'link':
-        return (
-          <Card className="bg-lime-500/5 border-lime-500/20 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-lime-500/20 rounded-lg flex items-center justify-center">
-                    <ExternalLink className="h-6 w-6 text-lime-500" />
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-lime-100">
-                    {media.title || 'Link'}
-                  </p>
-                  <p className="text-xs text-lime-500/60 truncate max-w-xs">
-                    {media.url}
-                  </p>
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-lime-500/30 text-lime-400 hover:bg-lime-500/10"
-                onClick={() => window.open(media.url, '_blank')}
-              >
-                Open
-              </Button>
-            </div>
-          </Card>
-        );
+        return <LinkPreview media={media} />;
 
       case 'external':
         return (

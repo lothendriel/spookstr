@@ -1,8 +1,7 @@
 import { nip19 } from 'nostr-tools';
 import { useParams } from 'react-router-dom';
 import NotFound from './NotFound';
-import { Profile } from '@/components/Profile';
-
+import Profile from './Profile';
 import { PostDetailView } from '@/components/PostDetailView';
 import { ArticleView } from '@/components/ArticleView';
 import { useMultiRelayEvent } from '@/hooks/useMultiRelayQuery';

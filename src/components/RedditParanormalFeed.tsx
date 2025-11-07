@@ -1,160 +1,161 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, TrendingUp, Users, Clock, RotateCcw } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ExternalLink, TrendingUp, MessageCircle } from 'lucide-react';
 
 interface RedditPost {
   id: string;
   title: string;
   url: string;
+  selftext: string;
   score: number;
   num_comments: number;
   created_utc: number;
-  permalink: string;
-  subreddit: string;
   author: string;
+  permalink: string;
 }
 
 export function RedditParanormalFeed() {
-  const [displayedPosts, setDisplayedPosts] = useState<RedditPost[]>([]);
-  const [allPosts, setAllPosts] = useState<RedditPost[]>([]);
+  const [posts, setPosts] = useState<RedditPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Function to get 3 random posts from all posts
-  const getRandomPosts = useCallback((posts: RedditPost[], count: number = 3) => {
-    if (posts.length <= count) return posts;
-
-    const shuffled = [...posts].sort(() => 0.5 - Math.random());
-    return shuffled.slice(0, count);
-  }, []);
-
-  // Function to fetch Reddit posts
-  const fetchRedditPosts = useCallback(async (isRefresh = false) => {
-    try {
-      if (isRefresh) {
-        setIsRefreshing(true);
-      } else {
-        setIsLoading(true);
-      }
+  useEffect(() => {
+    const fetchRedditPosts = async () => {
+      setIsLoading(true);
       setError(null);
 
-      // Fetch from multiple paranormal subreddits
-      const subreddits = ['Paranormal', 'Ghosts', 'UFOs', 'HighStrangeness', 'Thetruthishere'];
-      const allFetchedPosts: RedditPost[] = [];
+      try {
+        // Fetch 10 new posts and randomly select 3
+        const response = await fetch('https://www.reddit.com/r/Paranormal/new.json?limit=10');
+        const data = await response.json();
 
-      for (const subreddit of subreddits) {
-        try {
-          const response = await fetch(
-            `https://www.reddit.com/r/${subreddit}/hot.json?limit=15&t=day`,
-            {
-              headers: {
-                'User-Agent': 'Spookstr:1.0.0 (by /u/spookstr_bot)',
-              },
-            }
-          );
+        // Shuffle the children to get random order
+        const shuffled = data.data.children.slice().sort(() => Math.random() - 0.5);
+        const selected = shuffled.slice(0, 3);
 
-          if (response.ok) {
-            const data = await response.json();
-            const subredditPosts = data.data.children.map((child: any) => ({
-              id: child.data.id,
-              title: child.data.title,
-              url: `https://reddit.com${child.data.permalink}`,
-              score: child.data.score,
-              num_comments: child.data.num_comments,
-              created_utc: child.data.created_utc,
-              permalink: child.data.permalink,
-              subreddit: child.data.subreddit,
-              author: child.data.author,
-            }));
-            allFetchedPosts.push(...subredditPosts);
-          }
-        } catch (err) {
-          console.warn(`Failed to fetch from r/${subreddit}:`, err);
-        }
+        const redditPosts = selected.map((child: any) => {
+          const post = child.data;
+          return {
+            id: post.id,
+            title: post.title,
+            url: post.url,
+            selftext: post.selftext || '',
+            score: post.score,
+            num_comments: post.num_comments,
+            created_utc: post.created_utc,
+            author: post.author,
+            permalink: `https://www.reddit.com${post.permalink}`
+          };
+        });
+
+        setPosts(redditPosts);
+      } catch (err) {
+        console.error('Failed to fetch Reddit posts:', err);
+        setError('Failed to load Reddit posts. Please try again later.');
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      // Filter out posts with very low scores and sort
-      const qualityPosts = allFetchedPosts
-        .filter(post => post.score > 5) // Only show posts with decent engagement
-        .sort((a, b) => b.score - a.score);
-
-      setAllPosts(qualityPosts);
-
-      // Set initial 3 random posts
-      const randomPosts = getRandomPosts(qualityPosts, 3);
-      setDisplayedPosts(randomPosts);
-
-    } catch (err) {
-      console.error('Error fetching Reddit posts:', err);
-      setError('Failed to load Reddit posts');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [getRandomPosts]);
-
-  // Function to refresh with new random posts
-  const handleRefresh = useCallback(() => {
-    if (allPosts.length > 3) {
-      setIsRefreshing(true);
-
-      // Get new random posts from existing data
-      setTimeout(() => {
-        const newRandomPosts = getRandomPosts(allPosts, 3);
-        setDisplayedPosts(newRandomPosts);
-        setIsRefreshing(false);
-      }, 500); // Small delay for UX feedback
-    } else {
-      // If we don't have enough posts, fetch new data
-      fetchRedditPosts(true);
-    }
-  }, [allPosts, getRandomPosts, fetchRedditPosts]);
-
-  // Initial load
-  useEffect(() => {
     fetchRedditPosts();
-  }, [fetchRedditPosts]);
+  }, []);
+
+  const handleRefresh = () => {
+    const fetchRedditPosts = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        // Fetch 10 new posts and randomly select 3
+        const response = await fetch('https://www.reddit.com/r/Paranormal/new.json?limit=10');
+        const data = await response.json();
+
+        // Shuffle the children to get random order
+        const shuffled = data.data.children.slice().sort(() => Math.random() - 0.5);
+        const selected = shuffled.slice(0, 3);
+
+        const redditPosts = selected.map((child: any) => {
+          const post = child.data;
+          return {
+            id: post.id,
+            title: post.title,
+            url: post.url,
+            selftext: post.selftext || '',
+            score: post.score,
+            num_comments: post.num_comments,
+            created_utc: post.created_utc,
+            author: post.author,
+            permalink: `https://www.reddit.com${post.permalink}`
+          };
+        });
+
+        setPosts(redditPosts);
+      } catch (err) {
+        console.error('Failed to fetch Reddit posts:', err);
+        setError('Failed to load Reddit posts. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRedditPosts();
+  };
+
+  const truncateText = (text: string, maxLength: number) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength).trim() + '...';
+  };
 
   const formatTimeAgo = (timestamp: number) => {
     const now = Date.now() / 1000;
     const diff = now - timestamp;
 
-    if (diff < 3600) {
-      return `${Math.floor(diff / 60)}m ago`;
-    } else if (diff < 86400) {
-      return `${Math.floor(diff / 3600)}h ago`;
-    } else {
-      return `${Math.floor(diff / 86400)}d ago`;
-    }
+    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+    return `${Math.floor(diff / 86400)}d`;
   };
 
-  const truncateTitle = (title: string, maxLength: number = 80) => {
-    if (title.length <= maxLength) return title;
-    return title.substring(0, maxLength).trim() + '...';
-  };
+  if (isLoading) {
+    return (
+      <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lime-400 flex items-center space-x-2">
+            <TrendingUp className="h-5 w-5" />
+            <span>Popular on Reddit</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-3 w-3/4" />
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-3 w-12" />
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (error) {
     return (
-      <Card className="bg-lime-500/5 border-lime-500/20">
+      <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg text-lime-400 flex items-center gap-2">
+          <CardTitle className="text-lime-400 flex items-center space-x-2">
             <TrendingUp className="h-5 w-5" />
-            Reddit Paranormal
+            <span>Popular on Reddit</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-4">
-            <p className="text-sm text-lime-500/60 mb-3">{error}</p>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-lime-500/30 text-lime-400 hover:bg-lime-500/10"
-              onClick={() => window.open('https://reddit.com/r/paranormal', '_blank')}
-            >
-              Visit r/Paranormal
+            <p className="text-lime-500/60 mb-2">{error}</p>
+            <Button onClick={handleRefresh} variant="outline" size="sm">
+              Try Again
             </Button>
           </div>
         </CardContent>
@@ -163,104 +164,61 @@ export function RedditParanormalFeed() {
   }
 
   return (
-    <Card className="bg-lime-500/5 border-lime-500/20">
+    <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg text-lime-400 flex items-center gap-2">
+        <CardTitle className="text-lime-400 flex items-center space-x-2">
           <TrendingUp className="h-5 w-5" />
-          Reddit Paranormal
+          <span>Popular on Reddit</span>
         </CardTitle>
-        <p className="text-xs text-lime-500/60 mt-1">
-          Latest from paranormal subreddits
+        <p className="text-sm text-lime-500/60">
+          Top posts from r/Paranormal
         </p>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {isLoading ? (
-          <div className="space-y-3">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="animate-pulse">
-                <div className="h-4 bg-lime-500/10 rounded mb-2" />
-                <div className="flex gap-2">
-                  <div className="h-3 w-12 bg-lime-500/10 rounded" />
-                  <div className="h-3 w-16 bg-lime-500/10 rounded" />
-                  <div className="h-3 w-14 bg-lime-500/10 rounded" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : displayedPosts.length > 0 ? (
-          <>
-            {displayedPosts.map((post) => (
-              <div
-                key={post.id}
-                className="group cursor-pointer p-3 rounded-lg bg-lime-500/5 hover:bg-lime-500/10 transition-colors border border-lime-500/10 hover:border-lime-500/20"
-                onClick={() => window.open(post.url, '_blank')}
-              >
-                <h4 className="text-sm font-medium text-lime-100 leading-tight mb-2 group-hover:text-lime-50 transition-colors">
-                  {truncateTitle(post.title)}
-                </h4>
-                <div className="flex items-center gap-3 text-xs text-lime-500/60">
-                  <div className="flex items-center gap-1">
-                    <TrendingUp className="h-3 w-3" />
-                    <span>{post.score}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Users className="h-3 w-3" />
-                    <span>{post.num_comments}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    <span>{formatTimeAgo(post.created_utc)}</span>
-                  </div>
-                </div>
-                <div className="mt-2 flex items-center justify-between">
-                  <span className="text-xs text-lime-500/40">
-                    r/{post.subreddit}
-                  </span>
-                  <ExternalLink className="h-3 w-3 text-lime-500/40 group-hover:text-lime-500/60 transition-colors" />
-                </div>
-              </div>
-            ))}
-
-            {/* Refresh Random Posts Button */}
-            <div className="pt-2 border-t border-lime-500/10 space-y-2">
-              <Button
-                size="sm"
-                variant="ghost"
-                className="w-full text-lime-400 hover:text-lime-300 hover:bg-lime-500/10"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-              >
-                <RotateCcw className={cn("h-3 w-3 mr-2", isRefreshing && "animate-spin")} />
-                {isRefreshing ? 'Loading...' : 'More Random Posts'}
-              </Button>
-
-              {/* View All on Reddit Button */}
-              <Button
-                size="sm"
-                variant="ghost"
-                className="w-full text-lime-400/80 hover:text-lime-300 hover:bg-lime-500/10 text-xs"
-                onClick={() => window.open('https://reddit.com/r/paranormal+ghosts+ufos+highstrangeness+thetruthishere', '_blank')}
-              >
-                View All on Reddit
-                <ExternalLink className="h-3 w-3 ml-1" />
-              </Button>
-            </div>
-          </>
-        ) : (
-          <div className="text-center py-4">
-            <p className="text-sm text-lime-500/60 mb-3">
-              No posts found
-            </p>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-lime-500/30 text-lime-400 hover:bg-lime-500/10"
-              onClick={() => fetchRedditPosts()}
+      <CardContent className="space-y-4">
+        {posts.map((post) => (
+          <div key={post.id} className="space-y-2 overflow-hidden">
+            <a
+              href={post.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-lime-100 hover:text-lime-300 transition-colors font-medium leading-tight break-words whitespace-normal w-full"
             >
-              Try Again
-            </Button>
+              {post.title}
+            </a>
+
+            {post.selftext && (
+              <p className="text-sm text-lime-500/80 leading-relaxed break-words whitespace-normal w-full">
+                {truncateText(post.selftext, 120)}
+              </p>
+            )}
+
+            <div className="flex items-center justify-between text-xs text-lime-500/60">
+              <div className="flex items-center space-x-3">
+                <span className="flex items-center space-x-1">
+                  <TrendingUp className="h-3 w-3" />
+                  {post.score}
+                </span>
+                <span className="flex items-center space-x-1">
+                  <MessageCircle className="h-3 w-3" />
+                  {post.num_comments}
+                </span>
+                <span>by u/{post.author}</span>
+              </div>
+              <span>{formatTimeAgo(post.created_utc)}</span>
+            </div>
           </div>
-        )}
+        ))}
+
+        <div className="pt-2 border-t border-lime-500/20">
+          <Button
+            onClick={handleRefresh}
+            variant="outline"
+            size="sm"
+            className="w-full"
+          >
+            Refresh Posts
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

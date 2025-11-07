@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { Smile } from "lucide-react";
-
+import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 
 export interface EmojiPickerButtonProps {
@@ -24,8 +24,7 @@ export function EmojiPickerButton({
   children
 }: EmojiPickerButtonProps) {
   const [open, setOpen] = React.useState(false);
-  // Simple dark mode detection
-  const isDark = document.documentElement.classList.contains('dark');
+  const { theme } = useTheme();
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     onEmojiSelect(emojiData.emoji);
@@ -46,15 +45,15 @@ export function EmojiPickerButton({
           <span className="sr-only">Add emoji</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        className="w-auto p-0 border-0"
+      <PopoverContent 
+        className="w-auto p-0 border-0" 
         align="end"
         side="top"
         sideOffset={8}
       >
         <EmojiPicker
           onEmojiClick={handleEmojiClick}
-          theme={isDark ? Theme.DARK : Theme.LIGHT}
+          theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
           autoFocusSearch={false}
           lazyLoadEmojis={true}
         />
