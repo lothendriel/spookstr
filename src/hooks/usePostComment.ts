@@ -3,7 +3,6 @@ import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { type NostrEvent } from '@nostrify/nostrify';
 import { extractMentions } from '@/lib/mentions';
 import { getCommentsQueryKey } from './useComments';
-import { useCurrentUser } from './useCurrentUser';
 
 interface PostCommentParams {
   root: NostrEvent | URL; // The root event to comment on
@@ -16,7 +15,6 @@ interface PostCommentParams {
 export function usePostComment() {
   const { mutateAsync: publishEvent } = useNostrPublish();
   const queryClient = useQueryClient();
-  const { user } = useCurrentUser();
 
   return useMutation({
     mutationFn: async ({ root, reply, content, uploadedFiles = [] }: PostCommentParams) => {
@@ -130,10 +128,6 @@ export function usePostComment() {
       return event;
     },
     onMutate: async ({ root, reply, content, uploadedFiles = [] }) => {
-      if (!user) {
-        throw new Error('User must be logged in to post comments');
-      }
-
       const queryKey = getCommentsQueryKey(root);
 
       // Cancel any outgoing refetches so they don't overwrite our optimistic update
@@ -142,195 +136,47 @@ export function usePostComment() {
       // Snapshot the previous value
       const previousData = queryClient.getQueryData(queryKey);
 
-      // Construct optimistic comment event
-      const optimisticComment: NostrEvent = {
-        id: `optimistic-${Date.now()}`, // Temporary ID
-        pubkey: user.pubkey,
-        created_at: Math.floor(Date.now() / 1000),
-        kind: 1, // Default kind, will be updated below
-        tags: [],
-        content,
-        sig: '', // Empty signature for optimistic update
-      };
-
-      // Build tags for the optimistic comment (same logic as in mutationFn)
-      const tags: string[][] = [];
-      let kind = 1;
-
-      if (root instanceof URL) {
-        tags.push(['r', root.toString()]);
-      } else {
-        // Check if root is a community post
-        const communityATag = root.tags.find(tag =>
-          tag[0] === 'A' && tag[1]?.startsWith('34550:')
-        );
-
-        if (communityATag) {
-          kind = 1111;
-          const communityTag = communityATag[1];
-          const [, communityAuthor] = communityTag.split(':');
-
-          tags.push(['A', communityTag]);
-          tags.push(['P', communityAuthor]);
-          tags.push(['K', '34550']);
-          tags.push(['a', communityTag]);
-          tags.push(['k', root.kind.toString()]);
-        }
-
-        // NIP-10 threading
-        tags.push(['e', root.id, '', reply ? 'root' : 'reply']);
-        tags.push(['p', root.pubkey]);
-      }
-
-      if (reply) {
-        tags.push(['e', reply.id, '', 'reply']);
-        tags.push(['p', reply.pubkey]);
-      }
-
-      // Add mentions
-      const mentionTags = extractMentions(content);
-      tags.push(...mentionTags);
-
-      // Add file tags
-      uploadedFiles.forEach(uploadedFile => {
-        tags.push(...uploadedFile.tags);
-      });
-
-      // Add client tag
-      tags.push(['client', 'spookstr']);
-
-      // Update the optimistic comment
-      optimisticComment.kind = kind;
-      optimisticComment.tags = tags;
-
-      // Optimistically update the cache
+      // Optimistically update to the new value
+      // This is a simple optimistic update - in a real app you'd construct the full event
       queryClient.setQueryData(queryKey, (old: any) => {
-        if (!old?.data) return old;
+        if (!old) return old;
 
-        const { allComments = [], topLevelComments = [], threadTree = [] } = old.data;
-
-        // Create new arrays with the optimistic comment
-        const newAllComments = [optimisticComment, ...allComments];
-
-        // Determine if this is a top-level comment or a reply
-        const isTopLevel = !reply;
-
-        if (isTopLevel) {
-          // Add as top-level comment
-          const newTopLevelComments = [optimisticComment, ...topLevelComments];
-          const newThreadTree = [{
-            event: optimisticComment,
-            children: []
-          }, ...threadTree];
-
-          return {
-            ...old,
-            data: {
-              ...old.data,
-              allComments: newAllComments,
-              topLevelComments: newTopLevelComments,
-              threadTree: newThreadTree
-            }
-          };
-        } else {
-          // This is a reply to another comment - we need to add it to the thread tree
-          // For simplicity, we'll add it as a new top-level comment and let the refetch fix the threading
-          const newTopLevelComments = [optimisticComment, ...topLevelComments];
-          const newThreadTree = [{
-            event: optimisticComment,
-            children: []
-          }, ...threadTree];
-
-          return {
-            ...old,
-            data: {
-              ...old.data,
-              allComments: newAllComments,
-              topLevelComments: newTopLevelComments,
-              threadTree: newThreadTree
-            }
-          };
-        }
-      });
-
-      return { previousData, queryKey, optimisticComment };
-    },
-    onSuccess: (newEvent, { root }, context) => {
-      const queryKey = getCommentsQueryKey(root);
-
-      // Replace the optimistic comment with the real one
-      queryClient.setQueryData(queryKey, (old: any) => {
-        if (!old?.data || !context?.optimisticComment) return old;
-
-        const { allComments = [], topLevelComments = [], threadTree = [] } = old.data;
-        const optimisticId = context.optimisticComment.id;
-
-        // Replace optimistic comment with real one
-        const replaceOptimisticComment = (items: NostrEvent[]) =>
-          items.map(item => item.id === optimisticId ? newEvent : item);
-
-        const replaceInThreadTree = (nodes: any[]): any[] =>
-          nodes.map(node => ({
-            event: node.event.id === optimisticId ? newEvent : node.event,
-            children: replaceInThreadTree(node.children)
-          }));
-
+        // For now, just trigger a refetch by marking the data as stale
+        // A more sophisticated approach would add the new comment to the cache
         return {
           ...old,
           data: {
             ...old.data,
-            allComments: replaceOptimisticComment(allComments),
-            topLevelComments: replaceOptimisticComment(topLevelComments),
-            threadTree: replaceInThreadTree(threadTree)
+            topLevelComments: [
+              ...(old.data?.topLevelComments || []),
+              // We can't easily construct the full event here, so we'll just trigger a refetch
+            ]
           }
         };
       });
 
-      // Then refetch to get the complete updated thread structure
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey });
-      }, 1000); // Wait a bit before refetching to let the user see their comment
+      return { previousData, queryKey };
+    },
+    onSuccess: (newEvent, { root }, context) => {
+      const queryKey = getCommentsQueryKey(root);
+
+      // Invalidate and refetch comments with the correct query key
+      queryClient.invalidateQueries({
+        queryKey
+      });
 
       // Also invalidate the main feed to ensure content separation is maintained
       queryClient.invalidateQueries({
         queryKey: ['paranormal-feed']
       });
 
+      // Show success toast
       console.log('✅ Comment posted successfully:', newEvent?.id);
     },
     onError: (error, { root }, context) => {
-      // If the mutation fails, roll back to the previous data
+      // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousData) {
         queryClient.setQueryData(context.queryKey, context.previousData);
-      } else {
-        // If we don't have previous data, at least remove the optimistic comment
-        queryClient.setQueryData(context.queryKey, (old: any) => {
-          if (!old?.data || !context?.optimisticComment) return old;
-
-          const { allComments = [], topLevelComments = [], threadTree = [] } = old.data;
-          const optimisticId = context.optimisticComment.id;
-
-          // Remove optimistic comment
-          const removeOptimisticComment = (items: NostrEvent[]) =>
-            items.filter(item => item.id !== optimisticId);
-
-          const removeFromThreadTree = (nodes: any[]): any[] =>
-            nodes.filter(node => node.event.id !== optimisticId)
-              .map(node => ({
-                event: node.event,
-                children: removeFromThreadTree(node.children)
-              }));
-
-          return {
-            ...old,
-            data: {
-              ...old.data,
-              allComments: removeOptimisticComment(allComments),
-              topLevelComments: removeOptimisticComment(topLevelComments),
-              threadTree: removeFromThreadTree(threadTree)
-            }
-          };
-        });
       }
 
       console.error('❌ Failed to post comment:', error);
