@@ -34,6 +34,20 @@ export function NoteContent({
     // Create a Set of URLs that are being handled as media
     const skipUrls = new Set(mediaItems.map(item => item.url));
 
+    // Add special handling for blossom.primal.net URLs
+    const blossomFileIds = new Set();
+    mediaItems.forEach(item => {
+      if (item.url.includes('blossom.primal.net')) {
+        // Extract the file ID from URL
+        const urlParts = item.url.split('/');
+        const filename = urlParts[urlParts.length - 1];
+        const fileId = filename.split('.')[0];
+        if (fileId) {
+          blossomFileIds.add(fileId);
+        }
+      }
+    });
+
     // Remove media URLs from the text completely and create ordered parts
     const parts: React.ReactNode[] = [];
     let processedText = text;
@@ -56,6 +70,44 @@ export function NoteContent({
 
     // Process each media item and the text around it
     sortedMedia.forEach((media) => {
+      // Special handling for blossom.primal.net URLs
+      if (media.url.includes('blossom.primal.net') && blossomFileIds.size > 0) {
+        // Try to find any URL containing the same file ID
+        const urlParts = media.url.split('/');
+        const filename = urlParts[urlParts.length - 1];
+        const fileId = filename.split('.')[0];
+
+        if (fileId && blossomFileIds.has(fileId)) {
+          // Look for any line containing this file ID
+          const lines = processedText.split('\n');
+          for (const line of lines) {
+            if (line.includes(fileId)) {
+              const mediaIndex = processedText.indexOf(line);
+              if (mediaIndex >= 0) {
+                // Add text before the media URL (if any)
+                if (mediaIndex > 0) {
+                  const beforeText = processedText.substring(0, mediaIndex);
+                  parts.push(...processTextContent(beforeText, keyCounter, skipUrls));
+                  keyCounter += beforeText.split(/\s+/).length;
+                }
+
+                // Add the media display component
+                parts.push(
+                  <MediaDisplay
+                    key={`media-${keyCounter++}`}
+                    media={media}
+                  />
+                );
+
+                // Remove the processed line from the text
+                processedText = processedText.substring(mediaIndex + line.length);
+                return; // Exit the current iteration
+              }
+            }
+          }
+        }
+      }
+
       // Find the media URL in the current processed text
       // We need to search for both the original URL and normalized URL
       let mediaIndex = -1;

@@ -38,6 +38,8 @@ export interface MediaItem {
 
 // Media detection patterns
 const mediaPatterns = {
+  // Special pattern just for blossom.primal.net URLs (high priority)
+  blossomPrimal: /https?:\/\/blossom\.primal\.net\/[a-f0-9]{64}\.(?:jpg|jpeg|png|gif|webp|mp4|webm|mp3|wav)(?:\?[^\s]*)?/gi,
   directImage: /https?:\/\/[^\s]+(?:\.(?:jpg|jpeg|jpe|jp|png|gif|webp|svg|bmp|avif|ico|tiff?|tif|psd|heic?|heif|jif|jfif|apng)|@(?:jpeg|jpg|png|gif|webp|avif))(?:\?[^\s]*)?/gi,
   directVideo: /https?:\/\/[^\s]+\.(?:mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mpg|mpeg|m2v|f4v|vob)(?:\?[^\s]*)?/gi,
   directAudio: /https?:\/\/[^\s]+\.(?:mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts|oga|mid|midi|amr|aiff|ape|au|cda)(?:\?[^\s]*)?/gi,
@@ -75,7 +77,7 @@ const mediaPatterns = {
   genericStreaming: /https?:\/\/[^\s]+\/(?:stream|manifest|playlist|master)\/[^\s]+(?:\.(?:m3u8|mpd|dash))(?:\?[^\s]*)?/gi,
   // Common image hosting services that often serve images without extensions
   // This pattern catches domains that are known to serve media content
-  imageHosting: /https?:\/\/(?:i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|cdn\.bsky\.app|image\.nostr\.build|nostr\.build|void\.cat|cdn\.satellite\.earth|media\.tenor\.com|media\.giphy\.com|media\.witter\.cz|files\.mastodon\.social|media\.mas\.to|scontent\.facebook\.com|external\.facebook\.com|lookaside\.fbsbx\.com)\/[^\s]+/gi,
+  imageHosting: /https?:\/\/(?:i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropboxusercontent\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|cdn\.bsky\.app|image\.nostr\.build|nostr\.build|void\.cat|blossom\.primal\.net|cdn\.satellite\.earth|media\.tenor\.com|media\.giphy\.com|media\.witter\.cz|files\.mastodon\.social|media\.mas\.to|scontent\.facebook\.com|external\.facebook\.com|lookaside\.fbsbx\.com)\/[^\s]+/gi,
   // Generic CDN/media URLs - catches URLs with media-like path structures
   // This pattern looks for URLs containing common media path segments like /media/, /attachments/, /files/, etc
   genericCDN: /https?:\/\/[^\s]+\/(?:media|attachments|files|assets|images|static|uploads|content|cdn-cgi|mediaproxy)(?:_attachments)?\/[^\s]+/gi,
@@ -257,7 +259,7 @@ export function parseMediaFromEvent(event: NostrEvent): MediaItem[] {
   return parsedMedia;
 }
 
-export function parseMediaFromContent(content: string): MediaItem[] {
+export function parseMediaFromContent(content: string, blossomIds: Set<string> = new Set()): MediaItem[] {
   const mediaItems: MediaItem[] = [];
   const processedUrls = new Set<string>(); // Track URLs we've already processed
 
@@ -287,7 +289,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   }
 
   // Process other media types in order of precedence
-  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'soundcloud', 'bandcamp', 'mixcloud', 'instagram', 'twitter', 'facebook', 'minds', 'odysee', 'rumble', 'bitchute', 'peertube', 'imdb', 'genericCDN'];
+  const mediaTypes = ['blossomPrimal', 'directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'soundcloud', 'bandcamp', 'mixcloud', 'instagram', 'twitter', 'facebook', 'minds', 'odysee', 'rumble', 'bitchute', 'peertube', 'imdb', 'genericCDN'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -318,6 +320,21 @@ export function parseMediaFromContent(content: string): MediaItem[] {
     while ((match = regex.exec(content)) !== null) {
       const url = match[0];
       const normalizedUrl = normalizeUrl(url);
+
+      // Special handling for blossom.primal.net URLs - check against passed blossomIds
+      if (url.includes('blossom.primal.net') && blossomIds.size > 0) {
+        // Extract the file ID from the URL
+        const urlParts = url.split('/');
+        const filename = urlParts[urlParts.length - 1];
+        const fileId = filename.split('.')[0];
+
+        // If this file ID is in our blossomIds set, it means it was already processed from imeta tags
+        if (blossomIds.has(fileId)) {
+          console.log('⏭️ Skipping blossom URL already handled by imeta:', url);
+          continue;
+        }
+      }
+
       if (!processedUrls.has(normalizedUrl)) {
         console.log('✅ Matched as imageHosting:', url);
         const mediaItem = createMediaItem(url, 'imageHosting', match);
