@@ -1,7 +1,7 @@
 import { type NostrEvent } from '@nostrify/nostrify';
 
 export interface MediaItem {
-  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'external' | 'link' | 'hls' | 'dash' | 'imdb' | 'instagram' | 'twitter' | 'facebook' | 'minds' | 'odysee';
+  type: 'image' | 'video' | 'audio' | 'youtube' | 'vimeo' | 'twitch' | 'dailymotion' | 'tiktok' | 'spotify' | 'soundcloud' | 'bandcamp' | 'mixcloud' | 'external' | 'link' | 'hls' | 'dash' | 'imdb' | 'instagram' | 'twitter' | 'facebook' | 'minds' | 'odysee' | 'rumble' | 'bitchute' | 'peertube';
   url: string;
   alt?: string;
   title?: string;
@@ -38,9 +38,9 @@ export interface MediaItem {
 
 // Media detection patterns
 const mediaPatterns = {
-  directImage: /https?:\/\/[^\s]+(?:\.(?:jpg|jpeg|jpe|jp|png|gif|webp|svg|bmp|avif|ico|tiff?|tif|psd|heic?|heif|jif|jfif)|@(?:jpeg|jpg|png|gif|webp|avif))(?:\?[^\s]*)?/gi,
-  directVideo: /https?:\/\/[^\s]+\.(?:mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid)(?:\?[^\s]*)?/gi,
-  directAudio: /https?:\/\/[^\s]+\.(?:mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts)(?:\?[^\s]*)?/gi,
+  directImage: /https?:\/\/[^\s]+(?:\.(?:jpg|jpeg|jpe|jp|png|gif|webp|svg|bmp|avif|ico|tiff?|tif|psd|heic?|heif|jif|jfif|apng)|@(?:jpeg|jpg|png|gif|webp|avif))(?:\?[^\s]*)?/gi,
+  directVideo: /https?:\/\/[^\s]+\.(?:mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mpg|mpeg|m2v|f4v|vob)(?:\?[^\s]*)?/gi,
+  directAudio: /https?:\/\/[^\s]+\.(?:mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts|oga|mid|midi|amr|aiff|ape|au|cda)(?:\?[^\s]*)?/gi,
   youtube: /(?:www\.youtube\.com\/watch[?]v=|youtube\.com\/watch[?]v=|youtu\.be\/|www\.youtube\.com\/embed\/|youtube\.com\/embed\/|www\.youtube\.com\/shorts\/|youtube\.com\/shorts\/|www\.youtube\.com\/live\/|youtube\.com\/live\/)([a-zA-Z0-9_-]{11})/gi,
   vimeo: /vimeo\.com\/(\d+)(?:\/[\w-]+)?/gi,
   twitch: /(?:twitch\.tv\/videos\/|twitch\.tv\/)(\w+)(?:\/videos\/(\d+))?/gi,
@@ -49,9 +49,15 @@ const mediaPatterns = {
   spotify: /(?:open\.spotify\.com\/)(track|album|playlist|artist|show|episode)\/([a-zA-Z0-9]+)/gi,
   instagram: /https?:\/\/(?:www\.instagram\.com|instagram\.com)\/(?:p|reel)\/([A-Za-z0-9_-]+)(?:\/?|\?[^\s]*)?/gi,
   twitter: /(?:twitter\.com|x\.com)\/[a-zA-Z0-9_]+\/status\/([0-9]+)/gi,
-  facebook: /https?:\/\/(?:www\.facebook\.com|facebook\.com)\/[^\/\s]+\/(?:posts|activity|photos|videos|permalink\.php\?story_fbid=|story\.php\?story_fbid=|groups\/[^\/\s]+\/permalink\/)[^\s]*/gi,
+  facebook: /https?:\/\/(?:www\.facebook\.com|facebook\.com|fb\.watch)\/[^\/\s]+\/(?:posts|activity|photos|videos|permalink\.php\?story_fbid=|story\.php\?story_fbid=|groups\/[^\/\s]+\/permalink\/)[^\s]*/gi,
   minds: /https?:\/\/(?:www\.minds\.com|minds\.com)\/(?:newsfeed|groups\/[^\/\s]+|[^\/\s]+)\/([0-9]+)/gi,
   odysee: /https?:\/\/(?:www\.odysee\.com|odysee\.com)\/@[^\/\s]+:[^\/\s]+\/[^\/\s]+:[^\/\s]+(?:\?[^\s]*)?/gi,
+  rumble: /https?:\/\/(?:www\.rumble\.com|rumble\.com)\/(?:embed\/)?([a-z0-9]+)(?:[\-\.][^\s]*)?/gi,
+  bitchute: /https?:\/\/(?:www\.bitchute\.com|bitchute\.com)\/video\/([a-zA-Z0-9]+)/gi,
+  peertube: /https?:\/\/[a-z0-9.-]+\/(?:videos\/watch|w)\/([a-f0-9-]+)/gi,
+  soundcloud: /https?:\/\/(?:www\.soundcloud\.com|soundcloud\.com)\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+/gi,
+  bandcamp: /https?:\/\/[a-z0-9-]+\.bandcamp\.com\/(?:track|album)\/[a-z0-9-]+/gi,
+  mixcloud: /https?:\/\/(?:www\.mixcloud\.com|mixcloud\.com)\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+/gi,
   nostrImage: /immediate:\/\/[^\s]+/gi,
   nostrVideo: /stream:\/\/[^\s]+/gi,
   // Streaming formats
@@ -126,7 +132,7 @@ export function parseMediaFromContent(content: string): MediaItem[] {
   }
 
   // Process other media types in order of precedence
-  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'instagram', 'twitter', 'facebook', 'minds', 'odysee', 'imdb', 'genericCDN'];
+  const mediaTypes = ['directImage', 'directVideo', 'directAudio', 'hls', 'dash', 'cloudflareStream', 'cloudflareVideoDelivery', 'awsCloudFront', 'fastly', 'akamai', 'vimeoCDN', 'youtubeCDN', 'genericStreaming', 'vimeo', 'twitch', 'dailymotion', 'tiktok', 'spotify', 'soundcloud', 'bandcamp', 'mixcloud', 'instagram', 'twitter', 'facebook', 'minds', 'odysee', 'rumble', 'bitchute', 'peertube', 'imdb', 'genericCDN'];
   mediaTypes.forEach(type => {
     const pattern = mediaPatterns[type as keyof typeof mediaPatterns];
     if (!pattern) return;
@@ -430,6 +436,51 @@ function createMediaItem(url: string, type: string, match: RegExpMatchArray): Me
             spotifyType,
             spotifyId
           }
+        };
+
+      case 'soundcloud':
+        return {
+          type: 'soundcloud',
+          url: cleanUrl,
+          title: extractSoundCloudTitle(cleanUrl),
+        };
+
+      case 'bandcamp':
+        return {
+          type: 'bandcamp',
+          url: cleanUrl,
+          title: extractBandcampTitle(cleanUrl),
+        };
+
+      case 'mixcloud':
+        return {
+          type: 'mixcloud',
+          url: cleanUrl,
+          title: extractMixcloudTitle(cleanUrl),
+        };
+
+      case 'rumble':
+        const rumbleId = match[1];
+        return {
+          type: 'rumble',
+          url: cleanUrl,
+          title: extractRumbleTitle(rumbleId),
+        };
+
+      case 'bitchute':
+        const bitchuteId = match[1];
+        return {
+          type: 'bitchute',
+          url: cleanUrl,
+          title: extractBitchuteTitle(bitchuteId),
+        };
+
+      case 'peertube':
+        const peertubeId = match[1];
+        return {
+          type: 'peertube',
+          url: cleanUrl,
+          title: extractPeertubeTitle(peertubeId),
         };
 
       case 'instagram':
@@ -1328,4 +1379,49 @@ function extractImdbData(url: string): { title: string; type: string; year?: str
       description: 'Visit IMDb for more information'
     };
   }
+}
+
+// Audio platform helpers
+function extractSoundCloudTitle(url: string): string {
+  try {
+    const parts = url.split('/');
+    const trackName = parts[parts.length - 1]?.split('?')[0] || 'Track';
+    return trackName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  } catch {
+    return 'SoundCloud Track';
+  }
+}
+
+function extractBandcampTitle(url: string): string {
+  try {
+    const parts = url.split('/');
+    const trackName = parts[parts.length - 1] || 'Release';
+    const type = url.includes('/track/') ? 'Track' : 'Album';
+    return `Bandcamp ${type}: ${trackName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
+  } catch {
+    return 'Bandcamp Release';
+  }
+}
+
+function extractMixcloudTitle(url: string): string {
+  try {
+    const parts = url.split('/');
+    const mixName = parts[parts.length - 1]?.split('?')[0] || 'Mix';
+    return mixName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  } catch {
+    return 'Mixcloud Mix';
+  }
+}
+
+// Video platform helpers
+function extractRumbleTitle(videoId: string): string {
+  return `Rumble Video (${videoId})`;
+}
+
+function extractBitchuteTitle(videoId: string): string {
+  return `BitChute Video (${videoId})`;
+}
+
+function extractPeertubeTitle(videoId: string): string {
+  return `PeerTube Video (${videoId})`;
 }

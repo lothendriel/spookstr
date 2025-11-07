@@ -1644,6 +1644,170 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
           </div>
         );
 
+      case 'rumble':
+        const rumbleId = extractRumbleId(media.url);
+        return (
+          <div className="relative rounded-lg overflow-hidden bg-black group">
+            <div className="relative pb-[56.25%] h-0">
+              <iframe
+                className="absolute top-0 left-0 w-full h-full rounded-lg"
+                src={`https://rumble.com/embed/${rumbleId}/`}
+                title={media.title || 'Rumble Video'}
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                onError={handleMediaError}
+              />
+            </div>
+            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 text-white hover:bg-white/20 bg-black/60 backdrop-blur-sm"
+                onClick={() => window.open(media.url, '_blank')}
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 'bitchute':
+        const bitchuteId = extractBitchuteId(media.url);
+        return (
+          <div className="relative rounded-lg overflow-hidden bg-black group">
+            <div className="relative pb-[56.25%] h-0">
+              <iframe
+                className="absolute top-0 left-0 w-full h-full rounded-lg"
+                src={`https://www.bitchute.com/embed/${bitchuteId}/`}
+                title={media.title || 'BitChute Video'}
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                onError={handleMediaError}
+              />
+            </div>
+            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 text-white hover:bg-white/20 bg-black/60 backdrop-blur-sm"
+                onClick={() => window.open(media.url, '_blank')}
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 'peertube':
+        const peertubeData = extractPeertubeData(media.url);
+        return (
+          <div className="relative rounded-lg overflow-hidden bg-black group">
+            <div className="relative pb-[56.25%] h-0">
+              <iframe
+                className="absolute top-0 left-0 w-full h-full rounded-lg"
+                src={`${peertubeData.instance}/videos/embed/${peertubeData.videoId}`}
+                title={media.title || 'PeerTube Video'}
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                sandbox="allow-same-origin allow-scripts allow-popups"
+                onError={handleMediaError}
+              />
+            </div>
+            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 text-white hover:bg-white/20 bg-black/60 backdrop-blur-sm"
+                onClick={() => window.open(media.url, '_blank')}
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 'soundcloud':
+        return (
+          <div className="relative rounded-lg overflow-hidden bg-gradient-to-br from-orange-500/10 to-orange-600/5 border border-orange-500/20">
+            <div className="relative" style={{ height: '166px' }}>
+              <iframe
+                width="100%"
+                height="166"
+                scrolling="no"
+                frameBorder="no"
+                allow="autoplay"
+                src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(media.url)}&color=%23ff5500&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false`}
+                title={media.title || 'SoundCloud Track'}
+                onError={handleMediaError}
+              />
+            </div>
+            <div className="absolute top-2 right-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 text-orange-400 hover:text-orange-300 hover:bg-orange-500/20 bg-black/60 backdrop-blur-sm"
+                onClick={() => window.open(media.url, '_blank')}
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 'bandcamp':
+        return (
+          <div className="relative rounded-lg overflow-hidden bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border border-cyan-500/20">
+            <div className="relative" style={{ height: '120px' }}>
+              <iframe
+                style={{ border: 0, width: '100%', height: '120px' }}
+                src={`${media.url}/`}
+                title={media.title || 'Bandcamp Release'}
+                seamless
+                onError={handleMediaError}
+              />
+            </div>
+            <div className="absolute top-2 right-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/20 bg-black/60 backdrop-blur-sm"
+                onClick={() => window.open(media.url, '_blank')}
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+
+      case 'mixcloud':
+        return (
+          <div className="relative rounded-lg overflow-hidden bg-gradient-to-br from-slate-700/20 to-slate-800/10 border border-slate-500/20">
+            <div className="relative" style={{ height: '120px' }}>
+              <iframe
+                width="100%"
+                height="120"
+                src={`https://www.mixcloud.com/widget/iframe/?hide_cover=1&feed=${encodeURIComponent(media.url)}`}
+                title={media.title || 'Mixcloud Mix'}
+                frameBorder="0"
+                onError={handleMediaError}
+              />
+            </div>
+            <div className="absolute top-2 right-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 text-slate-300 hover:text-slate-200 hover:bg-slate-500/20 bg-black/60 backdrop-blur-sm"
+                onClick={() => window.open(media.url, '_blank')}
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        );
+
       case 'link':
         return <LinkPreview media={media} />;
 
@@ -1948,4 +2112,40 @@ function extractOdyseeData(url: string): { channel: string; videoSlug: string; c
     videoSlug: '',
     claimId: ''
   };
+}
+
+// Helper function to extract Rumble ID from URL
+function extractRumbleId(url: string): string {
+  try {
+    const match = url.match(/rumble\.com\/(?:embed\/)?([a-z0-9]+)/);
+    return match ? match[1] : '';
+  } catch (error) {
+    console.warn('Failed to extract Rumble ID from:', url, error);
+    return '';
+  }
+}
+
+// Helper function to extract BitChute ID from URL
+function extractBitchuteId(url: string): string {
+  try {
+    const match = url.match(/bitchute\.com\/video\/([a-zA-Z0-9]+)/);
+    return match ? match[1] : '';
+  } catch (error) {
+    console.warn('Failed to extract BitChute ID from:', url, error);
+    return '';
+  }
+}
+
+// Helper function to extract PeerTube data from URL
+function extractPeertubeData(url: string): { instance: string; videoId: string } {
+  try {
+    const urlObj = new URL(url);
+    const instance = `${urlObj.protocol}//${urlObj.hostname}`;
+    const match = url.match(/\/(?:videos\/watch|w)\/([a-f0-9-]+)/);
+    const videoId = match ? match[1] : '';
+    return { instance, videoId };
+  } catch (error) {
+    console.warn('Failed to extract PeerTube data from:', url, error);
+    return { instance: '', videoId: '' };
+  }
 }
