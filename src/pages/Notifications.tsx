@@ -117,10 +117,10 @@ function NotificationItem({ notification, isRead, onMarkAsRead, onClick }: Notif
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="font-semibold text-lime-400 truncate">{displayName}</span>
-                <span className="text-lime-500/60 text-sm">{getMessage()}</span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center space-x-2 min-w-0 flex-1">
+                <span className="font-semibold text-lime-400 truncate flex-shrink-0">{displayName}</span>
+                <span className="text-lime-500/60 text-sm truncate">{getMessage()}</span>
               </div>
               {!isRead && (
                 <Badge className="bg-orange-500 text-white flex-shrink-0">New</Badge>
@@ -130,7 +130,7 @@ function NotificationItem({ notification, isRead, onMarkAsRead, onClick }: Notif
 
             {/* Preview content for comments */}
             {getPreviewContent() && (
-              <div className="mt-2 text-sm text-lime-100/80 bg-lime-500/5 p-2 rounded border border-lime-500/10">
+              <div className="mt-2 text-sm text-lime-100/80 bg-lime-500/5 p-2 rounded border border-lime-500/10 break-words overflow-wrap-anywhere">
                 "{getPreviewContent()}"
               </div>
             )}
