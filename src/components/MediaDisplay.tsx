@@ -3,9 +3,7 @@ import { MediaItem } from '@/lib/mediaParser';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, Volume2, VolumeX, Maximize, ExternalLink, Minimize, SkipBack, SkipForward, Settings, PictureInPicture2, Star } from 'lucide-react';
-import { IMDBPreview } from './IMDBPreview';
 import { cn } from '@/lib/utils';
-import { LinkPreview } from '@/components/LinkPreview';
 
 // Dynamic imports for streaming libraries
 let Hls: any = null;

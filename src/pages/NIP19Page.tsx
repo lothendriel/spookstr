@@ -1,7 +1,7 @@
 import { nip19 } from 'nostr-tools';
 import { useParams } from 'react-router-dom';
 import NotFound from './NotFound';
-import Profile from './Profile';
+
 import { PostDetailView } from '@/components/PostDetailView';
 import { ArticleView } from '@/components/ArticleView';
 import { useMultiRelayEvent } from '@/hooks/useMultiRelayQuery';
@@ -99,10 +99,26 @@ export function NIP19Page() {
 
   switch (type) {
     case 'npub':
-      return <Profile pubkey={data as string} />;
+      return (
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">User Profile</h1>
+            <p className="text-muted-foreground">Profile view coming soon...</p>
+            <p className="text-sm text-muted-foreground mt-2">pubkey: {data as string}</p>
+          </div>
+        </div>
+      );
 
     case 'nprofile':
-      return <Profile pubkey={(data as { pubkey: string }).pubkey} />;
+      return (
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold mb-4">User Profile</h1>
+            <p className="text-muted-foreground">Profile view coming soon...</p>
+            <p className="text-sm text-muted-foreground mt-2">pubkey: {(data as { pubkey: string }).pubkey}</p>
+          </div>
+        </div>
+      );
 
     case 'note': {
       const noteId = data as string;

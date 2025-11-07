@@ -10,9 +10,7 @@ import { nip19 } from 'nostr-tools';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import type { NostrEvent } from '@nostrify/nostrify';
-import { LiveStreamEvent } from '@/components/LiveStreamEvent';
-import { MarketplaceListing } from '@/components/MarketplaceListing';
-import { LongFormContent } from '@/components/LongFormContent';
+
 
 interface QuotedEventProps {
   eventId: string;
