@@ -4,14 +4,16 @@
  * Handles generating and managing access tokens for Instagram oEmbed API.
  */
 
-const APP_ID = import.meta.env.VITE_INSTAGRAM_APP_ID;
-const APP_SECRET = import.meta.env.VITE_INSTAGRAM_APP_SECRET;
+// Try to get credentials from environment first, fallback to hardcoded values
+const APP_ID = import.meta.env.VITE_INSTAGRAM_APP_ID || '1151704059951596';
+const APP_SECRET = import.meta.env.VITE_INSTAGRAM_APP_SECRET || '5bfbf4ac01d5ff1476e976debbb0fe6a';
 
 // Debug: Log if credentials are loaded
 console.log('🔑 Instagram credentials loaded:', {
   hasAppId: !!APP_ID,
   hasAppSecret: !!APP_SECRET,
-  appId: APP_ID ? `${APP_ID.substring(0, 4)}...` : 'missing'
+  appId: APP_ID ? `${APP_ID.substring(0, 4)}...` : 'missing',
+  source: import.meta.env.VITE_INSTAGRAM_APP_ID ? 'environment' : 'fallback'
 });
 
 /**
