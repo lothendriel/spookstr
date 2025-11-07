@@ -28,3 +28,16 @@ All notable changes to Spookstr will be documented in this file.
 - Settings page provides centralized content management
 - Consistent UI patterns across filtering features
 - Real-time feed updates when hashtags are hidden/shown
+
+## 2025-01-07 - Fixed Event Publishing
+
+### Bug Fixes
+- **Fixed likes, reposts, comments, and zaps not publishing**: Corrected the `useNostrPublish` hook to properly await the Promise returned by `NPool.event()` instead of treating it as an array of relay URLs
+- **Resolved "relayUrls is not iterable" error**: The issue was a misunderstanding of the NPool API - `nostr.event()` returns a Promise in this version of Nostrify, not a synchronous array
+- **All interactions now work correctly**: Users can now like, repost, comment, and zap posts successfully
+
+### Technical Details
+- Updated `src/hooks/useNostrPublish.ts` to use `await nostr.event(signedEvent, { signal })` instead of trying to iterate over the return value
+- Simplified the publishing logic by letting NPool handle relay routing internally
+- Removed unnecessary relay iteration code that was causing the failure
+- Event publishing now works reliably across all interaction types (likes, reposts, comments, zaps)
