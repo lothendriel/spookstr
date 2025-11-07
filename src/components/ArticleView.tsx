@@ -391,8 +391,10 @@ export function ArticleView({ event, onBack, className }: ArticleViewProps) {
             {/* Article Content */}
             <div className="space-y-6">
               {event.content ? (
-                <div className="markdown-preview text-base">
-                  <NoteContent event={event} className="text-base leading-relaxed" />
+                <div className="prose prose-lime prose-invert max-w-none">
+                  <div className="text-lime-100 leading-relaxed text-base">
+                    <NoteContent event={event} className="text-base leading-relaxed" />
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-8 text-lime-400/60">
