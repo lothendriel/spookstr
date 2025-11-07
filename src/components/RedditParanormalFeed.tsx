@@ -14,7 +14,24 @@ interface RedditPost {
   created_utc: number;
   author: string;
   permalink: string;
+  subreddit: string;
 }
+
+// List of paranormal-related subreddits to fetch from
+const PARANORMAL_SUBREDDITS = [
+  'Paranormal',
+  'Ghosts',
+  'Thetruthishere',
+  'Glitch_in_the_Matrix',
+  'HighStrangeness',
+  'UFOs',
+  'aliens',
+  'Cryptozoology',
+  'Missing411',
+  'BackwoodsCreepy',
+  'CreepyEncounters',
+  'Humanoidencounters',
+];
 
 export function RedditParanormalFeed() {
   const [posts, setPosts] = useState<RedditPost[]>([]);
@@ -27,16 +44,36 @@ export function RedditParanormalFeed() {
       setError(null);
 
       try {
-        // Fetch 10 new posts and randomly select 3
-        const response = await fetch('https://www.reddit.com/r/Paranormal/new.json?limit=10');
-        const data = await response.json();
+        // Randomly select 3-4 subreddits to fetch from
+        const shuffledSubs = PARANORMAL_SUBREDDITS.slice().sort(() => Math.random() - 0.5);
+        const selectedSubs = shuffledSubs.slice(0, 4);
 
-        // Shuffle the children to get random order
-        const shuffled = data.data.children.slice().sort(() => Math.random() - 0.5);
+        // Fetch posts from each selected subreddit
+        const fetchPromises = selectedSubs.map(async (subreddit) => {
+          try {
+            const response = await fetch(`https://www.reddit.com/r/${subreddit}/hot.json?limit=5`);
+            const data = await response.json();
+            return data.data.children.map((child: any) => ({
+              ...child.data,
+              subreddit,
+            }));
+          } catch (err) {
+            console.error(`Failed to fetch from r/${subreddit}:`, err);
+            return [];
+          }
+        });
+
+        // Wait for all fetches to complete
+        const results = await Promise.all(fetchPromises);
+
+        // Flatten and combine all posts
+        const allPosts = results.flat();
+
+        // Shuffle and select 3 posts
+        const shuffled = allPosts.slice().sort(() => Math.random() - 0.5);
         const selected = shuffled.slice(0, 3);
 
-        const redditPosts = selected.map((child: any) => {
-          const post = child.data;
+        const redditPosts = selected.map((post: any) => {
           return {
             id: post.id,
             title: post.title,
@@ -46,7 +83,8 @@ export function RedditParanormalFeed() {
             num_comments: post.num_comments,
             created_utc: post.created_utc,
             author: post.author,
-            permalink: `https://www.reddit.com${post.permalink}`
+            permalink: `https://www.reddit.com${post.permalink}`,
+            subreddit: post.subreddit,
           };
         });
 
@@ -68,16 +106,36 @@ export function RedditParanormalFeed() {
       setError(null);
 
       try {
-        // Fetch 10 new posts and randomly select 3
-        const response = await fetch('https://www.reddit.com/r/Paranormal/new.json?limit=10');
-        const data = await response.json();
+        // Randomly select 3-4 subreddits to fetch from
+        const shuffledSubs = PARANORMAL_SUBREDDITS.slice().sort(() => Math.random() - 0.5);
+        const selectedSubs = shuffledSubs.slice(0, 4);
 
-        // Shuffle the children to get random order
-        const shuffled = data.data.children.slice().sort(() => Math.random() - 0.5);
+        // Fetch posts from each selected subreddit
+        const fetchPromises = selectedSubs.map(async (subreddit) => {
+          try {
+            const response = await fetch(`https://www.reddit.com/r/${subreddit}/hot.json?limit=5`);
+            const data = await response.json();
+            return data.data.children.map((child: any) => ({
+              ...child.data,
+              subreddit,
+            }));
+          } catch (err) {
+            console.error(`Failed to fetch from r/${subreddit}:`, err);
+            return [];
+          }
+        });
+
+        // Wait for all fetches to complete
+        const results = await Promise.all(fetchPromises);
+
+        // Flatten and combine all posts
+        const allPosts = results.flat();
+
+        // Shuffle and select 3 posts
+        const shuffled = allPosts.slice().sort(() => Math.random() - 0.5);
         const selected = shuffled.slice(0, 3);
 
-        const redditPosts = selected.map((child: any) => {
-          const post = child.data;
+        const redditPosts = selected.map((post: any) => {
           return {
             id: post.id,
             title: post.title,
@@ -87,7 +145,8 @@ export function RedditParanormalFeed() {
             num_comments: post.num_comments,
             created_utc: post.created_utc,
             author: post.author,
-            permalink: `https://www.reddit.com${post.permalink}`
+            permalink: `https://www.reddit.com${post.permalink}`,
+            subreddit: post.subreddit,
           };
         });
 
@@ -171,7 +230,7 @@ export function RedditParanormalFeed() {
           <span>Popular on Reddit</span>
         </CardTitle>
         <p className="text-sm text-lime-500/60">
-          Top posts from r/Paranormal
+          Top posts from paranormal subreddits
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -192,7 +251,7 @@ export function RedditParanormalFeed() {
               </p>
             )}
 
-            <div className="flex items-center justify-between text-xs text-lime-500/60">
+            <div className="flex items-center justify-between text-xs text-lime-500/60 flex-wrap gap-2">
               <div className="flex items-center space-x-3">
                 <span className="flex items-center space-x-1">
                   <TrendingUp className="h-3 w-3" />
@@ -202,9 +261,12 @@ export function RedditParanormalFeed() {
                   <MessageCircle className="h-3 w-3" />
                   {post.num_comments}
                 </span>
-                <span>by u/{post.author}</span>
               </div>
-              <span>{formatTimeAgo(post.created_utc)}</span>
+              <div className="flex items-center space-x-2">
+                <span className="text-lime-400/80">r/{post.subreddit}</span>
+                <span>•</span>
+                <span>{formatTimeAgo(post.created_utc)}</span>
+              </div>
             </div>
           </div>
         ))}
