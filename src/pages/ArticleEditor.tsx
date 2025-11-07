@@ -717,7 +717,7 @@ export default function ArticleEditor() {
                   <TabsContent value="preview" className="mt-0">
                     <div className="min-h-[500px] p-6 bg-black/60 border border-lime-500/30 rounded-lg">
                       {content ? (
-                        <div className="prose prose-lime prose-invert max-w-none">
+                        <div className="markdown-preview">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {content}
                           </ReactMarkdown>
