@@ -73,6 +73,10 @@
   color: rgb(229, 231, 235) !important;
   white-space: pre-wrap !important;
   word-wrap: break-word !important;
+  line-height: 1.5 !important;
+  padding: 12px !important;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace !important;
+  font-size: 14px !important;
 }
 
 .w-md-editor-text-pre > code,
@@ -80,6 +84,8 @@
   color: rgb(229, 231, 235) !important;
   white-space: pre-wrap !important;
   word-wrap: break-word !important;
+  line-height: 1.5 !important;
+  font-size: 14px !important;
 }
 
 .w-md-editor-area {
@@ -87,11 +93,27 @@
 }
 
 .w-md-editor-text-pre,
+.w-md-editor-input {
+  line-height: 1.5 !important;
+}
+
+/* Fix cursor alignment */
+.w-md-editor-text-pre,
 .w-md-editor-text-input {
-  line-height: 1.6 !important;
-  padding: 1rem !important;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace !important;
-  font-size: 0.875rem !important;
+  vertical-align: top !important;
+}
+
+.w-md-editor-text-pre > code {
+  line-height: 1.5 !important;
+  display: block !important;
+}
+
+.w-md-editor-aree > .w-md-editor-text-pre {
+  padding: 12px !important;
+}
+
+.w-md-editor-aree > .w-md-editor-text-input {
+  padding: 12px !important;
 }
 
 /* Markdown Preview Styling */

@@ -28,7 +28,7 @@ import {
   BookOpen,
   Tag
 } from 'lucide-react';
-import MDEditor from '@uiw/react-md-editor';
+import MDEditor, { commands } from '@uiw/react-md-editor';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { nip19 } from 'nostr-tools';
@@ -540,122 +540,60 @@ export default function ArticleEditor() {
                           placeholder: 'Write your paranormal article here... Supports Markdown formatting.',
                         }}
                         commands={[
-                          {
-                            name: 'bold',
-                            keyCommand: 'bold',
-                            buttonProps: { 'aria-label': 'Add bold text' },
-                            icon: <span style={{ fontWeight: 'bold' }}>B</span>,
-                          },
-                          {
-                            name: 'italic',
-                            keyCommand: 'italic',
-                            buttonProps: { 'aria-label': 'Add italic text' },
-                            icon: <span style={{ fontStyle: 'italic' }}>I</span>,
-                          },
-                          {
-                            name: 'strikethrough',
-                            keyCommand: 'strikethrough',
-                            buttonProps: { 'aria-label': 'Add strikethrough text' },
-                            icon: <span style={{ textDecoration: 'line-through' }}>S</span>,
-                          },
-                          {
-                            name: 'title1',
-                            keyCommand: 'title1',
-                            buttonProps: { 'aria-label': 'Insert title 1' },
-                            icon: <span style={{ fontWeight: 'bold' }}>H1</span>,
-                          },
-                          {
-                            name: 'title2',
-                            keyCommand: 'title2',
-                            buttonProps: { 'aria-label': 'Insert title 2' },
-                            icon: <span style={{ fontWeight: 'bold' }}>H2</span>,
-                          },
-                          {
-                            name: 'title3',
-                            keyCommand: 'title3',
-                            buttonProps: { 'aria-label': 'Insert title 3' },
-                            icon: <span style={{ fontWeight: 'bold' }}>H3</span>,
-                          },
-                          {
-                            name: 'title4',
-                            keyCommand: 'title4',
-                            buttonProps: { 'aria-label': 'Insert title 4' },
-                            icon: <span style={{ fontWeight: 'bold' }}>H4</span>,
-                          },
-                          {
-                            name: 'title5',
-                            keyCommand: 'title5',
-                            buttonProps: { 'aria-label': 'Insert title 5' },
-                            icon: <span style={{ fontWeight: 'bold' }}>H5</span>,
-                          },
-                          {
-                            name: 'title6',
-                            keyCommand: 'title6',
-                            buttonProps: { 'aria-label': 'Insert title 6' },
-                            icon: <span style={{ fontWeight: 'bold' }}>H6</span>,
-                          },
+                          commands.bold,
+                          commands.italic,
+                          commands.strikethrough,
+                          commands.hr,
+                          commands.group(
+                            [
+                              {
+                                ...commands.title1,
+                                icon: <span style={{ fontWeight: 'bold', fontSize: '14px' }}>H1</span>,
+                              },
+                              {
+                                ...commands.title2,
+                                icon: <span style={{ fontWeight: 'bold', fontSize: '14px' }}>H2</span>,
+                              },
+                              {
+                                ...commands.title3,
+                                icon: <span style={{ fontWeight: 'bold', fontSize: '14px' }}>H3</span>,
+                              },
+                              {
+                                ...commands.title4,
+                                icon: <span style={{ fontWeight: 'bold', fontSize: '14px' }}>H4</span>,
+                              },
+                              {
+                                ...commands.title5,
+                                icon: <span style={{ fontWeight: 'bold', fontSize: '14px' }}>H5</span>,
+                              },
+                              {
+                                ...commands.title6,
+                                icon: <span style={{ fontWeight: 'bold', fontSize: '14px' }}>H6</span>,
+                              },
+                            ],
+                            {
+                              name: 'title',
+                              groupName: 'title',
+                              buttonProps: { 'aria-label': 'Insert title' },
+                              icon: <span style={{ fontWeight: 'bold', fontSize: '14px' }}>H</span>,
+                            }
+                          ),
+                          commands.divider,
+                          commands.link,
+                          commands.quote,
+                          commands.code,
+                          commands.codeBlock,
+                          commands.divider,
+                          commands.unorderedListCommand,
+                          commands.orderedListCommand,
+                          commands.checkedListCommand,
                         ]}
                         extraCommands={[
-                          {
-                            name: 'unorderedListCommand',
-                            keyCommand: 'unordered-list',
-                            buttonProps: { 'aria-label': 'Add unordered list' },
-                            icon: <span>•</span>,
-                          },
-                          {
-                            name: 'orderedListCommand',
-                            keyCommand: 'ordered-list',
-                            buttonProps: { 'aria-label': 'Add ordered list' },
-                            icon: <span>1.</span>,
-                          },
-                          {
-                            name: 'checkedListCommand',
-                            keyCommand: 'checked-list',
-                            buttonProps: { 'aria-label': 'Add checked list' },
-                            icon: <span>☑</span>,
-                          },
-                          {
-                            name: 'quote',
-                            keyCommand: 'quote',
-                            buttonProps: { 'aria-label': 'Add quote' },
-                            icon: <span>"</span>,
-                          },
-                          {
-                            name: 'code',
-                            keyCommand: 'code',
-                            buttonProps: { 'aria-label': 'Add code' },
-                            icon: <span style={{ fontFamily: 'monospace' }}>{'</>'}</span>,
-                          },
-                          {
-                            name: 'codeBlock',
-                            keyCommand: 'code-block',
-                            buttonProps: { 'aria-label': 'Add code block' },
-                            icon: <span style={{ fontFamily: 'monospace' }}>{ '```' }</span>,
-                          },
-                          {
-                            name: 'link',
-                            keyCommand: 'link',
-                            buttonProps: { 'aria-label': 'Add link' },
-                            icon: <span>🔗</span>,
-                          },
-                          {
-                            name: 'image',
-                            keyCommand: 'image',
-                            buttonProps: { 'aria-label': 'Add image' },
-                            icon: <span>🖼️</span>,
-                          },
-                          {
-                            name: 'table',
-                            keyCommand: 'table',
-                            buttonProps: { 'aria-label': 'Add table' },
-                            icon: <span>⊞</span>,
-                          },
-                          {
-                            name: 'hr',
-                            keyCommand: 'hr',
-                            buttonProps: { 'aria-label': 'Add horizontal rule' },
-                            icon: <span>―</span>,
-                          },
+                          commands.codeEdit,
+                          commands.codeLive,
+                          commands.codePreview,
+                          commands.divider,
+                          commands.fullscreen,
                         ]}
                       />
                     </div>
@@ -760,7 +698,7 @@ export default function ArticleEditor() {
               <CardHeader>
                 <h3 className="text-lg font-semibold text-lime-300">Media</h3>
                 <p className="text-xs text-lime-400/70">
-                  Upload EVPs, videos, photos, and more
+                  Upload EVPs, videos, photos, and more. Media will be automatically inserted into your article.
                 </p>
               </CardHeader>
               <CardContent className="space-y-3">
