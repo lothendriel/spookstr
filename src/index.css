@@ -9,20 +9,58 @@
   border: 1px solid rgba(132, 204, 22, 0.3) !important;
   border-radius: 0.5rem !important;
   width: 100% !important;
+  display: block !important;
 }
 
 .w-md-editor-toolbar {
   background-color: rgba(0, 0, 0, 0.8) !important;
   border-bottom: 1px solid rgba(132, 204, 22, 0.3) !important;
   border-radius: 0.5rem 0.5rem 0 0 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  padding: 0.5rem !important;
+  min-height: auto !important;
+}
+
+.w-md-editor-toolbar ul {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  list-style: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  gap: 0.25rem !important;
+}
+
+.w-md-editor-toolbar li {
+  display: inline-flex !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .w-md-editor-toolbar button {
   color: rgb(217, 249, 157) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  padding: 0.25rem !important;
 }
 
 .w-md-editor-toolbar button:hover {
   background-color: rgba(132, 204, 22, 0.2) !important;
+}
+
+.w-md-editor-toolbar-divider {
+  height: 20px !important;
+  width: 1px !important;
+  background-color: rgba(132, 204, 22, 0.3) !important;
+  margin: 0 0.5rem !important;
+  display: inline-block !important;
 }
 
 .w-md-editor-content {
