@@ -949,30 +949,74 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
         );
 
       case 'audio':
+        // Determine proper MIME type for audio
+        const audioFormat = media.metadata?.format?.toLowerCase() || 'mp3';
+        let audioMimeType = `audio/${audioFormat}`;
+
+        // Special handling for common formats
+        if (audioFormat === 'mp4' || audioFormat === 'm4a') {
+          audioMimeType = 'audio/mp4';
+        } else if (audioFormat === 'mp3') {
+          audioMimeType = 'audio/mpeg';
+        } else if (audioFormat === 'ogg') {
+          audioMimeType = 'audio/ogg';
+        } else if (audioFormat === 'wav') {
+          audioMimeType = 'audio/wav';
+        } else if (audioFormat === 'flac') {
+          audioMimeType = 'audio/flac';
+        } else if (audioFormat === 'aac') {
+          audioMimeType = 'audio/aac';
+        } else if (audioFormat === 'opus') {
+          audioMimeType = 'audio/opus';
+        } else if (audioFormat === 'webm') {
+          audioMimeType = 'audio/webm';
+        }
+
         return (
-          <Card className="bg-lime-500/5 border-lime-500/20 p-4">
-            <div className="flex items-center space-x-3">
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-lime-500/20 rounded-lg flex items-center justify-center">
-                  <Volume2 className="h-6 w-6 text-lime-500" />
+          <Card className="bg-lime-500/5 border-lime-500/20 overflow-hidden">
+            <div className="p-4">
+              <div className="flex items-center space-x-3 mb-3">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-lime-500/20 rounded-lg flex items-center justify-center">
+                    <Volume2 className="h-6 w-6 text-lime-500" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-lime-100 truncate">
+                    {media.title || 'Audio'}
+                  </p>
+                  <p className="text-xs text-lime-500/60">
+                    {audioFormat.toUpperCase()}
+                  </p>
                 </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-lime-100 truncate">
-                  {media.title || 'Audio'}
-                </p>
-                <p className="text-xs text-lime-500/60">
-                  {media.metadata?.format?.toUpperCase() || 'MP3'}
-                </p>
-              </div>
+
+              {/* Full-width audio player */}
               <audio
                 controls
-                className="w-32"
+                className="w-full h-12 rounded-lg"
+                preload="metadata"
                 onError={handleMediaError}
+                style={{
+                  filter: 'brightness(1.1) contrast(1.1)',
+                }}
               >
-                <source src={media.url} type={`audio/${media.metadata?.format || 'mp3'}`} />
+                <source src={media.url} type={audioMimeType} />
+                {/* Fallback without type in case browser is picky */}
+                <source src={media.url} />
                 Your browser does not support the audio element.
               </audio>
+
+              {error && (
+                <div className="mt-3 text-center text-lime-500/60 text-sm">
+                  Failed to load audio. <button
+                    onClick={() => window.open(media.url, '_blank')}
+                    className="underline hover:text-lime-400"
+                  >
+                    Open directly
+                  </button>
+                </div>
+              )}
             </div>
           </Card>
         );
