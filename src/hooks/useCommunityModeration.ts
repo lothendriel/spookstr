@@ -34,22 +34,35 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
 
       // First, get local moderation decisions from localStorage
       const localModeratedEvents = new Map<string, 'approve' | 'deny'>();
+      console.log(`🔍 Searching localStorage for keys starting with 'moderation-${communityId}-'`);
+
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
+        console.log(`🔑 Checking localStorage key: ${key}`);
+
         if (key?.startsWith(`moderation-${communityId}-`)) {
           try {
-            const data = JSON.parse(localStorage.getItem(key) || '{}');
+            const value = localStorage.getItem(key);
+            console.log(`📦 Found local moderation key: ${key}, value: ${value}`);
+
+            const data = JSON.parse(value || '{}');
+            console.log(`📋 Parsed local moderation data:`, data);
+
             if (data.eventId && data.action) {
               localModeratedEvents.set(data.eventId, data.action);
-              console.log(`📱 Found local moderation: ${data.action} for ${data.eventId.slice(0, 8)}...`);
+              console.log(`✅ Added to localModeratedEvents: ${data.action} for ${data.eventId.slice(0, 8)}...`);
+            } else {
+              console.warn(`⚠️ Invalid local moderation data structure:`, data);
             }
           } catch (error) {
-            console.warn('⚠️ Failed to parse local moderation data:', key, error);
+            console.error(`❌ Failed to parse local moderation data for key ${key}:`, error);
+            console.error(`Raw value: ${localStorage.getItem(key)}`);
           }
         }
       }
 
-      console.log(`📱 Found ${localModeratedEvents.size} local moderation decisions`);
+      console.log(`📱 Total local moderation decisions found: ${localModeratedEvents.size}`);
+      console.log(`📱 Local moderated event IDs:`, Array.from(localModeratedEvents.keys()).map(id => id.slice(0, 8) + '...'));
 
       // Query for all posts and replies (kind 1111) in this community
       const allPosts = await nostr.query([{
@@ -133,6 +146,8 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
 
       // Filter out approved and denied posts - only show truly pending posts
       // Combine remote and local moderation decisions
+      console.log(`🔍 Starting filtering process for ${allPosts.length} posts...`);
+
       const pendingPosts = allPosts
         .filter(post => {
           const isRemoteApproved = approvedEventIds.has(post.id);
@@ -141,10 +156,18 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
 
           const isApproved = isRemoteApproved || localAction === 'approve';
           const isDenied = isRemoteDenied || localAction === 'deny';
+          const shouldShow = !isApproved && !isDenied;
 
-          console.log(`Post ${post.id.slice(0, 8)}... - Remote Approved: ${isRemoteApproved}, Remote Denied: ${isRemoteDenied}, Local: ${localAction}, Final: ${!isApproved && !isDenied}`);
+          console.log(`📝 Post ${post.id.slice(0, 8)}...:`);
+          console.log(`   Remote Approved: ${isRemoteApproved}`);
+          console.log(`   Remote Denied: ${isRemoteDenied}`);
+          console.log(`   Local Action: ${localAction}`);
+          console.log(`   Is Approved: ${isApproved}`);
+          console.log(`   Is Denied: ${isDenied}`);
+          console.log(`   Should Show: ${shouldShow}`);
+          console.log(`   ---`);
 
-          return !isApproved && !isDenied;
+          return shouldShow;
         })
         .map(post => {
           // Check if this is a reply by looking for 'e' tags (parent event)
@@ -160,7 +183,8 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
         })
         .sort((a, b) => b.event.created_at - a.event.created_at); // Newest first
 
-      console.log(`⏳ ${pendingPosts.length} pending posts after filtering`);
+      console.log(`⏳ Final result: ${pendingPosts.length} pending posts after filtering`);
+      console.log(`⏳ Pending post IDs:`, pendingPosts.map(p => p.event.id.slice(0, 8) + '...'));
 
       return pendingPosts as PendingPost[];
     },

@@ -12,8 +12,9 @@ import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
 import { usePendingPosts, useApprovedPosts, useModerationActions } from '@/hooks/useCommunityModeration';
 import { useModerationPersistence } from '@/hooks/useModerationPersistence';
+import { debugModerationLocalStorage, debugLocalStorageAvailability, debugPendingPostsFiltering } from '@/hooks/useModerationDebug';
 import { CommunityDefinition } from '@/hooks/useCommunity';
-import { Shield, CheckCircle, XCircle, MessageSquare, Clock, Eye } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, MessageSquare, Clock, Eye, Bug } from 'lucide-react';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NoteContent } from '@/components/NoteContent';
@@ -47,6 +48,21 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
     }
   }, [cleanupOldModerationDecisions]);
 
+  // Debug: Log current localStorage state for this community
+  useEffect(() => {
+    console.log(`🔍 Debug: Checking localStorage for community ${community.id}`);
+    const moderationKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(`moderation-${community.id}-`)) {
+        moderationKeys.push(key);
+        console.log(`📱 Found moderation key: ${key}`);
+        console.log(`   Value: ${localStorage.getItem(key)}`);
+      }
+    }
+    console.log(`📱 Total moderation keys found: ${moderationKeys.length}`);
+  }, [community.id]);
+
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'deny' | null>(null);
 
@@ -77,6 +93,10 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
   const confirmAction = async () => {
     if (!selectedPost || !actionType || !user) return;
 
+    console.log(`🚀 Starting ${actionType} action for post:`, selectedPost.id.slice(0, 8) + '...');
+    console.log(`👤 Moderator: ${user.pubkey.slice(0, 8)}...`);
+    console.log(`🏠 Community: ${community.id}`);
+
     const communityTag = `34550:${community.author}:${community.id}`;
     const postKindTag = selectedPost.tags.find(tag => tag[0] === 'k')?.[1] || '1111';
 
@@ -92,10 +112,22 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
         communityAuthor: community.author
       };
 
+      console.log(`📋 Created moderation decision:`, moderationDecision);
+
       // Save to localStorage first for immediate persistence
+      console.log(`💾 Saving to localStorage...`);
       saveModerationDecision(moderationDecision);
 
+      // Verify it was saved
+      const savedKey = `moderation-${community.id}-${selectedPost.id}`;
+      const savedValue = localStorage.getItem(savedKey);
+      console.log(`✅ Verification - saved value exists: ${!!savedValue}`);
+      if (savedValue) {
+        console.log(`✅ Verification - saved value: ${savedValue}`);
+      }
+
       // Apply optimistic updates to the UI
+      console.log(`⚡ Applying optimistic updates...`);
       applyOptimisticUpdates(moderationDecision, selectedPost);
 
       if (actionType === 'approve') {
@@ -236,6 +268,49 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
         </CardHeader>
 
         <CardContent>
+          {/* Debug Section */}
+          <div className="mb-4 p-3 border border-yellow-500/30 rounded-lg bg-yellow-500/10">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center space-x-2">
+                <Bug className="h-4 w-4 text-yellow-500" />
+                <span className="text-sm font-medium text-yellow-600">Debug Tools</span>
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  onClick={() => debugLocalStorageAvailability()}
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/20"
+                >
+                  Test Storage
+                </Button>
+                <Button
+                  onClick={() => debugModerationLocalStorage()}
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/20"
+                >
+                  Show Moderation Data
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (pendingPosts) {
+                      debugPendingPostsFiltering(pendingPosts.map(p => p.event), community.id, community.author);
+                    }
+                  }}
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/20"
+                >
+                  Debug Filtering
+                </Button>
+              </div>
+            </div>
+            <p className="text-xs text-yellow-600/80">
+              Use these tools to debug moderation persistence issues. Check browser console for detailed output.
+            </p>
+          </div>
+
           <Tabs defaultValue="pending" className="w-full">
             <TabsList className="grid w-full grid-cols-2 bg-black/40">
               <TabsTrigger value="pending" className="data-[state=active]:bg-purple-500/20">
