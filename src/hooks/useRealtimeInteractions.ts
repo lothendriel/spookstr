@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import { useAppContext } from './useAppContext';
+import { useRelayQuery } from './useRelayQuery';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface InteractionCounts {
@@ -86,94 +87,30 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
     });
   };
 
-  // Base query for initial counts - primarily reads from cache populated by batch query
-  // but includes fallback for when cache is empty
+  // Use the unified relay query system for fallback data
+  // This leverages the advanced relay hint and fallback strategies
+  const { data: interactionEvents, isLoading: isLoadingInteractions } = useRelayQuery({
+    filters: [{
+      kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
+      '#e': [eventId],
+      limit: 500,
+    }],
+    enabled: !!eventId,
+    staleTime: 30000, // 30 seconds
+    retry: 2,
+    useRelayHints: true,
+    useFallbacks: true,
+    maxRelays: 6,
+    timeout: 8000,
+    queryKey: ['realtime-interactions-fallback', eventId],
+  });
+
+  // Process the interaction events to get counts
   const { data: initialCounts, isLoading, error, refetch } = useQuery({
     queryKey: ['post-interactions', eventId],
-    queryFn: async (c) => {
-      console.log(`[Realtime Interactions] Cache miss for ${eventId.slice(0, 8)}, fetching fallback data`);
-
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(8000)]);
-
-      try {
-        // Get configured relays
-        const relays = config.relays?.filter((r: any) => r.mode === 'read' || r.mode === 'both').map((r: any) => r.url) || [config.relayUrl];
-
-        // Always include Spookstr relay for better interaction discovery
-        const spookstrRelay = 'wss://spookstr2.nostr1.com';
-        if (!relays.includes(spookstrRelay)) {
-          relays.unshift(spookstrRelay);
-        }
-
-        console.log(`[Realtime Interactions] Fallback query using relays:`, relays);
-
-        let events: NostrEvent[] = [];
-
-        // Try multiple relays for better coverage
-        if (relays.length > 1) {
-          try {
-            const relayGroup = nostr.group(relays.slice(0, 3));
-            events = await relayGroup.query([{
-              kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
-              '#e': [eventId],
-              limit: 500,
-            }], { signal });
-          } catch (groupError) {
-            console.warn(`[Realtime Interactions] Relay group query failed for ${eventId.slice(0, 8)}, trying single relay:`, groupError);
-          }
-        }
-
-        // Fallback to single relay if group query failed
-        if (events.length === 0) {
-          events = await nostr.query([{
-            kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
-            '#e': [eventId],
-            limit: 500,
-          }], { signal });
-        }
-
-        console.log(`[Realtime Interactions] Fallback query found ${events.length} interactions for ${eventId.slice(0, 8)}`);
-
-        // Count interactions
-        const counts = {
-          likes: 0,
-          reposts: 0,
-          zaps: 0,
-          comments: 0,
-        };
-
-        for (const event of events) {
-          switch (event.kind) {
-            case 7: // Like
-              counts.likes++;
-              break;
-            case 6: // Repost
-              counts.reposts++;
-              break;
-            case 9735: // Zap
-              counts.zaps++;
-              break;
-            case 1: // Text note reply
-            case 1111: // Comment
-              // Only count as reply if it's actually replying to target event
-              const eTags = event.tags.filter(([tag]) => tag === 'e');
-              const isReply = eTags.some(([_, id]) => id === eventId) &&
-                             (eTags.length === 1 || eTags.some(([_, __, ___, marker]) => marker === 'reply'));
-
-              if (isReply) {
-                counts.comments++;
-              }
-              break;
-          }
-        }
-
-        console.log(`[Realtime Interactions] Fallback counts for ${eventId.slice(0, 8)}:`, counts);
-        return counts;
-
-      } catch (queryError) {
-        console.error(`[Realtime Interactions] Fallback query failed for ${eventId.slice(0, 8)}:`, queryError);
-
-        // Return empty counts on error - the real-time updates will eventually populate this
+    queryFn: async () => {
+      if (!interactionEvents || interactionEvents.length === 0) {
+        console.log(`[Realtime Interactions] No interaction events found for ${eventId.slice(0, 8)}`);
         return {
           likes: 0,
           reposts: 0,
@@ -181,14 +118,51 @@ export function useRealtimeInteractions(eventId: string): UseRealtimeInteraction
           comments: 0,
         };
       }
+
+      console.log(`[Realtime Interactions] Processing ${interactionEvents.length} interactions for ${eventId.slice(0, 8)}`);
+
+      // Count interactions using the same logic as the unified system
+      const counts = {
+        likes: 0,
+        reposts: 0,
+        zaps: 0,
+        comments: 0,
+      };
+
+      for (const event of interactionEvents) {
+        switch (event.kind) {
+          case 7: // Like
+            counts.likes++;
+            break;
+          case 6: // Repost
+            counts.reposts++;
+            break;
+          case 9735: // Zap
+            counts.zaps++;
+            break;
+          case 1: // Text note reply
+          case 1111: // Comment
+            // Only count as reply if it's actually replying to target event
+            const eTags = event.tags.filter(([tag]) => tag === 'e');
+            const isReply = eTags.some(([_, id]) => id === eventId) &&
+                           (eTags.length === 1 || eTags.some(([_, __, ___, marker]) => marker === 'reply'));
+
+            if (isReply) {
+              counts.comments++;
+            }
+            break;
+        }
+      }
+
+      console.log(`[Realtime Interactions] Counts for ${eventId.slice(0, 8)}:`, counts);
+      return counts;
     },
-    enabled: !!eventId,
+    enabled: !!eventId && !isLoadingInteractions,
     staleTime: 30000, // 30 seconds - consider stale after this if no real-time updates
     gcTime: 300000, // 5 minutes - keep in cache
     refetchOnMount: false, // Don't refetch on mount - rely on batch queries
     refetchOnWindowFocus: false, // Rely on real-time updates
-    retry: 2, // Retry failed fallback queries
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 5000), // Exponential backoff capped at 5s
+    retry: 1, // Less retries since we're using the unified system
   });
 
 

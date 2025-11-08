@@ -1,11 +1,7 @@
-import { useNostr } from '@nostrify/react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAppContext } from './useAppContext';
-import { relayHintCache, extractRelayHints } from '@/lib/relayHints';
-import { RelayHintPopulator } from '@/lib/relayHintPopulator';
-import { getBaseRelaysForQuotedEvents, getExpandedRelaysForQuotedEvents, getHighPriorityRelays } from '@/constants/relays';
-import type { NostrEvent, Filter } from '@nostrify/nostrify';
+import { useRelayEvent } from './useRelayQuery';
+import { useQueryClient } from '@tanstack/react-query';
 import { nip19 } from 'nostr-tools';
+import type { NostrEvent } from '@nostrify/nostrify';
 
 interface QuotedEventOptions {
   /** Whether the query is enabled */
@@ -17,205 +13,26 @@ interface QuotedEventOptions {
 }
 
 /**
- * Ultra-robust quoted event discovery that uses multiple strategies in parallel
- * to maximize the chances of finding quoted content, even if it's on obscure relays.
+ * Simplified quoted event discovery using the unified relay query system.
+ * 
+ * This hook leverages the advanced relay hint and fallback strategies
+ * built into the unified useRelayQuery hook, providing robust event
+ * discovery with much simpler code.
  */
 export function useQuotedEvent(
   eventId: string | undefined,
   options: QuotedEventOptions = {}
 ) {
-  const { nostr } = useNostr();
-  const { config, presetRelays = [] } = useAppContext();
-  const queryClient = useQueryClient();
-
   const { enabled = true, staleTime = 120000, retry = 1 } = options;
 
-  return useQuery({
-    queryKey: ['robust-quoted-event', eventId],
-    queryFn: async (c) => {
-      if (!eventId) {
-        throw new Error('No event ID provided');
-      }
+  // Use the unified relay event hook with enhanced settings for quoted events
+  const result = useRelayEvent(eventId || '', enabled && !!eventId);
 
-      // Parse the event ID to understand what we're looking for
-      let targetId: string;
-      let filter: Filter;
-
-      try {
-        const decoded = nip19.decode(eventId);
-
-        if (decoded.type === 'note') {
-          targetId = decoded.data as string;
-          filter = { ids: [targetId], limit: 1 };
-        } else if (decoded.type === 'nevent') {
-          const neventData = decoded.data as { id: string; relays?: string[] };
-          targetId = neventData.id;
-          filter = { ids: [targetId], limit: 1 };
-        } else if (decoded.type === 'naddr') {
-          const naddr = decoded.data as { identifier: string; pubkey: string; kind: number; relays?: string[] };
-          filter = {
-            kinds: [naddr.kind],
-            authors: [naddr.pubkey],
-            '#d': [naddr.identifier],
-            limit: 1
-          };
-        } else {
-          throw new Error(`Unsupported NIP-19 type: ${decoded.type}`);
-        }
-      } catch (error) {
-        console.error('❌ RobustQuotedEvent: Failed to decode event ID:', error);
-        throw new Error('Invalid event ID format');
-      }
-
-      // Strategy 1: Try with relay hints from cache first
-      const cachedHintsResult = await tryWithRelayHints(nostr, filter, targetId, eventId);
-      if (cachedHintsResult) {
-        return cachedHintsResult;
-      }
-
-      // Strategy 2: Try with expanded relay set including all presets
-      const expandedRelaysResult = await tryWithExpandedRelays(nostr, filter);
-      if (expandedRelaysResult) {
-        return expandedRelaysResult;
-      }
-
-      // Strategy 3: Try individual high-priority relays sequentially
-      const sequentialResult = await trySequentialHighPriorityRelays(nostr, filter);
-      if (sequentialResult) {
-        return sequentialResult;
-      }
-
-      // Strategy 4: Last resort - try the default nostr instance with longer timeout
-      const fallbackResult = await tryFallbackWithTimeout(nostr, filter, c.signal);
-      if (fallbackResult) {
-        return fallbackResult;
-      }
-
-      // Fallback: Even if we couldn't fetch the event, try to extract relay hints
-      // from the original event that referenced this quoted event
-      // This helps build cache for future attempts
-      try {
-        // Try to find the original event that quoted this event to extract its relay hints
-        const referencingEvents = await nostr.query([{
-          kinds: [1, 6, 16], // notes, reposts, generic reposts
-          '#e': [targetId],
-          limit: 5,
-        }], { signal: AbortSignal.timeout(5000) });
-
-        if (referencingEvents.length > 0) {
-          RelayHintPopulator.processEvents(referencingEvents);
-        }
-      } catch (error) {
-        // Silently handle fallback extraction errors
-      }
-
-      return null;
-    },
-    enabled: enabled && !!eventId,
-    staleTime,
-    retry,
-  });
-}
-
-/**
- * Strategy 1: Try with relay hints from cache
- */
-async function tryWithRelayHints(nostr: any, filter: Filter, targetId: string, originalEventId: string): Promise<NostrEvent | null> {
-  try {
-    // Get base relays
-    const baseRelays = getBaseRelaysForQuotedEvents();
-
-    // Get hints from cache for this specific event
-    const eventHints = relayHintCache.getEventHints([targetId]);
-    const allRelays = [...new Set([...baseRelays, ...eventHints])];
-
-    let events: NostrEvent[];
-    if (allRelays.length === 1) {
-      const relay = nostr.relay(allRelays[0]);
-      events = await relay.query([filter], { signal: AbortSignal.timeout(8000) });
-    } else {
-      const relayGroup = nostr.group(allRelays.slice(0, 8));
-      events = await relayGroup.query([filter], { signal: AbortSignal.timeout(8000) });
-    }
-
-    if (events[0]) {
-      RelayHintPopulator.processEvent(events[0]);
-      return events[0];
-    }
-
-    return null;
-  } catch (error) {
-    return null;
-  }
-}
-
-/**
- * Strategy 2: Try with expanded relay set
- */
-async function tryWithExpandedRelays(nostr: any, filter: Filter): Promise<NostrEvent | null> {
-  try {
-    // Comprehensive list of reliable relays
-    const expandedRelays = getExpandedRelaysForQuotedEvents();
-
-    const relayGroup = nostr.group(expandedRelays.slice(0, 10));
-    const events = await relayGroup.query([filter], { signal: AbortSignal.timeout(12000) });
-
-    if (events[0]) {
-      // Store relay hints from the found event
-      RelayHintPopulator.processEvent(events[0]);
-      return events[0];
-    }
-
-    return null;
-  } catch (error) {
-    return null;
-  }
-}
-
-/**
- * Strategy 3: Try high-priority relays sequentially
- */
-async function trySequentialHighPriorityRelays(nostr: any, filter: Filter): Promise<NostrEvent | null> {
-  const highPriorityRelays = getHighPriorityRelays().map(relay => relay.url);
-
-  for (const relayUrl of highPriorityRelays) {
-    try {
-      const relay = nostr.relay(relayUrl);
-      const events = await relay.query([filter], { signal: AbortSignal.timeout(6000) });
-
-      if (events[0]) {
-        // Store relay hints from the found event
-        RelayHintPopulator.processEvent(events[0]);
-        return events[0];
-      }
-    } catch (error) {
-      continue;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Strategy 4: Fallback with extended timeout
- */
-async function tryFallbackWithTimeout(nostr: any, filter: Filter, signal?: AbortSignal): Promise<NostrEvent | null> {
-  try {
-    const combinedSignal = signal
-      ? AbortSignal.any([signal, AbortSignal.timeout(20000)])
-      : AbortSignal.timeout(20000);
-
-    const events = await nostr.query([filter], { signal: combinedSignal });
-
-    if (events[0]) {
-      RelayHintPopulator.processEvent(events[0]);
-      return events[0];
-    }
-
-    return null;
-  } catch (error) {
-    return null;
-  }
+  return {
+    ...result,
+    // Transform the data to handle the case where eventId might be undefined
+    data: eventId ? result.data : null,
+  };
 }
 
 /**
@@ -227,11 +44,11 @@ export function usePrefetchQuotedEvent(eventId: string | undefined) {
   const prefetch = () => {
     if (eventId) {
       queryClient.prefetchQuery({
-        queryKey: ['robust-quoted-event', eventId],
+        queryKey: ['relay-event', eventId],
         queryFn: async () => {
-          // Use a simplified version for prefetching
-          const { useQuotedEvent } = await import('./useQuotedEvent');
-          const { data } = useQuotedEvent(eventId, { enabled: true });
+          // Prefetch will use the unified relay query system
+          const { useRelayEvent } = await import('./useRelayQuery');
+          const { data } = useRelayEvent(eventId, { enabled: true });
           return data;
         },
         staleTime: 300000, // 5 minutes
@@ -252,10 +69,10 @@ export function useBatchPrefetchQuotedEvents(eventIds: string[]) {
     eventIds.forEach((eventId) => {
       if (eventId) {
         queryClient.prefetchQuery({
-          queryKey: ['robust-quoted-event', eventId],
+          queryKey: ['relay-event', eventId],
           queryFn: async () => {
-            // Simplified prefetch
-            return null; // Will be fetched on demand
+            // Simplified prefetch - will be fetched on demand
+            return null;
           },
           staleTime: 300000,
         });
@@ -302,5 +119,33 @@ export function extractQuotedEventId(event: NostrEvent): string | undefined {
  */
 export function useAutoQuotedEvent(event: NostrEvent | undefined) {
   const quotedEventId = event ? extractQuotedEventId(event) : undefined;
-  return useQuotedEvent(quotedEventId);
+  
+  // Handle the case where quotedEventId might be a hex string or NIP-19
+  const normalizedEventId = quotedEventId ? normalizeEventId(quotedEventId) : undefined;
+  
+  return useQuotedEvent(normalizedEventId);
+}
+
+/**
+ * Normalize event ID to ensure it's in the correct format for querying
+ * Converts hex IDs to note1 NIP-19 format for consistency
+ */
+function normalizeEventId(eventId: string): string {
+  // If it's already a NIP-19 identifier, return as-is
+  if (eventId.startsWith('note1') || eventId.startsWith('nevent1') || eventId.startsWith('naddr1')) {
+    return eventId;
+  }
+
+  // If it's a hex string (64 characters), try to encode as note1
+  if (eventId.match(/^[0-9a-fA-F]{64}$/)) {
+    try {
+      return nip19.noteEncode(eventId);
+    } catch (error) {
+      console.warn('Failed to encode hex event ID as note1:', error);
+      return eventId; // Return original if encoding fails
+    }
+  }
+
+  // Return as-is if we can't normalize it
+  return eventId;
 }

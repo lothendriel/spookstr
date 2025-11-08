@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNostr } from '@nostrify/react';
-import { useAppContext } from './useAppContext';
+import { useRelayQuery, processInteractions } from './useRelayQuery';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface InteractionCounts {
@@ -13,111 +12,91 @@ interface InteractionCounts {
 
 /**
  * Enhanced batch hook for fetching interactions for multiple posts at once.
- * This dramatically reduces network requests compared to individual queries per post.
+ * Now uses the unified relay query system for better performance and reliability.
  *
- * Improvements:
- * - Increased limit to handle more interactions
- * - Multiple relay queries for better coverage
- * - Better error handling and fallbacks
- * - More aggressive refresh for active content
- * - Enhanced debugging
+ * Features:
+ * - Leverages advanced relay hint discovery
+ * - Uses intelligent fallback strategies
+ * - Provides consistent caching and error handling
+ * - Maintains batch processing efficiency
  */
 export function useBatchInteractions(eventIds: string[]) {
-  const { nostr } = useNostr();
-  const { config } = useAppContext();
   const queryClient = useQueryClient();
 
   // Debug logging only in development
-if (import.meta.env.DEV) {
-  console.log('[Batch Interactions] Hook called with eventIds:', eventIds.map(id => id.slice(0, 8)));
-}
+  if (import.meta.env.DEV) {
+    console.log('[Batch Interactions] Hook called with eventIds:', eventIds.map(id => id.slice(0, 8)));
+  }
 
-  const { data: batchData, isLoading, error } = useQuery({
+  // Use unified relay query system with batch-optimized settings
+  const { data: interactionEvents, isLoading, error } = useRelayQuery({
+    filters: [{
+      kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
+      '#e': eventIds,
+      limit: 500, // Reduced limit to save memory
+    }],
+    enabled: eventIds.length > 0,
+    staleTime: 180000, // 3 minutes - reduced frequency for better memory management
+    retry: 2,
+    useRelayHints: true, // Enable relay hints for better discovery
+    useFallbacks: true, // Use fallback strategies
+    maxRelays: 4, // Limit relays for batch efficiency
+    timeout: 10000,
     queryKey: ['batch-interactions', eventIds.sort().join(',')],
-    queryFn: async (c) => {
-      if (eventIds.length === 0) {
-        console.log('[Batch Interactions] No event IDs provided');
-        return {};
-      }
+  });
 
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(10000)]);
+  // Process interaction events into counts map
+  const { data: batchData } = useQuery({
+    queryKey: ['batch-interactions-processed', eventIds.sort().join(',')],
+    queryFn: () => {
+      if (!interactionEvents || interactionEvents.length === 0) {
+        if (import.meta.env.DEV) {
+          console.log('[Batch Interactions] No interaction events found');
+        }
+        
+        // Initialize empty counts for all requested event IDs
+        const emptyCounts: Record<string, InteractionCounts> = {};
+        for (const eventId of eventIds) {
+          emptyCounts[eventId] = {
+            likes: 0,
+            reposts: 0,
+            zaps: 0,
+            comments: 0,
+          };
+        }
+        return emptyCounts;
+      }
 
       if (import.meta.env.DEV) {
-  console.log('[Batch Interactions] Fetching interactions for', eventIds.length, 'posts');
-}
-
-      // Get configured relays for better coverage
-      const relays = config.relays?.filter(r => r.mode === 'read' || r.mode === 'both').map(r => r.url) || [config.relayUrl];
-
-      // Always include Spookstr relay for better interaction discovery
-      const spookstrRelay = 'wss://spookstr2.nostr1.com';
-      if (!relays.includes(spookstrRelay)) {
-        relays.unshift(spookstrRelay);
+        console.log('[Batch Interactions] Processing', interactionEvents.length, 'interactions for', eventIds.length, 'posts');
       }
 
+      // Use the unified processInteractions function from useRelayQuery
+      const processed = processInteractions(interactionEvents, eventIds);
+      
       if (import.meta.env.DEV) {
-  console.log('[Batch Interactions] Using relays:', relays);
-}
-
-      let allEvents: NostrEvent[] = [];
-
-      // Try to query from multiple relays with limited scope for memory efficiency
-      if (relays.length > 1) {
-        try {
-          const relayGroup = nostr.group(relays.slice(0, 2)); // Use top 2 relays only
-          const events = await relayGroup.query([{
-            kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
-            '#e': eventIds,
-            limit: 500, // Reduced limit to save memory
-          }], { signal });
-
-          allEvents = events;
-          if (import.meta.env.DEV) {
-  console.log('[Batch Interactions] Found', events.length, 'interactions from relay group');
-}
-        } catch (error) {
-          console.warn('[Batch Interactions] Relay group query failed, falling back to single relay:', error);
-        }
+        console.log('[Batch Interactions] Summary:', {
+          totalEvents: interactionEvents.length,
+          likes: processed.counts.likes,
+          reposts: processed.counts.reposts,
+          zaps: processed.counts.zaps,
+          comments: processed.counts.comments,
+          postsWithInteractions: Object.values(processed.byEvent).filter(c =>
+            c.likes > 0 || c.reposts > 0 || c.zaps > 0 || c.comments > 0
+          ).length
+        });
       }
 
-      // Fallback to single relay if group query failed or we have only one relay
-      if (allEvents.length === 0) {
-        try {
-          const events = await nostr.query([{
-            kinds: [6, 7, 9735, 1, 1111], // reposts, likes, zaps, replies, comments
-            '#e': eventIds,
-            limit: 500, // Reduced limit to save memory
-          }], { signal });
-
-          allEvents = events;
-          if (import.meta.env.DEV) {
-  console.log('[Batch Interactions] Found', events.length, 'interactions from single relay');
-}
-        } catch (error) {
-          console.error('[Batch Interactions] Single relay query failed:', error);
-          allEvents = [];
-        }
-      }
-
-      // Deduplicate events by ID
-      const uniqueEvents = new Map<string, NostrEvent>();
-      for (const event of allEvents) {
-        if (!uniqueEvents.has(event.id)) {
-          uniqueEvents.set(event.id, event);
-        }
-      }
-
-      const deduplicatedEvents = Array.from(uniqueEvents.values());
-      if (import.meta.env.DEV) {
-  console.log('[Batch Interactions] After deduplication:', deduplicatedEvents.length, 'unique interactions');
-}
-
-      // Group interactions by event ID
+      // Convert byEvent structure to simple counts map
       const countsMap: Record<string, InteractionCounts> = {};
-
-      // Initialize counts for all requested event IDs
       for (const eventId of eventIds) {
-        countsMap[eventId] = {
+        const eventData = processed.byEvent[eventId];
+        countsMap[eventId] = eventData ? {
+          likes: eventData.counts.likes,
+          reposts: eventData.counts.reposts,
+          zaps: eventData.counts.zaps,
+          comments: eventData.counts.comments,
+        } : {
           likes: 0,
           reposts: 0,
           zaps: 0,
@@ -125,79 +104,11 @@ if (import.meta.env.DEV) {
         };
       }
 
-      // Count interactions for each event
-      let likeCount = 0, repostCount = 0, zapCount = 0, commentCount = 0;
-
-      for (const event of deduplicatedEvents) {
-        const referencedEventId = event.tags.find(([tag]) => tag === 'e')?.[1];
-        if (!referencedEventId || !countsMap[referencedEventId]) {
-          continue;
-        }
-
-        switch (event.kind) {
-          case 7: // Like
-            countsMap[referencedEventId].likes++;
-            likeCount++;
-            break;
-          case 6: // Repost
-            countsMap[referencedEventId].reposts++;
-            repostCount++;
-            break;
-          case 9735: // Zap
-            countsMap[referencedEventId].zaps++;
-            zapCount++;
-            break;
-          case 1: // Text note reply
-          case 1111: // Comment
-            // Only count as reply if it's actually replying to the target event
-            const eTags = event.tags.filter(([tag]) => tag === 'e');
-            const isReply = eTags.some(([_, id]) => id === referencedEventId) &&
-                           (eTags.length === 1 || eTags.some(([_, __, ___, marker]) => marker === 'reply'));
-
-            if (isReply) {
-              countsMap[referencedEventId].comments++;
-              commentCount++;
-            }
-            break;
-        }
-      }
-
-      if (import.meta.env.DEV) {
-        console.log('[Batch Interactions] Summary:', {
-          totalEvents: deduplicatedEvents.length,
-          likes: likeCount,
-          reposts: repostCount,
-          zaps: zapCount,
-          comments: commentCount,
-          postsWithInteractions: Object.values(countsMap).filter(c =>
-            c.likes > 0 || c.reposts > 0 || c.zaps > 0 || c.comments > 0
-          ).length
-        });
-      }
-
       return countsMap;
     },
-    enabled: eventIds.length > 0,
-    staleTime: 180000, // 3 minutes - reduced frequency for better memory management
+    enabled: !!interactionEvents && eventIds.length > 0,
+    staleTime: 180000,
     gcTime: 240000, // 4 minutes - reduced cache time to save memory
-    refetchOnMount: true, // Always refetch on mount to get fresh data
-    refetchOnWindowFocus: true, // Refetch on window focus to get latest counts
-    // Enhanced caching: Smart background refresh for active content
-    refetchInterval: (data, query) => {
-      // Only refetch if tab is visible and we have data and event IDs
-      if (document.hidden || !data || eventIds.length === 0) return false;
-
-      // Background refresh every 3 minutes for interaction counts
-      // Reduced frequency to save memory while keeping data reasonably fresh
-      return 300000; // 5 minutes
-    },
-    retry: (failureCount, error) => {
-      if (import.meta.env.DEV) {
-      console.log('[Batch Interactions] Retry attempt:', failureCount, 'Error:', error);
-    }
-      return failureCount < 3; // Retry up to 3 times
-    },
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff capped at 10s
   });
 
   // Update individual post interaction caches
@@ -206,22 +117,8 @@ if (import.meta.env.DEV) {
 
     if (import.meta.env.DEV) {
       console.log('[Batch Interactions] Updating individual caches for', Object.keys(batchData).length, 'posts');
-    }
-    if (import.meta.env.DEV) {
-      console.log('[Batch Interactions] All batch data:',
-        Object.entries(batchData).map(([id, counts]) => ({
-          id: id.slice(0, 8),
-          likes: counts.likes,
-          reposts: counts.reposts,
-          zaps: counts.zaps,
-          comments: counts.comments,
-          total: counts.likes + counts.reposts + counts.zaps + counts.comments
-        }))
-      );
-    }
-
-    // Log detailed counts for debugging (development only)
-    if (import.meta.env.DEV) {
+      
+      // Log detailed counts for debugging (development only)
       const postsWithInteractions = Object.entries(batchData).filter(([_, counts]) =>
         counts.likes > 0 || counts.reposts > 0 || counts.zaps > 0 || counts.comments > 0
       );
@@ -251,8 +148,8 @@ if (import.meta.env.DEV) {
   useEffect(() => {
     if (error) {
       if (import.meta.env.DEV) {
-      console.error('[Batch Interactions] Error fetching interactions:', error);
-    }
+        console.error('[Batch Interactions] Error fetching interactions:', error);
+      }
     }
   }, [error]);
 

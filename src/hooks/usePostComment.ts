@@ -3,6 +3,7 @@ import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { type NostrEvent } from '@nostrify/nostrify';
 import { extractMentions } from '@/lib/mentions';
 import { getCommentsQueryKey } from './useComments';
+import { queryKeys, invalidate } from '@/lib/queryKeys';
 
 interface PostCommentParams {
   root: NostrEvent | URL; // The root event to comment on
@@ -167,7 +168,7 @@ export function usePostComment() {
 
       // Also invalidate the main feed to ensure content separation is maintained
       queryClient.invalidateQueries({
-        queryKey: ['paranormal-feed']
+        queryKey: queryKeys.feed.paranormal()
       });
 
       // Show success toast

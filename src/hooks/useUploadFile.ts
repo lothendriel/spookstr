@@ -3,6 +3,13 @@ import { BlossomUploader } from '@nostrify/nostrify/uploaders';
 
 import { useCurrentUser } from "./useCurrentUser";
 import { useAppContext } from "./useAppContext";
+import {
+  handleNostrError,
+  shouldRetryError,
+  getRetryDelay,
+  createMutationErrorHandler,
+  logError
+} from "@/lib/errorHandling";
 
 export function useUploadFile() {
   const { user } = useCurrentUser();
@@ -11,7 +18,12 @@ export function useUploadFile() {
   return useMutation({
     mutationFn: async (file: File) => {
       if (!user) {
-        throw new Error('Must be logged in to upload files');
+        const appError = handleNostrError(
+          new Error('User is not logged in'),
+          "uploading file"
+        );
+        logError(appError, "User authentication check");
+        throw appError;
       }
 
       console.log('Starting upload for file:', file.name, file.type, file.size);
@@ -40,9 +52,15 @@ export function useUploadFile() {
 
         return tags;
       } catch (error) {
-        console.error('Upload failed:', error);
-        throw error;
+        const appError = handleNostrError(error, "uploading file");
+        logError(appError, "File upload");
+        throw appError;
       }
     },
+    retry: (failureCount, error) => {
+      return shouldRetryError(failureCount, error);
+    },
+    retryDelay: (failureCount) => getRetryDelay(failureCount),
+    onError: createMutationErrorHandler("uploading file"),
   });
 }

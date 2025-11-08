@@ -4,6 +4,13 @@ import { NRelay1 } from "@nostrify/nostrify";
 
 import { useCurrentUser } from "./useCurrentUser";
 import { useAppContext } from "./useAppContext";
+import {
+  handleNostrError,
+  shouldRetryError,
+  getRetryDelay,
+  createMutationErrorHandler,
+  logError
+} from "@/lib/errorHandling";
 
 import type { NostrEvent } from "@nostrify/nostrify";
 
@@ -32,7 +39,12 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
   return useMutation({
     mutationFn: async ({ event, options }: { event: Omit<NostrEvent, 'id' | 'pubkey' | 'sig'>; options?: PublishOptions }) => {
       if (!nostr) {
-        throw new Error('Nostr connection not available');
+        const appError = handleNostrError(
+          new Error('Nostr connection not available'),
+          "publishing event"
+        );
+        logError(appError, "Nostr connection check");
+        throw appError;
       }
 
       if (user) {
@@ -48,8 +60,12 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
 
         // Check if we've recently published this exact same event
         if (recentEventSignatures.has(eventSignature)) {
-          console.warn("Duplicate event detected, skipping publish");
-          throw new Error("Duplicate event: This appears to be a duplicate submission");
+          const appError = handleNostrError(
+            new Error("Duplicate event detected"),
+            "publishing event"
+          );
+          logError(appError, "Duplicate event check");
+          throw appError;
         }
 
         const eventData = {
@@ -97,8 +113,9 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
             await relay.event(signedEvent, { signal: AbortSignal.timeout(8000) });
             console.log('✅ Successfully published to relay:', options.relayUrl);
           } catch (error) {
-            console.error('❌ Error publishing to specific relay:', error);
-            throw error;
+            const appError = handleNostrError(error, "publishing to specific relay");
+            logError(appError, "Specific relay publish");
+            throw appError;
           }
         } else {
           // Publish to all relays (default behavior)
@@ -121,38 +138,29 @@ export function useNostrPublish(): UseMutationResult<NostrEvent, Error, { event:
 
             console.log('✅ Successfully published to relays');
           } catch (publishError) {
-            console.error('❌ Failed to publish to all relays:', publishError);
-            console.error('❌ Publish error details:', {
-              message: publishError.message,
-              stack: publishError.stack,
-              name: publishError.name
-            });
-            throw publishError;
+            const appError = handleNostrError(publishError, "publishing to all relays");
+            logError(appError, "All relays publish");
+            throw appError;
           }
         }
 
         return signedEvent;
       } else {
-        throw new Error("User is not logged in");
+        const appError = handleNostrError(
+          new Error("User is not logged in"),
+          "publishing event"
+        );
+        logError(appError, "User authentication check");
+        throw appError;
       }
     },
     retry: (failureCount, error) => {
-      // Only retry once for network errors, not for duplicate events
-      if (error.message.includes("Duplicate event")) {
-        return false; // Don't retry duplicates
-      }
-      return failureCount < 1; // Retry once for other errors
+      return shouldRetryError(failureCount, error);
     },
-    onError: (error) => {
-      console.error("Failed to publish event:", error);
-      console.error("Error details:", {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
-    },
+    retryDelay: (failureCount) => getRetryDelay(failureCount),
+    onError: createMutationErrorHandler("publishing event"),
     onSuccess: (data) => {
-      console.log("Event published successfully:", data);
+      console.log("✅ Event published successfully:", data.id);
     },
   });
 }

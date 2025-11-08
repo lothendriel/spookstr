@@ -2,13 +2,16 @@ import { useNostr } from '@nostrify/react';
 import { useNostrLogin } from '@nostrify/react/login';
 import { useQuery } from '@tanstack/react-query';
 import { NSchema as n, NostrEvent, NostrMetadata } from '@nostrify/nostrify';
+import type { AppAccount } from '@/types';
+import { queryKeys } from '@/lib/queryKeys';
 
-export interface Account {
-  id: string;
-  pubkey: string;
-  event?: NostrEvent;
-  metadata: NostrMetadata;
-}
+// Use AppAccount from types instead of local interface
+// export interface Account {
+//   id: string;
+//   pubkey: string;
+//   event?: NostrEvent;
+//   metadata: NostrMetadata;
+// }
 
 export function useLoggedInAccounts() {
   const { nostr } = useNostr();
@@ -26,7 +29,7 @@ export function useLoggedInAccounts() {
   });
 
   const { data: authors = [] } = useQuery({
-    queryKey: ['logins', logins.map((l) => l.id).join(';')],
+    queryKey: queryKeys.auth.accounts(),
     queryFn: async ({ signal }) => {
       const events = await nostr.query(
         [{ kinds: [0], authors: logins.map((l) => l.pubkey) }],

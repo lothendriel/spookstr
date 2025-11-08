@@ -8,6 +8,7 @@ import type { NWCConnection } from '@/hooks/useNWC';
 import { nip57 } from 'nostr-tools';
 import type { Event } from 'nostr-tools';
 import type { WebLNProvider } from '@webbtc/webln-types';
+import { queryKeys } from '@/lib/queryKeys';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNostr } from '@nostrify/react';
 import type { NostrEvent } from '@nostrify/nostrify';
@@ -45,7 +46,7 @@ export function useZaps(
   }, []);
 
   const { data: zapEvents, ...query } = useQuery<NostrEvent[], Error>({
-    queryKey: ['zaps', actualTarget?.id],
+    queryKey: queryKeys.post.zaps(actualTarget?.id || ''),
     staleTime: 60000, // 1 minute - zap receipts are relatively static once created
     gcTime: 300000, // 5 minutes - keep zap data cached
     // Enhanced caching: Smart background refresh for zap receipts
