@@ -4,6 +4,7 @@ import { useAppContext } from './useAppContext';
 import type { NostrEvent, Filter } from '@nostrify/nostrify';
 import type { HookResult } from '@/types';
 import { relayHintCache, enhanceFiltersWithHints } from '@/lib/relayHints';
+import { queryKeys } from '@/lib/queryKeys';
 
 interface RelayQueryOptions {
   /** Nostr filters to apply */
@@ -64,8 +65,6 @@ export function useRelayQuery({
   const { nostr } = useNostr();
   const { config, presetRelays = [] } = useAppContext();
   const queryClient = useQueryClient();
-
-import { queryKeys } from '@/lib/queryKeys';
 
   const result = useQuery({
     queryKey: queryKey || ['relay-query', filters, { useRelayHints, maxRelays }],
@@ -307,6 +306,7 @@ async function executeFallbackQuery(
 import type { AllInteractions } from '@/types';
 
 export function processInteractions(events: NostrEvent[], targetEventIds: string[]): AllInteractions {
+  const interactions = {
     likes: [] as NostrEvent[],
     reposts: [] as NostrEvent[],
     zaps: [] as NostrEvent[],

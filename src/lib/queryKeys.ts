@@ -1,6 +1,6 @@
 /**
  * Standardized Query Key System for React Query
- * 
+ *
  * This module provides consistent, predictable query keys across the application,
  * preventing cache collisions and enabling efficient cache invalidation.
  */
@@ -108,13 +108,13 @@ export const queryKeys = {
 
   // Utility functions for building complex keys
   build: {
-    withFilters: (baseKey: QueryKey, filters: Record<string, any>) => 
+    withFilters: (baseKey: QueryKey, filters: Record<string, any>) =>
       [...baseKey, 'filters', filters] as const,
-    withPagination: (baseKey: QueryKey, page: number, limit: number) => 
+    withPagination: (baseKey: QueryKey, page: number, limit: number) =>
       [...baseKey, 'page', page, 'limit', limit] as const,
-    withSorting: (baseKey: QueryKey, sortBy: string, sortOrder: 'asc' | 'desc') => 
+    withSorting: (baseKey: QueryKey, sortBy: string, sortOrder: 'asc' | 'desc') =>
       [...baseKey, 'sort', sortBy, sortOrder] as const,
-    withTimeRange: (baseKey: QueryKey, since: number, until?: number) => 
+    withTimeRange: (baseKey: QueryKey, since: number, until?: number) =>
       [...baseKey, 'since', since, ...(until ? ['until', until] : [])] as const,
   },
 } as const;
@@ -137,7 +137,7 @@ export type SearchQueryKeys = typeof queryKeys.search;
 export const invalidate = {
   // User data
   user: (pubkey?: string) => {
-    const keys = pubkey 
+    const keys = pubkey
       ? [queryKeys.user.details(pubkey), queryKeys.user.metadata(pubkey)]
       : [queryKeys.user.all];
     return { queryKey: keys };
@@ -150,7 +150,7 @@ export const invalidate = {
 
   // Post data
   post: (eventId: string) => {
-    return { 
+    return {
       queryKey: [
         queryKeys.post.details(eventId),
         queryKeys.post.interactions(eventId),
@@ -158,7 +158,7 @@ export const invalidate = {
         queryKeys.post.reposts(eventId),
         queryKeys.post.zaps(eventId),
         queryKeys.post.replies(eventId),
-      ] 
+      ]
     };
   },
 
@@ -169,7 +169,7 @@ export const invalidate = {
 
   // Interactions
   interactions: (eventIds?: string[]) => {
-    const keys = eventIds 
+    const keys = eventIds
       ? eventIds.map(id => queryKeys.interactions.single(id))
       : [queryKeys.interactions.batch([])];
     return { queryKey: keys };
@@ -177,7 +177,7 @@ export const invalidate = {
 
   // Comments
   comments: (eventId?: string) => {
-    const keys = eventId 
+    const keys = eventId
       ? [queryKeys.comment.list(eventId)]
       : ['comments'];
     return { queryKey: keys };
@@ -200,7 +200,7 @@ export const invalidate = {
 
   // Community data
   community: (id?: string) => {
-    const keys = id 
+    const keys = id
       ? [queryKeys.community.details(id), queryKeys.community.topics(id), queryKeys.community.posts(id)]
       : [queryKeys.community.list()];
     return { queryKey: keys };
@@ -233,5 +233,4 @@ export const prefetch = {
   },
 } as const;
 
-// Export all keys and helpers
-export { queryKeys };
+// All query keys are already exported above
