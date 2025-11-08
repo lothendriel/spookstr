@@ -142,7 +142,7 @@ const Index = () => {
                   </h2>
                   <SmartRelayDiscoveryIndicator
                     context="feed"
-                    eventsFound={posts?.length || 0}
+                    eventsFound={allPosts.length || 0}
                     hintsUsed={discoveryStats?.hintsUsed || false}
                     isLoading={isDiscovering || isLoading}
                   />

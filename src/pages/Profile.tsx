@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { InfiniteScrollLoader, InfiniteScrollSkeleton } from '@/components/ui/InfiniteScrollLoader';
 import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check, MessageSquare } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { PostDetailView } from '@/components/PostDetailView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { NostrEvent } from '@nostrify/nostrify';
