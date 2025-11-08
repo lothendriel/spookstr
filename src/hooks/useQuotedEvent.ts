@@ -14,7 +14,7 @@ interface QuotedEventOptions {
 
 /**
  * Simplified quoted event discovery using the unified relay query system.
- * 
+ *
  * This hook leverages the advanced relay hint and fallback strategies
  * built into the unified useRelayQuery hook, providing robust event
  * discovery with much simpler code.
@@ -119,10 +119,10 @@ export function extractQuotedEventId(event: NostrEvent): string | undefined {
  */
 export function useAutoQuotedEvent(event: NostrEvent | undefined) {
   const quotedEventId = event ? extractQuotedEventId(event) : undefined;
-  
+
   // Handle the case where quotedEventId might be a hex string or NIP-19
   const normalizedEventId = quotedEventId ? normalizeEventId(quotedEventId) : undefined;
-  
+
   return useQuotedEvent(normalizedEventId);
 }
 
@@ -139,7 +139,12 @@ function normalizeEventId(eventId: string): string {
   // If it's a hex string (64 characters), try to encode as note1
   if (eventId.match(/^[0-9a-fA-F]{64}$/)) {
     try {
-      return nip19.noteEncode(eventId);
+      const note1Id = nip19.noteEncode(eventId);
+      console.log('🔄 Normalized hex ID to note1:', {
+        hex: eventId.substring(0, 8) + '...',
+        note1: note1Id.substring(0, 12) + '...'
+      });
+      return note1Id;
     } catch (error) {
       console.warn('Failed to encode hex event ID as note1:', error);
       return eventId; // Return original if encoding fails

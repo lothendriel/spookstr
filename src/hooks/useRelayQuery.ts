@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { useNostr } from '@nostrify/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAppContext } from './useAppContext';
+import { nip19 } from 'nostr-tools';
 import type { NostrEvent, Filter } from '@nostrify/nostrify';
 import type { HookResult } from '@/types';
 import { relayHintCache, enhanceFiltersWithHints } from '@/lib/relayHints';
@@ -180,8 +182,62 @@ export function useRelayQuery({
  * Specialized hook for fetching a single event by ID with enhanced discovery
  */
 export function useRelayEvent(eventId: string, enabled = true): HookResult<NostrEvent[]> {
+  // Convert NIP-19 identifier to hex ID for Nostr protocol filters
+  const hexId = useMemo(() => {
+    if (!eventId) return '';
+
+    // If it's already a hex ID, return as-is
+    if (eventId.match(/^[0-9a-fA-F]{64}$/)) {
+      return eventId;
+    }
+
+    // If it's a NIP-19 identifier, decode it
+    try {
+      const decoded = nip19.decode(eventId);
+      if (decoded.type === 'note' || decoded.type === 'nevent') {
+        const id = decoded.type === 'note' ? decoded.data : decoded.data.id;
+        console.log('🔍 useRelayEvent: Decoded NIP-19 to hex:', {
+          original: eventId.substring(0, 12) + '...',
+          hex: id.substring(0, 8) + '...'
+        });
+        return id;
+      } else if (decoded.type === 'naddr') {
+        // For addressable events, we need to use kind, author, and d-tag
+        // This is handled by the filter logic in useRelayQuery
+        return eventId; // Return original for naddr handling
+      }
+    } catch (error) {
+      console.warn('Failed to decode NIP-19 identifier:', error);
+    }
+
+    return eventId; // Fallback to original
+  }, [eventId]);
+
+  // For naddr identifiers, we need special handling
+  const filters = useMemo(() => {
+    if (!eventId) return [];
+
+    try {
+      const decoded = nip19.decode(eventId);
+      if (decoded.type === 'naddr') {
+        const naddr = decoded.data as { identifier: string; pubkey: string; kind: number; relays?: string[] };
+        return [{
+          kinds: [naddr.kind],
+          authors: [naddr.pubkey],
+          '#d': [naddr.identifier],
+          limit: 1
+        }];
+      }
+    } catch (error) {
+      // Not an naddr, continue with hex ID filter
+    }
+
+    // For note, nevent, or hex IDs, use the ids filter
+    return [{ ids: [hexId], limit: 1 }];
+  }, [eventId, hexId]);
+
   return useRelayQuery({
-    filters: [{ ids: [eventId], limit: 1 }],
+    filters,
     enabled: enabled && !!eventId,
     staleTime: 60000, // 1 minute for single events
     retry: 2, // More retries for single events
