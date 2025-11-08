@@ -30,9 +30,6 @@ export function ModerationPanel({ communityId }: ModerationPanelProps) {
   const { data: community, isLoading: communityLoading } = useCommunity(communityId);
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
-  const { data: pendingPosts, isLoading: loadingPending, refetch: refetchPending } = usePendingPosts(community?.id, community?.author);
-  const { data: approvedPosts, isLoading: loadingApproved, refetch: refetchApproved } = useApprovedPosts(community?.id, community?.author);
-  const { data: moderationActions, refetch: refetchActions } = useModerationActions(community?.id, community?.author);
   const { mutateAsync: createEvent, isPending: isPublishing } = useNostrPublish();
   const { toast } = useToast();
   const {
@@ -41,6 +38,20 @@ export function ModerationPanel({ communityId }: ModerationPanelProps) {
     invalidateModerationQueries,
     cleanupOldModerationDecisions
   } = useModerationPersistence();
+
+  // Only call moderation hooks when community data is available
+  const { data: pendingPosts, isLoading: loadingPending, refetch: refetchPending } = usePendingPosts(
+    community?.id || undefined,
+    community?.author || undefined
+  );
+  const { data: approvedPosts, isLoading: loadingApproved, refetch: refetchApproved } = useApprovedPosts(
+    community?.id || undefined,
+    community?.author || undefined
+  );
+  const { data: moderationActions, refetch: refetchActions } = useModerationActions(
+    community?.id || undefined,
+    community?.author || undefined
+  );
 
   // Show loading state while fetching community data
   if (communityLoading) {
@@ -109,6 +120,11 @@ export function ModerationPanel({ communityId }: ModerationPanelProps) {
 
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'deny' | null>(null);
+
+  // Check moderator permissions only if community exists
+  if (!community) {
+    return null; // This should be handled by the earlier check, but being defensive
+  }
 
   const isOwner = user?.pubkey === community.author;
   const isModerator = isOwner || community.moderators.includes(user?.pubkey || '');
