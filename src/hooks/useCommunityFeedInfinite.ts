@@ -1,0 +1,281 @@
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useNostr } from './useNostr';
+import { NostrEvent } from '@nostrify/nostrify';
+import { filterNSFWContent } from '@/lib/nsfwFilter';
+import { useCurrentUser } from './useCurrentUser';
+import { useHiddenUsers } from './useHiddenUsers';
+import { useHiddenHashtags } from './useHiddenHashtags';
+import {
+  isCommunityContent,
+  validateCommunityEvent,
+  getContentType,
+  filterForCommunityFeed,
+  isReply
+} from '@/lib/contentType';
+
+export interface CommunityFeedPost {
+  id: string;
+  pubkey: string;
+  content: string;
+  created_at: number;
+  tags: string[][];
+  kind: number;
+}
+
+/**
+ * Hook to fetch approved community main topics with infinite scroll pagination.
+ * Only shows top-level posts (excludes replies/comments) that have been approved by moderators (NIP-72 compliance).
+ * Moderators see all main topics (excluding denied ones), regular users see only approved main topics.
+ * Uses timestamp-based pagination for efficient infinite scroll.
+ */
+export function useCommunityFeedInfinite(communityId?: string, communityAuthor?: string) {
+  const { nostr } = useNostr();
+  const { user } = useCurrentUser();
+  const { isUserHidden } = useHiddenUsers();
+  const { hasHiddenHashtag } = useHiddenHashtags();
+
+  return useInfiniteQuery({
+    queryKey: ['community-feed-infinite', communityId, communityAuthor, user?.pubkey, isUserHidden, hasHiddenHashtag],
+    queryFn: async ({ pageParam, signal }) => {
+      if (!communityId || !communityAuthor) return [];
+
+      const communityTag = `34550:${communityAuthor}:${communityId}`;
+
+      // Check if current user is a moderator
+      const isModerator = user?.pubkey === communityAuthor;
+
+      console.log(`🏘️ Fetching community feed page for: ${communityTag}`, pageParam ? `(until: ${pageParam})` : '(first page)');
+      console.log(`👤 User is moderator: ${isModerator}`);
+
+      if (isModerator) {
+        // Moderators see all posts EXCEPT denied ones (only approved and pending)
+        console.log('🛡️ Loading posts for moderator (excluding denied)');
+
+        const moderatorQuery: any = {
+          kinds: [1111],
+          '#A': [communityTag],
+          limit: 30, // Smaller limit for infinite scroll
+        };
+
+        // Add until parameter for pagination (except first page)
+        if (pageParam) {
+          moderatorQuery.until = pageParam;
+        }
+
+        const allPosts = await nostr.query([moderatorQuery], { signal });
+
+        console.log(`📝 Found ${allPosts.length} total posts for moderator`);
+
+        // Query for denial events to filter them out
+        const denials = await nostr.query([
+          {
+            kinds: [4551],
+            '#a': [communityTag],
+            limit: 500 // Higher limit to get all denials
+          }
+        ], { signal });
+
+        console.log(`❌ Found ${denials.length} denial events`);
+
+        // Create set of denied event IDs
+        const deniedEventIds = new Set<string>();
+        denials.forEach(denial => {
+          const eTags = denial.tags.filter(tag => tag[0] === 'e');
+          eTags.forEach(eTag => {
+            if (eTag[1]) {
+              deniedEventIds.add(eTag[1]);
+            }
+          });
+        });
+
+        console.log(`🚫 Filtering out ${deniedEventIds.size} denied posts`);
+
+        // Filter out NSFW content, denied posts, AND replies (only show main topics)
+        let filteredPosts = filterNSFWContent(allPosts).filter(event => {
+          // Exclude denied posts
+          if (deniedEventIds.has(event.id)) {
+            console.log(`🚫 Excluding denied post: ${event.id.substring(0, 8)}...`);
+            return false;
+          }
+
+          // Exclude posts from hidden users
+          if (isUserHidden(event.pubkey)) {
+            console.log(`🙈 Excluding post from hidden user: ${event.id.substring(0, 8)}...`);
+            return false;
+          }
+
+          // Exclude posts with hidden hashtags
+          if (hasHiddenHashtag(event.tags)) {
+            console.log(`#️⃣ Excluding post with hidden hashtag: ${event.id.substring(0, 8)}...`);
+            return false;
+          }
+
+          // CRITICAL: Exclude replies - only show main topics in community feed
+          if (isReply(event)) {
+            console.log(`💬 Excluding reply from community feed: ${event.id.substring(0, 8)}...`);
+            return false;
+          }
+
+          // CRITICAL: Ensure only valid community content is included
+          const isValidCommunity = isCommunityContent(event);
+          const isValidEvent = validateCommunityEvent(event);
+          const contentType = getContentType(event);
+
+          if (!isValidCommunity) {
+            console.warn('Excluding non-community event from community feed:', {
+              eventId: event.id.substring(0, 8),
+              kind: event.kind,
+              contentType
+            });
+            return false;
+          }
+
+          if (!isValidEvent) {
+            console.warn('Excluding invalid community event:', {
+              eventId: event.id.substring(0, 8),
+              kind: event.kind,
+              contentType
+            });
+            return false;
+          }
+
+          return true;
+        });
+
+        console.log(`✅ Validated ${filteredPosts.length} main community topics for display (excluding denied posts and replies)`);
+
+        const sortedPosts = filteredPosts.sort((a, b) => b.created_at - a.created_at);
+
+        return sortedPosts.map(event => ({
+          id: event.id,
+          pubkey: event.pubkey,
+          content: event.content,
+          created_at: event.created_at,
+          tags: event.tags,
+          kind: event.kind
+        })) as CommunityFeedPost[];
+
+      } else {
+        // Regular users see only approved posts (NIP-72 compliance)
+        console.log('👁️ Loading approved posts for regular user');
+
+        // First, get all approval events for this community
+        const approvals = await nostr.query([
+          {
+            kinds: [4550],
+            '#a': [communityTag],
+            limit: 1000 // High limit to get all approvals
+          }
+        ], { signal });
+
+        console.log(`✅ Found ${approvals.length} approval events`);
+
+        // Extract approved post IDs
+        const approvedEventIds = new Set<string>();
+
+        approvals.forEach(approval => {
+          const eTags = approval.tags.filter(tag => tag[0] === 'e');
+          eTags.forEach(eTag => {
+            if (eTag[1]) {
+              approvedEventIds.add(eTag[1]);
+            }
+          });
+        });
+
+        const approvedEventIdsArray = Array.from(approvedEventIds);
+        console.log(`🎯 Found ${approvedEventIdsArray.length} unique approved post IDs`);
+
+        if (approvedEventIdsArray.length === 0) {
+          console.log('📭 No approved posts found');
+          return [];
+        }
+
+        // Fetch the actual approved posts with pagination
+        const approvedQuery: any = {
+          kinds: [1111],
+          ids: approvedEventIdsArray,
+          limit: 30, // Smaller limit for infinite scroll
+        };
+
+        // Add until parameter for pagination (except first page)
+        if (pageParam) {
+          approvedQuery.until = pageParam;
+        }
+
+        const approvedPosts = await nostr.query([approvedQuery], { signal });
+
+        console.log(`📝 Found ${approvedPosts.length} actual approved posts`);
+
+        // Filter out NSFW content AND replies (only show main topics)
+        let filteredPosts = filterNSFWContent(approvedPosts).filter(event => {
+          // Exclude posts from hidden users
+          if (isUserHidden(event.pubkey)) {
+            console.log(`🙈 Excluding approved post from hidden user: ${event.id.substring(0, 8)}...`);
+            return false;
+          }
+
+          // Exclude posts with hidden hashtags
+          if (hasHiddenHashtag(event.tags)) {
+            console.log(`#️⃣ Excluding approved post with hidden hashtag: ${event.id.substring(0, 8)}...`);
+            return false;
+          }
+
+          // CRITICAL: Exclude replies - only show main topics in community feed
+          if (isReply(event)) {
+            console.log(`💬 Excluding reply from approved community posts: ${event.id.substring(0, 8)}...`);
+            return false;
+          }
+
+          // CRITICAL: Ensure only valid community content is included for regular users too
+          const isValidCommunity = isCommunityContent(event);
+          const isValidEvent = validateCommunityEvent(event);
+          const contentType = getContentType(event);
+
+          if (!isValidCommunity) {
+            console.warn('Excluding non-community event from approved posts:', {
+              eventId: event.id.substring(0, 8),
+              kind: event.kind,
+              contentType
+            });
+            return false;
+          }
+
+          if (!isValidEvent) {
+            console.warn('Excluding invalid community event from approved posts:', {
+              eventId: event.id.substring(0, 8),
+              kind: event.kind,
+              contentType
+            });
+            return false;
+          }
+
+          return true;
+        });
+
+        console.log(`✅ Validated ${filteredPosts.length} approved main community topics for regular users (excluding replies)`);
+
+        const sortedPosts = filteredPosts.sort((a, b) => b.created_at - a.created_at);
+
+        return sortedPosts.map(event => ({
+          id: event.id,
+          pubkey: event.pubkey,
+          content: event.content,
+          created_at: event.created_at,
+          tags: event.tags,
+          kind: event.kind
+        })) as CommunityFeedPost[];
+      }
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.length === 0) return undefined;
+      // Use the oldest post's timestamp for the next page
+      // Subtract 1 since 'until' is inclusive
+      return lastPage[lastPage.length - 1].created_at - 1;
+    },
+    initialPageParam: undefined,
+    enabled: !!communityId && !!communityAuthor,
+    refetchInterval: 60000, // Refetch every minute for infinite scroll
+    staleTime: 30000, // Consider data stale after 30 seconds
+    retry: 2,
+  });
+}
