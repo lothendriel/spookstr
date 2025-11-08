@@ -24,6 +24,14 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { ParanormalPodcastsCarousel } from '@/components/ParanormalPodcastsCarousel';
 import { useNavigate } from 'react-router-dom';
 
+// Conditional hook component to avoid calling both hooks simultaneously
+function useConditionalFeed(useInfiniteScroll: boolean) {
+  const traditionalFeed = useParanormalFeed();
+  const infiniteFeed = useParanormalFeedInfinite();
+
+  return useInfiniteScroll ? infiniteFeed : traditionalFeed;
+}
+
 const Index = () => {
   useSeoMeta({
     title: 'Spookstr - Paranormal Nostr Network',
@@ -32,20 +40,26 @@ const Index = () => {
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: posts, isLoading, error, refetch } = useParanormalFeed();
-  const {
-    data: infiniteData,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage: isInfiniteLoading,
-    isLoading: isInfiniteInitialLoading,
-    error: infiniteError,
-    refetch: refetchInfinite
-  } = useParanormalFeedInfinite();
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [postsToShow, setPostsToShow] = useState(12); // Show 12 posts initially on all devices
   const [useInfiniteScroll, setUseInfiniteScroll] = useState(false); // Toggle between pagination modes
   const isMobile = useIsMobile();
+
+  // Conditional hook calls - only one hook executes at a time
+  const feedData = useConditionalFeed(useInfiniteScroll);
+
+  // Extract data based on current mode
+  const posts = useInfiniteScroll ? undefined : feedData.data as NostrEvent[];
+  const infiniteData = useInfiniteScroll ? feedData.data : undefined;
+  const isLoading = useInfiniteScroll ? false : feedData.isLoading;
+  const isInfiniteInitialLoading = useInfiniteScroll ? feedData.isLoading : false;
+  const isInfiniteLoading = useInfiniteScroll ? feedData.isFetchingNextPage : false;
+  const error = useInfiniteScroll ? undefined : feedData.error;
+  const infiniteError = useInfiniteScroll ? feedData.error : undefined;
+  const refetch = useInfiniteScroll ? undefined : feedData.refetch;
+  const refetchInfinite = useInfiniteScroll ? feedData.refetch : undefined;
+  const fetchNextPage = useInfiniteScroll ? feedData.fetchNextPage : undefined;
+  const hasNextPage = useInfiniteScroll ? feedData.hasNextPage : undefined;
 
   // Get feed discovery stats
   const {
@@ -96,7 +110,7 @@ const Index = () => {
     console.log('[Index] Visible post IDs:', ids.map(id => id.slice(0, 8)), '(total:', ids.length, ')');
     console.log('[Index] BATCH DEBUG: Should be calling useBatchInteractions with:', ids.length, 'IDs');
     return ids;
-  }, [posts, postsToShow, infiniteData?.pages, useInfiniteScroll]);
+  }, [posts, postsToShow, infiniteData?.pages, useInfiniteScroll, feedData]);
 
   // Batch fetch interactions for all visible posts
   console.log('[Index] ABOUT TO CALL BATCH HOOK with', visiblePostIds.length, 'post IDs');
@@ -114,9 +128,9 @@ const Index = () => {
 
   // Memoize event handlers to prevent unnecessary re-renders
   const handleRefresh = useCallback(() => {
-    if (useInfiniteScroll) {
+    if (useInfiniteScroll && refetchInfinite) {
       refetchInfinite();
-    } else {
+    } else if (refetch) {
       setPostsToShow(12);
       refetch();
     }
@@ -175,9 +189,9 @@ const Index = () => {
                   </h2>
                   <SmartRelayDiscoveryIndicator
                     context="feed"
-                    eventsFound={posts?.length || 0}
+                    eventsFound={useInfiniteScroll ? (infiniteData?.pages?.[0]?.length || 0) : (posts?.length || 0)}
                     hintsUsed={discoveryStats?.hintsUsed || false}
-                    isLoading={isDiscovering || isLoading}
+                    isLoading={isDiscovering || (useInfiniteScroll ? isInfiniteInitialLoading : isLoading)}
                   />
                 </div>
                 <Button
@@ -185,7 +199,7 @@ const Index = () => {
                   variant="outline"
                   size="sm"
                   className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10"
-                  disabled={isLoading}
+                  disabled={useInfiniteScroll ? isInfiniteInitialLoading : isLoading}
                 >
                   <RotateCcw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                   Refresh
@@ -197,7 +211,7 @@ const Index = () => {
             </div>
 
             {/* Loading states */}
-            {(isLoading || isInfiniteInitialLoading) && (
+            {(useInfiniteScroll ? isInfiniteInitialLoading : isLoading) && (
               <div className="space-y-4">
                 {[...Array(5)].map((_, i) => (
                   <div key={i} className="border border-lime-500/20 rounded-lg p-4 bg-black/40">
@@ -216,7 +230,7 @@ const Index = () => {
             )}
 
             {/* Error states */}
-            {(error || infiniteError) && (
+            {(useInfiniteScroll ? infiniteError : error) && (
               <div className="border border-lime-500/20 rounded-lg p-6 bg-black/40 text-center">
                 <Ghost className="h-12 w-12 text-lime-500/60 mx-auto mb-4" />
                 <p className="text-lime-400 mb-2">The spirits are restless...</p>
@@ -227,7 +241,8 @@ const Index = () => {
             )}
 
             {/* Empty states */}
-            {!isLoading && !isInfiniteInitialLoading && !error && !infiniteError && (
+            {!(useInfiniteScroll ? isInfiniteInitialLoading : isLoading) &&
+             !(useInfiniteScroll ? infiniteError : error) && (
               <>
                 {((!useInfiniteScroll && posts && posts.length === 0) ||
                   (useInfiniteScroll && infiniteData?.pages?.[0]?.length === 0)) && (
@@ -292,7 +307,7 @@ const Index = () => {
                     )}
 
                     {/* Infinite scroll */}
-                    {useInfiniteScroll && (
+                    {useInfiniteScroll && infiniteData && (
                       <InfiniteFeedContent
                         data={infiniteData}
                         hasNextPage={hasNextPage}
