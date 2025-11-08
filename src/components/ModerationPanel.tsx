@@ -26,7 +26,7 @@ interface ModerationPanelProps {
 }
 
 export function ModerationPanel({ communityId }: ModerationPanelProps) {
-  // Move all hook calls to the top to avoid React hooks violation
+  // ALL HOOKS MUST BE AT THE TOP - NO CONDITIONAL HOOK CALLS
   const { data: community, isLoading: communityLoading } = useCommunity(communityId);
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
@@ -53,8 +53,36 @@ export function ModerationPanel({ communityId }: ModerationPanelProps) {
     community?.author
   );
 
-  // State hooks must be called BEFORE any early returns
+  // State hooks MUST be declared before any useEffect or early returns
+  const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
+  const [actionType, setActionType] = useState<'approve' | 'deny' | null>(null);
 
+  // Clean up old local moderation decisions on component mount
+  useEffect(() => {
+    const cleanedCount = cleanupOldModerationDecisions(7); // Clean up decisions older than 7 days
+    if (cleanedCount > 0) {
+      console.log(`🧹 Cleaned up ${cleanedCount} old moderation decisions on component mount`);
+    }
+  }, [cleanupOldModerationDecisions]);
+
+  // Debug: Log current localStorage state for this community
+  useEffect(() => {
+    if (!community) return;
+
+    console.log(`🔍 Debug: Checking localStorage for community ${community.id}`);
+    const moderationKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(`moderation-${community.id}-`)) {
+        moderationKeys.push(key);
+        console.log(`📱 Found moderation key: ${key}`);
+        console.log(`   Value: ${localStorage.getItem(key)}`);
+      }
+    }
+    console.log(`📱 Total moderation keys found: ${moderationKeys.length}`);
+  }, [community?.id]);
+
+  // NOW we can do early returns - all hooks have been called
 
   // Show loading state while fetching community data
   if (communityLoading) {
@@ -96,38 +124,7 @@ export function ModerationPanel({ communityId }: ModerationPanelProps) {
     );
   }
 
-  // Clean up old local moderation decisions on component mount
-  useEffect(() => {
-    const cleanedCount = cleanupOldModerationDecisions(7); // Clean up decisions older than 7 days
-    if (cleanedCount > 0) {
-      console.log(`🧹 Cleaned up ${cleanedCount} old moderation decisions on component mount`);
-    }
-  }, [cleanupOldModerationDecisions]);
-
-  // Debug: Log current localStorage state for this community
-  useEffect(() => {
-    if (!community) return;
-
-    console.log(`🔍 Debug: Checking localStorage for community ${community.id}`);
-    const moderationKeys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith(`moderation-${community.id}-`)) {
-        moderationKeys.push(key);
-        console.log(`📱 Found moderation key: ${key}`);
-        console.log(`   Value: ${localStorage.getItem(key)}`);
-      }
-    }
-    console.log(`📱 Total moderation keys found: ${moderationKeys.length}`);
-  }, [community?.id]);
-
-  const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
-  const [actionType, setActionType] = useState<'approve' | 'deny' | null>(null);
-
-  // Check moderator permissions only if community exists
-  if (!community) {
-    return null; // This should be handled by the earlier check, but being defensive
-  }
+  // Check moderator permissions
 
   const isOwner = user?.pubkey === community.author;
   const isModerator = isOwner || community.moderators.includes(user?.pubkey || '');
