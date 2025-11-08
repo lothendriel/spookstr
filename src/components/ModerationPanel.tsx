@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/useToast';
 import { usePendingPosts, useApprovedPosts, useModerationActions } from '@/hooks/useCommunityModeration';
 import { useModerationPersistence } from '@/hooks/useModerationPersistence';
 import { debugModerationLocalStorage, debugLocalStorageAvailability, debugPendingPostsFiltering } from '@/hooks/useModerationDebug';
-import { CommunityDefinition } from '@/hooks/useCommunity';
+import { useCommunity, CommunityDefinition } from '@/hooks/useCommunity';
 import { Shield, CheckCircle, XCircle, MessageSquare, Clock, Eye, Bug } from 'lucide-react';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Skeleton } from '@/components/ui/skeleton';
