@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useParams } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 import Index from "./pages/Index";
@@ -17,8 +17,19 @@ const CreateCommunityPage = lazy(() => import("./pages/CreateCommunityPage"));
 const CommunityBrowsePage = lazy(() => import("./pages/CommunityBrowsePage"));
 const PostDetailPage = lazy(() => import("./pages/PostDetailPage"));
 const CommunityPostDetailPage = lazy(() => import("./pages/CommunityPostDetailPage"));
-const ModeratorPanel = lazy(() => import("./components/communities/ModeratorPanel").then(m => ({ default: m.ModeratorPanel })));
+const ModeratorPanel = lazy(() => import("./components/ModerationPanel").then(m => ({ default: m.ModerationPanel })));
 const ParanormalMapPage = lazy(() => import("./pages/ParanormalMap"));
+
+// Wrapper component to pass route params to ModerationPanel
+function ModeratorPanelWrapper() {
+  const { communityId } = useParams<{ communityId: string }>();
+
+  if (!communityId) {
+    return <div>Community ID not found</div>;
+  }
+
+  return <ModerationPanel communityId={communityId} />;
+}
 
 
 export function AppRouter() {
@@ -37,7 +48,9 @@ export function AppRouter() {
         <Route path="/communities" element={<CommunityBrowsePage />} />
         <Route path="/community/:communityId" element={<CommunityPage />} />
         <Route path="/community/:communityId/post/:postId" element={<CommunityPostDetailPage />} />
-        <Route path="/community/:communityId/moderate" element={<ModeratorPanel />} />
+        <Route path="/community/:communityId/moderate" element={
+          <ModeratorPanelWrapper />
+        } />
         <Route path="/create-community" element={<CreateCommunityPage />} />
         <Route path="/create-community/:communityId" element={<CreateCommunityPage />} />
         <Route path="/paranormal-map" element={<ParanormalMapPage />} />

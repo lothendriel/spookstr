@@ -22,10 +22,51 @@ import { formatDistanceToNow } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface ModerationPanelProps {
-  community: CommunityDefinition;
+  communityId: string;
 }
 
-export function ModerationPanel({ community }: ModerationPanelProps) {
+export function ModerationPanel({ communityId }: ModerationPanelProps) {
+  const { data: community, isLoading: communityLoading } = useCommunity(communityId);
+
+  // Show loading state while fetching community data
+  if (communityLoading) {
+    return (
+      <div className="min-h-screen">
+        <div className="container mx-auto px-4 py-6">
+          <div className="max-w-6xl mx-auto">
+            <Card className="border-purple-500/20 bg-black/40 backdrop-blur-sm">
+              <CardContent className="py-12">
+                <div className="text-center">
+                  <div className="animate-spin h-8 w-8 border-2 border-purple-500 border-t-transparent rounded-full mx-auto mb-4" />
+                  <p className="text-purple-400">Loading moderation panel...</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if community not found
+  if (!community) {
+    return (
+      <div className="min-h-screen">
+        <div className="container mx-auto px-4 py-6">
+          <div className="max-w-6xl mx-auto">
+            <Card className="border-red-500/20 bg-black/40 backdrop-blur-sm">
+              <CardContent className="py-12">
+                <div className="text-center">
+                  <h1 className="text-2xl font-bold text-red-400 mb-4">Community Not Found</h1>
+                  <p className="text-red-300">The community you're trying to moderate doesn't exist.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
   const { data: pendingPosts, isLoading: loadingPending, refetch: refetchPending } = usePendingPosts(community.id, community.author);
@@ -50,6 +91,8 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
 
   // Debug: Log current localStorage state for this community
   useEffect(() => {
+    if (!community) return;
+
     console.log(`🔍 Debug: Checking localStorage for community ${community.id}`);
     const moderationKeys = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -61,7 +104,7 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
       }
     }
     console.log(`📱 Total moderation keys found: ${moderationKeys.length}`);
-  }, [community.id]);
+  }, [community?.id]);
 
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'deny' | null>(null);
