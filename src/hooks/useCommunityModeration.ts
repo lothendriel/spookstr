@@ -142,8 +142,22 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
         limit: 200
       }], { signal });
 
-      console.log(`📝 Found ${allPosts.length} total posts (kind 1111)`);
-      console.log(`📝 Post IDs:`, allPosts.map(p => p.id.slice(0, 8) + '...'));
+      // Also query for legacy kind 1 posts for backwards compatibility
+      const legacyPosts = await nostr.query([{
+        kinds: [1],
+        '#a': [communityTag],
+        limit: 100
+      }], { signal });
+
+      // Combine both types of posts, removing duplicates
+      const combinedPosts = [...allPosts, ...legacyPosts];
+      const uniquePosts = combinedPosts.filter((post, index, self) =>
+        index === self.findIndex(p => p.id === post.id)
+      );
+
+      console.log(`📝 Found ${allPosts.length} kind 1111 posts + ${legacyPosts.length} kind 1 posts = ${uniquePosts.length} unique posts`);
+
+      console.log(`📝 Post IDs:`, uniquePosts.map(p => p.id.slice(0, 8) + '...'));
 
       // Query for all approval events (kind 4550) for this community
       const approvals = await nostr.query([
@@ -246,9 +260,9 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
 
       // Filter out approved and denied posts - only show truly pending posts
       // Remote decisions take priority over local decisions to prevent conflicts
-      console.log(`🔍 Starting filtering process for ${allPosts.length} posts...`);
+      console.log(`🔍 Starting filtering process for ${uniquePosts.length} posts...`);
 
-      const pendingPosts = allPosts
+      const pendingPosts = uniquePosts
         .filter(post => {
           const isRemoteApproved = approvedEventIds.has(post.id);
           const isRemoteDenied = deniedEventIds.has(post.id);
@@ -383,68 +397,132 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
 
       console.log(`✅ Found ${approvals.length} approval events for approved posts`);
 
-      // Extract approved posts directly from approval events (kind 4550)
-      // According to NIP-72, approval events contain the full approved event in content
-      const approvedPosts: NostrEvent[] = [];
-      const approvedEventIds = new Set<string>();
+      // Query for all denial events (kind 4551) for this community
+      const denials = await nostr.query([
+        {
+          kinds: [4551],
+          '#a': [communityTag],
+          limit: 200
+        }
+      ], { signal });
 
+      console.log(`❌ Found ${denials.length} denial events for approved posts`);
+
+      // Create sets of approved and denied event IDs for filtering (same logic as usePendingPosts)
+      const approvedEventIds = new Set<string>();
+      const deniedEventIds = new Set<string>();
+
+      // Process remote approval events
       approvals.forEach(approval => {
+        console.log(`🔍 Processing approval event ${approval.id.slice(0, 8)}... for approved posts`);
         const eTags = approval.tags.filter(tag => tag[0] === 'e');
 
         eTags.forEach(eTag => {
           if (eTag[1]) {
-            const eventId = eTag[1];
+            approvedEventIds.add(eTag[1]);
+            console.log(`✅ Remote approval added to set: ${eTag[1].slice(0, 8)}...`);
 
-            // Skip if we already processed this event ID
-            if (approvedEventIds.has(eventId)) {
-              console.log(`⏭️ Skipping duplicate approval: ${eventId.slice(0, 8)}...`);
-              return;
-            }
-
-            approvedEventIds.add(eventId);
-            console.log(`✅ Processing approval for: ${eventId.slice(0, 8)}...`);
-
-            // Try to extract the approved event from the approval event's content
-            try {
-              const parsed = JSON.parse(approval.content);
-
-              // Check if it's our enhanced format with approvedEvent
-              if (parsed.approvedEvent && parsed.approvedEvent.id === eventId) {
-                approvedPosts.push(parsed.approvedEvent as NostrEvent);
-                console.log(`📦 Extracted approved post from approval content: ${eventId.slice(0, 8)}...`);
-              }
-              // Check if it's the old format (full event directly in content)
-              else if (parsed.id === eventId) {
-                approvedPosts.push(parsed as NostrEvent);
-                console.log(`📦 Extracted approved post from approval content (old format): ${eventId.slice(0, 8)}...`);
-              }
-              else {
-                console.warn(`⚠️ Approval content doesn't match event ID: ${eventId.slice(0, 8)}...`);
-              }
-            } catch (error) {
-              console.warn(`⚠️ Failed to parse approval content for ${eventId.slice(0, 8)}...:`, error);
-            }
-
-            // Clean up local storage if we have a remote confirmation
-            if (localApprovedEvents.has(eventId)) {
-              const localKey = `moderation-${communityId}-${eventId}`;
+            // Clean up local storage if we have ANY local decision for this event
+            if (localApprovedEvents.has(eTag[1])) {
+              const localKey = `moderation-${communityId}-${eTag[1]}`;
+              const localAction = localApprovedEvents.has(eTag[1]) ? 'approve' : 'unknown';
 
               try {
                 localStorage.removeItem(localKey);
-                localApprovedEvents.delete(eventId);
-                console.log(`🧹 Cleaned up local approval for ${eventId.slice(0, 8)}... (remote approval found)`);
+                localApprovedEvents.delete(eTag[1]);
+                console.log(`🧹 Cleaned up local ${localAction} for ${eTag[1].slice(0, 8)}... (remote approval found)`);
               } catch (error) {
-                console.error(`❌ Failed to cleanup local approval for ${eventId.slice(0, 8)}...:`, error);
+                console.error(`❌ Failed to cleanup local decision for ${eTag[1].slice(0, 8)}...:`, error);
               }
             }
           }
         });
       });
 
-      console.log(`📝 Found ${approvedPosts.length} approved posts from ${approvals.length} approval events`);
+      // Process remote denial events
+      denials.forEach(denial => {
+        console.log(`🔍 Processing denial event ${denial.id.slice(0, 8)}... for approved posts`);
+        const eTags = denial.tags.filter(tag => tag[0] === 'e');
 
-      // Return the approved posts we extracted from approval events
-      return approvedPosts
+        eTags.forEach(eTag => {
+          if (eTag[1]) {
+            deniedEventIds.add(eTag[1]);
+            console.log(`❌ Remote denial added to set: ${eTag[1].slice(0, 8)}...`);
+
+            // Clean up local storage if we have ANY local decision for this event
+            if (localApprovedEvents.has(eTag[1])) {
+              const localKey = `moderation-${communityId}-${eTag[1]}`;
+              const localAction = localApprovedEvents.has(eTag[1]) ? 'approve' : 'unknown';
+
+              try {
+                localStorage.removeItem(localKey);
+                localApprovedEvents.delete(eTag[1]);
+                console.log(`🧹 Cleaned up local ${localAction} for ${eTag[1].slice(0, 8)}... (remote denial found)`);
+              } catch (error) {
+                console.error(`❌ Failed to cleanup local decision for ${eTag[1].slice(0, 8)}...:`, error);
+              }
+            }
+          }
+        });
+      });
+
+      console.log(`✅ Total approved event IDs in set: ${approvedEventIds.size}`);
+      console.log(`❌ Total denied event IDs in set: ${deniedEventIds.size}`);
+
+      // Now query for ALL original posts (both kind 1111 and kind 1) and filter for approved ones
+      // This ensures consistency with usePendingPosts
+      const allPosts = await nostr.query([{
+        kinds: [1111],
+        '#A': [communityTag],
+        limit: 200
+      }], { signal });
+
+      const legacyPosts = await nostr.query([{
+        kinds: [1],
+        '#a': [communityTag],
+        limit: 100
+      }], { signal });
+
+      // Combine both types of posts, removing duplicates
+      const combinedPosts = [...allPosts, ...legacyPosts];
+      const uniquePosts = combinedPosts.filter((post, index, self) =>
+        index === self.findIndex(p => p.id === post.id)
+      );
+
+      console.log(`📝 Found ${uniquePosts.length} total posts to filter for approved ones`);
+
+      // Filter for only approved posts using the same logic as usePendingPosts
+      const approvedPosts = uniquePosts
+        .filter(post => {
+          const isRemoteApproved = approvedEventIds.has(post.id);
+          const isRemoteDenied = deniedEventIds.has(post.id);
+          const localAction = localApprovedEvents.has(post.id) ? 'approve' : undefined;
+
+          // Priority-based conflict resolution: Remote > Local
+          let finalStatus: 'approved' | 'denied' | 'pending' = 'pending';
+
+          if (isRemoteApproved) {
+            finalStatus = 'approved';
+          } else if (isRemoteDenied) {
+            finalStatus = 'denied';
+          } else if (localAction === 'approve') {
+            finalStatus = 'approved';
+          } else if (localAction === 'deny') {
+            finalStatus = 'denied';
+          }
+
+          const shouldShow = finalStatus === 'approved';
+
+          console.log(`📝 Post ${post.id.slice(0, 8)}... for approved tab:`);
+          console.log(`   Remote Approved: ${isRemoteApproved}`);
+          console.log(`   Remote Denied: ${isRemoteDenied}`);
+          console.log(`   Local Action: ${localAction}`);
+          console.log(`   Final Status: ${finalStatus}`);
+          console.log(`   Should Show: ${shouldShow}`);
+          console.log(`   ---`);
+
+          return shouldShow;
+        })
         .map(post => {
           const parentEventTag = post.tags.find(tag =>
             tag[0] === 'e' && tag[1] !== post.id
@@ -456,7 +534,10 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
             parentEventId: parentEventTag?.[1]
           };
         })
-        .sort((a, b) => b.event.created_at - a.event.created_at);
+        .sort((a, b) => b.event.created_at - a.event.created_at); // Newest first
+
+      console.log(`✅ Final result: ${approvedPosts.length} approved posts after filtering`);
+      console.log(`✅ Approved post IDs:`, approvedPosts.map(p => p.event.id.slice(0, 8) + '...'));
     },
     enabled: !!communityId && !!communityAuthor,
     refetchInterval: 30000, // Refetch every 30 seconds (reduced frequency)
