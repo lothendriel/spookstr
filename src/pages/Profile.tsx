@@ -3,13 +3,15 @@ import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { useAuthor } from '@/hooks/useAuthor';
 import { useFollow } from '@/hooks/useFollow';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
+import { useOutboxInfiniteQuery } from '@/hooks/useOutboxQuery';
 import { getDisplayName } from '@/lib/getDisplayName';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ParanormalPost } from '@/components/ParanormalPost';
-import { useOutboxQuery } from '@/hooks/useOutboxQuery';
+import { InfiniteScrollLoader, InfiniteScrollSkeleton } from '@/components/ui/InfiniteScrollLoader';
 import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check, MessageSquare } from 'lucide-react';
 import { useState } from 'react';
 import { PostDetailView } from '@/components/PostDetailView';
@@ -59,39 +61,85 @@ export default function Profile({ pubkey }: ProfileProps) {
     }
   };
 
-  // Fetch user's posts using outbox model (queries their write relays)
+  // Fetch user's posts using infinite outbox model
   // Include kind 1 (notes), kind 6 (reposts), and kind 16 (generic reposts)
-  const { data: posts, isLoading: isLoadingPosts } = useOutboxQuery({
+  const {
+    data: postsData,
+    fetchNextPage: fetchNextPosts,
+    hasNextPage: hasNextPosts,
+    isFetchingNextPage: isFetchingNextPosts,
+    isLoading: isLoadingPosts
+  } = useOutboxInfiniteQuery({
     authorPubkey: pubkey,
-    filters: [{ kinds: [1, 6, 16], authors: [pubkey], limit: 50 }],
+    filters: [{ kinds: [1, 6, 16], authors: [pubkey] }],
     enabled: !!pubkey,
     staleTime: 30000,
+    limit: 30
   });
 
-  // Process posts to filter out replies (only for kind 1)
+  // Flatten and process posts to filter out replies (only for kind 1)
   // Keep all reposts (kind 6 and 16) regardless of tags
-  const processedPosts = posts ?
-    posts.filter(event => {
+  const allPosts = useMemo(() => {
+    if (!postsData?.pages) return [];
+    const seen = new Set();
+    return postsData.pages.flat().filter(event => {
+      // Skip duplicates
+      if (event.id && seen.has(event.id)) return false;
+      seen.add(event.id);
+
       // Keep all reposts
       if (event.kind === 6 || event.kind === 16) return true;
       // For kind 1, filter out replies (events with 'e' tags)
       return event.kind === 1 && !event.tags.some(([tagName]) => tagName === 'e');
-    }).sort((a, b) => b.created_at - a.created_at) :
-    null;
+    });
+  }, [postsData]);
 
-  // Fetch user's replies using outbox model (queries their write relays)
-  const { data: replies, isLoading: isLoadingReplies } = useOutboxQuery({
+  // Set up infinite scroll for posts
+  const postsLoadMoreRef = useInfiniteScroll({
+    hasNextPage: !!hasNextPosts,
+    isFetchingNextPage: isFetchingNextPosts,
+    fetchNextPage: fetchNextPosts,
+    threshold: 0.8,
+    rootMargin: '200px'
+  }).loadMoreRef;
+
+  // Fetch user's replies using infinite outbox model
+  const {
+    data: repliesData,
+    fetchNextPage: fetchNextReplies,
+    hasNextPage: hasNextReplies,
+    isFetchingNextPage: isFetchingNextReplies,
+    isLoading: isLoadingReplies
+  } = useOutboxInfiniteQuery({
     authorPubkey: pubkey,
-    filters: [{ kinds: [1], authors: [pubkey], limit: 50 }],
+    filters: [{ kinds: [1], authors: [pubkey] }],
     enabled: !!pubkey,
     staleTime: 30000,
+    limit: 30
   });
 
-  // Process replies to filter for only reply events
-  const processedReplies = replies ?
-    replies.filter(event => event.tags.some(([tagName]) => tagName === 'e'))
-      .sort((a, b) => b.created_at - a.created_at) :
-    null;
+  // Flatten and process replies to filter for only reply events
+  const allReplies = useMemo(() => {
+    if (!repliesData?.pages) return [];
+    const seen = new Set();
+    return repliesData.pages.flat().filter(event => {
+      // Skip duplicates
+      if (event.id && seen.has(event.id)) return false;
+      seen.add(event.id);
+
+      // Only include events with 'e' tags (replies)
+      return event.tags.some(([tagName]) => tagName === 'e');
+    });
+  }, [repliesData]);
+
+  // Set up infinite scroll for replies
+  const repliesLoadMoreRef = useInfiniteScroll({
+    hasNextPage: !!hasNextReplies,
+    isFetchingNextPage: isFetchingNextReplies,
+    fetchNextPage: fetchNextReplies,
+    threshold: 0.8,
+    rootMargin: '200px'
+  }).loadMoreRef;
 
   if (selectedPost) {
     return (
@@ -271,27 +319,11 @@ export default function Profile({ pubkey }: ProfileProps) {
             {/* Posts Tab Content */}
             <TabsContent value="posts" className="mt-6">
               <div className="space-y-4">
-                {isLoadingPosts && (
-                  <div className="space-y-4">
-                    {[...Array(3)].map((_, i) => (
-                      <Card key={i} className="border-lime-500/20 bg-black/40">
-                        <CardContent className="p-4">
-                          <div className="flex items-center space-x-3 mb-3">
-                            <Skeleton className="h-10 w-10 rounded-full" />
-                            <div className="space-y-1">
-                              <Skeleton className="h-4 w-24" />
-                              <Skeleton className="h-3 w-16" />
-                            </div>
-                          </div>
-                          <Skeleton className="h-4 w-full" />
-                          <Skeleton className="h-4 w-3/4 mt-2" />
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                {isLoadingPosts && !postsData && (
+                  <InfiniteScrollSkeleton count={3} />
                 )}
 
-                {!isLoadingPosts && (!processedPosts || processedPosts.length === 0) && (
+                {!isLoadingPosts && allPosts.length === 0 && (
                   <Card className="border-dashed border-lime-500/20 bg-black/20">
                     <CardContent className="p-12 text-center">
                       <Ghost className="h-16 w-16 text-lime-500/40 mx-auto mb-4" />
@@ -305,9 +337,9 @@ export default function Profile({ pubkey }: ProfileProps) {
                   </Card>
                 )}
 
-                {!isLoadingPosts && processedPosts && processedPosts.length > 0 && (
+                {!isLoadingPosts && allPosts.length > 0 && (
                   <div className="space-y-4">
-                    {processedPosts.map((post) => (
+                    {allPosts.map((post) => (
                       <ParanormalPost
                         key={post.id}
                         event={post}
@@ -315,6 +347,14 @@ export default function Profile({ pubkey }: ProfileProps) {
                         showActions={true}
                       />
                     ))}
+
+                    {/* Infinite scroll loader for posts */}
+                    <InfiniteScrollLoader
+                      ref={postsLoadMoreRef}
+                      isLoading={isFetchingNextPosts}
+                      hasMore={!!hasNextPosts}
+                      loader={<InfiniteScrollSkeleton count={2} />}
+                    />
                   </div>
                 )}
               </div>
@@ -323,27 +363,11 @@ export default function Profile({ pubkey }: ProfileProps) {
             {/* Replies Tab Content */}
             <TabsContent value="replies" className="mt-6">
               <div className="space-y-4">
-                {isLoadingReplies && (
-                  <div className="space-y-4">
-                    {[...Array(3)].map((_, i) => (
-                      <Card key={i} className="border-lime-500/20 bg-black/40">
-                        <CardContent className="p-4">
-                          <div className="flex items-center space-x-3 mb-3">
-                            <Skeleton className="h-10 w-10 rounded-full" />
-                            <div className="space-y-1">
-                              <Skeleton className="h-4 w-24" />
-                              <Skeleton className="h-3 w-16" />
-                            </div>
-                          </div>
-                          <Skeleton className="h-4 w-full" />
-                          <Skeleton className="h-4 w-3/4 mt-2" />
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                {isLoadingReplies && !repliesData && (
+                  <InfiniteScrollSkeleton count={3} />
                 )}
 
-                {!isLoadingReplies && (!processedReplies || processedReplies.length === 0) && (
+                {!isLoadingReplies && allReplies.length === 0 && (
                   <Card className="border-dashed border-lime-500/20 bg-black/20">
                     <CardContent className="p-12 text-center">
                       <MessageSquare className="h-16 w-16 text-lime-500/40 mx-auto mb-4" />
@@ -357,9 +381,9 @@ export default function Profile({ pubkey }: ProfileProps) {
                   </Card>
                 )}
 
-                {!isLoadingReplies && processedReplies && processedReplies.length > 0 && (
+                {!isLoadingReplies && allReplies.length > 0 && (
                   <div className="space-y-4">
-                    {processedReplies.map((reply) => (
+                    {allReplies.map((reply) => (
                       <ParanormalPost
                         key={reply.id}
                         event={reply}
@@ -367,6 +391,14 @@ export default function Profile({ pubkey }: ProfileProps) {
                         showActions={true}
                       />
                     ))}
+
+                    {/* Infinite scroll loader for replies */}
+                    <InfiniteScrollLoader
+                      ref={repliesLoadMoreRef}
+                      isLoading={isFetchingNextReplies}
+                      hasMore={!!hasNextReplies}
+                      loader={<InfiniteScrollSkeleton count={2} />}
+                    />
                   </div>
                 )}
               </div>

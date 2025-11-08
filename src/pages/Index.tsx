@@ -5,6 +5,7 @@ import { useParanormalFeed } from '@/hooks/useParanormalFeed';
 import { useBatchInteractions } from '@/hooks/useBatchInteractions';
 import { useRealtimeInteractionUpdates } from '@/hooks/useRealtimeInteractionUpdates';
 import { useFeedDiscovery } from '@/hooks/useContextualRelayDiscovery';
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { SmartRelayDiscoveryIndicator } from '@/components/RelayDiscoveryIndicator';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { CreateParanormalPost } from '@/components/CreateParanormalPost';
@@ -13,7 +14,7 @@ import { RedditParanormalFeed } from '@/components/RedditParanormalFeed';
 import { DeveloperTip } from '@/components/DeveloperTip';
 import { PostDetailView } from '@/components/PostDetailView';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
-import { FeedContent } from '@/components/FeedContent';
+import { InfiniteScrollLoader, InfiniteScrollSkeleton } from '@/components/ui/InfiniteScrollLoader';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Button } from '@/components/ui/button';
 import { RotateCcw, Ghost, Plus } from 'lucide-react';
@@ -30,9 +31,16 @@ const Index = () => {
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: posts, isLoading, error, refetch } = useParanormalFeed();
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    error,
+    refetch
+  } = useParanormalFeed();
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
-  const [postsToShow, setPostsToShow] = useState(12); // Show 12 posts initially on all devices
   const isMobile = useIsMobile();
 
   // Get feed discovery stats
@@ -42,57 +50,54 @@ const Index = () => {
     stats: discoveryStats
   } = useFeedDiscovery();
 
-  // Memoize visible post IDs to prevent unnecessary re-renders
+  // Flatten all pages and remove duplicates
+  const allPosts = useMemo(() => {
+    if (!data?.pages) return [];
+    const seen = new Set();
+    return data.pages.flat().filter(post => {
+      if (!post.id || seen.has(post.id)) return false;
+      seen.add(post.id);
+      return true;
+    });
+  }, [data?.pages]);
+
+  // Batch fetch interactions for all visible posts (limit to first 50 for performance)
   const visiblePostIds = useMemo(() => {
-    if (!posts) {
-      console.log('[Index] No posts available, returning empty visiblePostIds');
-      return [];
-    }
-    const ids = posts.slice(0, postsToShow).map(post => {
+    return allPosts.slice(0, 50).map(post => {
       // For reposts, use the original event ID for interaction queries
       if (post.kind === 6 || post.kind === 16) {
         try {
           const repostedEvent = JSON.parse(post.content);
           if (repostedEvent?.id) {
-            console.log('[Index] Repost detected, using original event ID:', repostedEvent.id.slice(0, 8), 'for repost event ID:', post.id.slice(0, 8));
             return repostedEvent.id;
           }
         } catch (e) {
-          console.warn('[Index] Failed to parse repost content, using repost event ID:', post.id.slice(0, 8), e);
           return post.id;
         }
       }
       return post.id;
     });
+  }, [allPosts]);
 
-    console.log('[Index] Visible post IDs:', ids.map(id => id.slice(0, 8)), '(total:', ids.length, ')');
-    console.log('[Index] BATCH DEBUG: Should be calling useBatchInteractions with:', ids.length, 'IDs');
-    return ids;
-  }, [posts, postsToShow]);
-
-  // Batch fetch interactions for all visible posts
-  console.log('[Index] ABOUT TO CALL BATCH HOOK with', visiblePostIds.length, 'post IDs');
+  // Batch fetch interactions for visible posts
   useBatchInteractions(visiblePostIds);
 
-  // Enable real-time updates for visible posts (single shared subscription)
+  // Enable real-time updates for visible posts
   useRealtimeInteractionUpdates(visiblePostIds);
 
-  // Reset pagination when new posts are loaded
-  useEffect(() => {
-    if (posts) {
-      setPostsToShow(12);
-    }
-  }, [posts]);
+  // Set up infinite scroll
+  const { loadMoreRef } = useInfiniteScroll({
+    hasNextPage: !!hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+    threshold: 0.8,
+    rootMargin: '200px'
+  });
 
-  // Memoize event handlers to prevent unnecessary re-renders
+  // Memoize event handlers
   const handleRefresh = useCallback(() => {
-    setPostsToShow(12);
     refetch();
   }, [refetch]);
-
-  const handleLoadMore = useCallback(() => {
-    setPostsToShow(prev => prev + 12);
-  }, []);
 
   const handlePostClick = useCallback((post: NostrEvent) => {
     setSelectedPost(post);
@@ -158,22 +163,8 @@ const Index = () => {
               </p>
             </div>
 
-            {isLoading && (
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="border border-lime-500/20 rounded-lg p-4 bg-black/40">
-                    <div className="flex items-center space-x-3 mb-3">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="space-y-1">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-3 w-16" />
-                      </div>
-                    </div>
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-3/4 mt-2" />
-                  </div>
-                ))}
-              </div>
+            {isLoading && !data && (
+              <InfiniteScrollSkeleton count={5} />
             )}
 
             {error && (
@@ -186,7 +177,7 @@ const Index = () => {
               </div>
             )}
 
-            {!isLoading && !error && posts && posts.length === 0 && (
+            {!isLoading && !error && allPosts.length === 0 && (
               <div className="border border-dashed border-lime-500/20 rounded-lg p-12 bg-black/20 text-center">
                 <Ghost className="h-16 w-16 text-lime-500/40 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-lime-400 mb-2">
@@ -198,36 +189,24 @@ const Index = () => {
               </div>
             )}
 
-            {!isLoading && !error && posts && posts.length > 0 && (
+            {!isLoading && !error && allPosts.length > 0 && (
               <div className="space-y-4">
-                {/* Use memoized FeedContent component for better performance */}
-                <FeedContent
-                  posts={posts}
-                  postsToShow={postsToShow}
-                  onPostClick={handlePostClick}
+                {/* Render all posts */}
+                {allPosts.map((post) => (
+                  <ParanormalPost
+                    key={post.id}
+                    event={post}
+                    onClick={() => handlePostClick(post)}
+                  />
+                ))}
+
+                {/* Infinite scroll loader */}
+                <InfiniteScrollLoader
+                  ref={loadMoreRef}
+                  isLoading={isFetchingNextPage}
+                  hasMore={!!hasNextPage}
+                  loader={<InfiniteScrollSkeleton count={2} />}
                 />
-
-                {/* Load More Button - Shown on all devices when more posts available */}
-                {postsToShow < posts.length && (
-                  <div className="flex justify-center pt-4">
-                    <Button
-                      onClick={handleLoadMore}
-                      variant="outline"
-                      className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10 w-full max-w-xs"
-                    >
-                      Load More Posts ({posts.length - postsToShow} remaining)
-                    </Button>
-                  </div>
-                )}
-
-                {/* Show total posts count when all are loaded */}
-                {postsToShow >= posts.length && (
-                  <div className="text-center pt-4">
-                    <p className="text-sm text-lime-500/60">
-                      Showing all {posts.length} posts
-                    </p>
-                  </div>
-                )}
               </div>
             )}
           </div>

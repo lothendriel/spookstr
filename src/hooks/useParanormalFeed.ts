@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNostr } from '@nostrify/react';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { NostrEvent } from '@nostrify/nostrify';
 import { filterNSFWContent } from '@/lib/nsfwFilter';
 import { nip19 } from 'nostr-tools';
@@ -221,75 +221,93 @@ export function useParanormalFeed() {
     return { filterBlockedUsersCached, filterRepostsByTagsCached };
   }, [hiddenPubkeys, hasHiddenHashtag]);
 
-  return useQuery({
-    queryKey: ['paranormal-feed', hiddenPubkeys, hasHiddenHashtag, personalizedHashtags],
-    queryFn: async (c) => {
-      return await (async () => {
-        const PARANORMAL_TAGS = getParanormalTags();
+  return useInfiniteQuery({
+    queryKey: ['paranormal-feed-infinite', hiddenPubkeys, hasHiddenHashtag, personalizedHashtags],
+    queryFn: async ({ pageParam, signal: querySignal }) => {
+      console.log('[ParanormalFeed] 🔮 Infinite query function called', {
+        pageParam: pageParam ? new Date(pageParam * 1000).toISOString() : 'initial',
+        personalizedHashtags: personalizedHashtags.length
+      });
 
-        const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
+      const PARANORMAL_TAGS = getParanormalTags();
+      const signal = AbortSignal.any([querySignal, AbortSignal.timeout(8000)]);
 
-        // Combine paranormal tags with personalized hashtags
-        const allTags = [...PARANORMAL_TAGS];
-        if (personalizedHashtags.length > 0) {
-          allTags.push(...personalizedHashtags);
-        }
+      // Combine paranormal tags with personalized hashtags
+      const allTags = [...PARANORMAL_TAGS];
+      if (personalizedHashtags.length > 0) {
+        allTags.push(...personalizedHashtags);
+      }
 
-        // Build queries based on whether we have personalized hashtags
-        const queries = [];
+      // Build queries based on whether we have personalized hashtags
+      const queries = [];
 
-        // Always query for paranormal content
+      // Always query for paranormal content
+      const paranormalQuery: any = {
+        kinds: [1],
+        '#t': PARANORMAL_TAGS,
+        limit: 30, // Reduced limit for infinite scroll
+      };
+
+      // Add personalized hashtag query if any exist
+      if (personalizedHashtags.length > 0) {
         queries.push({
           kinds: [1],
-          '#t': PARANORMAL_TAGS,
-          limit: personalizedHashtags.length > 0 ? 30 : 50, // Reduce limit if we have personalized content
-        });
-
-        // Add personalized hashtag query if any exist
-        if (personalizedHashtags.length > 0) {
-          queries.push({
-            kinds: [1],
-            '#t': personalizedHashtags,
-            limit: 20,
-          });
-        }
-
-        // Always include reposts
-        queries.push({
-          kinds: [6], // Include reposts
+          '#t': personalizedHashtags,
           limit: 20,
         });
+      }
 
-        const events = await nostr.query(queries, { signal });
+      // Always include reposts
+      queries.push({
+        kinds: [6], // Include reposts
+        limit: 15, // Reduced limit for infinite scroll
+      });
 
-        // Filter out replies and community content to prevent cross-contamination
-        let filteredEvents = filterForMainFeed(events);
+      // Add pagination parameter for the main query
+      if (pageParam) {
+        paranormalQuery.until = pageParam;
+      }
 
-        // Filter out NSFW content
-        filteredEvents = filterNSFWContent(filteredEvents);
+      queries.unshift(paranormalQuery); // Main query first
 
-        // Filter out blocked users
-        filteredEvents = filterFunctions.filterBlockedUsersCached(filteredEvents);
+      const events = await nostr.query(queries, { signal });
 
-        // Filter reposts to only include those with paranormal tags
-        filteredEvents = filterFunctions.filterRepostsByTagsCached(filteredEvents);
+      console.log('[ParanormalFeed] 🔮 Raw events received:', events.length);
 
-        // Sort by created_at (newest first)
-        filteredEvents.sort((a, b) => b.created_at - a.created_at);
+      // Filter out replies and community content to prevent cross-contamination
+      let filteredEvents = filterForMainFeed(events);
 
-        return filteredEvents;
-      })();
+      // Filter out NSFW content
+      filteredEvents = filterNSFWContent(filteredEvents);
+
+      // Filter out blocked users
+      filteredEvents = filterFunctions.filterBlockedUsersCached(filteredEvents);
+
+      // Filter reposts to only include those with paranormal tags
+      filteredEvents = filterFunctions.filterRepostsByTagsCached(filteredEvents);
+
+      // Sort by created_at (newest first)
+      filteredEvents.sort((a, b) => b.created_at - a.created_at);
+
+      console.log('[ParanormalFeed] 🔮 Filtered events returned:', filteredEvents.length);
+
+      return filteredEvents;
+    },
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.length === 0) return undefined;
+      // Return the timestamp of the oldest event for pagination
+      const oldestTimestamp = lastPage[lastPage.length - 1].created_at;
+      console.log('[ParanormalFeed] 🔮 Next page param:', oldestTimestamp, new Date(oldestTimestamp * 1000).toISOString());
+      return oldestTimestamp - 1; // Subtract 1 to avoid duplicates
     },
     refetchOnWindowFocus: false,
-    staleTime: 120000, // 2 minutes - increased to reduce refetches
-    gcTime: 180000, // 3 minutes - aggressively clean up unused data
-    retry: 1,
-    // Enhanced caching: Background refetch every 10 minutes when tab is active
+    staleTime: 120000, // 2 minutes
+    gcTime: 300000, // 5 minutes
+    retry: 2,
+    // Enhanced caching: Background refetch when tab is active
     refetchInterval: (data, query) => {
-      // Only refetch if the tab is visible and we have existing data
       if (document.hidden || !data) return false;
-
-      // Refetch every 10 minutes for active users - reduced frequency
       return 600000; // 10 minutes
     },
     // Refetch when the tab becomes visible if data is older than 2 minutes
@@ -299,6 +317,13 @@ export function useParanormalFeed() {
       const twoMinutesAgo = Date.now() - 120000;
       return lastUpdated < twoMinutesAgo;
     },
+    onSuccess: (data) => {
+      const totalEvents = data.pages.reduce((sum, page) => sum + page.length, 0);
+      console.log('[ParanormalFeed] ✅ Infinite query success, total events:', totalEvents, 'pages:', data.pages.length);
+    },
+    onError: (error) => {
+      console.error('[ParanormalFeed] ❌ Infinite query error:', error);
+    }
   });
 }
 

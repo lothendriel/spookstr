@@ -397,6 +397,19 @@ This release represents the completion of a comprehensive 3-phase refactoring ef
 - Enhanced user engagement through personalized content discovery
 - Maintains backwards compatibility - existing users see no changes until they opt into personalized features
 
+### Fixed (2025-01-08)
+- **Quoted Events Not Loading**: Fixed issue where quoted notes/events were displaying "Invalid event data" instead of loading the actual quoted content
+  - **Root Cause**: Type mismatch where `useRelayEvent` returns an array of events (`NostrEvent[]`) but `QuotedEvent` component was expecting a single event object (`NostrEvent`)
+  - **Impact**: The validation `!event || !event.kind` failed because `event.kind` on an array is undefined, triggering the "Invalid event data" error
+  - **Solution**: Updated `QuotedEvent` component to properly extract the first event from the array returned by `useQuotedEvent` with validation
+  - **Technical Changes**:
+    - Modified `/src/components/QuotedEvent.tsx` to handle array-to-single-event conversion
+    - Added proper validation: `if (!quotedEvent || !quotedEvent.id)`
+    - Enhanced `/src/hooks/useRelayQuery.ts` to properly decode NIP-19 identifiers to hex IDs for Nostr protocol filters
+    - Added debug logging in `QuotedEvent` component to track data flow and identify issues
+  - **Result**: Quoted events now load correctly and display the referenced content instead of showing "Invalid event data"
+  - **Compatibility**: Maintained backwards compatibility with all existing quoted event functionality
+
 ## [2.0.0] - 2025-06-18 - Phase 2 Complete: Consistency & Reliability
 
 ### 🔧 Naming Convention Standardization

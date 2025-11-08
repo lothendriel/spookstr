@@ -3,7 +3,9 @@ import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useNotificationState } from '@/hooks/useNotificationState';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { SmartRelayDiscoveryIndicator } from '@/components/RelayDiscoveryIndicator';
+import { InfiniteScrollLoader, InfiniteScrollSkeleton } from '@/components/ui/InfiniteScrollLoader';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -170,10 +172,15 @@ export default function Notifications() {
   const isInitialLoad = isLoading && !data;
   const hasError = error && !isLoading;
 
-  // Flatten all pages of notifications
+  // Flatten all pages of notifications and remove duplicates
   const allNotifications = useMemo(() => {
     if (!data?.pages) return [];
-    return data.pages.flatMap(page => page.notifications);
+    const seen = new Set();
+    return data.pages.flatMap(page => page.notifications).filter(notification => {
+      if (!notification.id || seen.has(notification.id)) return false;
+      seen.add(notification.id);
+      return true;
+    });
   }, [data]);
 
   const notificationsWithReadState = useMemo(() => {
@@ -184,6 +191,15 @@ export default function Notifications() {
   }, [allNotifications, isRead]);
 
   const isEmpty = !isLoading && !error && notificationsWithReadState.length === 0;
+
+  // Set up infinite scroll
+  const { loadMoreRef } = useInfiniteScroll({
+    hasNextPage: !!hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+    threshold: 0.7,
+    rootMargin: '300px'
+  });
 
   const unreadCount = useMemo(() => {
     return notificationsWithReadState.filter(n => !n.read).length;
@@ -358,26 +374,19 @@ export default function Notifications() {
               ))}
             </div>
 
-            {/* Load More Button */}
-            {hasNextPage && (
-              <div className="mt-6 text-center">
-                <Button
-                  onClick={() => fetchNextPage()}
-                  disabled={isFetchingNextPage}
-                  variant="outline"
-                  className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10"
-                >
-                  {isFetchingNextPage ? (
-                    <>
-                      <Ghost className="h-4 w-4 mr-2 animate-pulse" />
-                      Loading more...
-                    </>
-                  ) : (
-                    'Load More Notifications'
-                  )}
-                </Button>
-              </div>
-            )}
+            {/* Infinite scroll loader */}
+            <InfiniteScrollLoader
+              ref={loadMoreRef}
+              isLoading={isFetchingNextPage}
+              hasMore={!!hasNextPage}
+              loader={
+                <div className="py-4">
+                  <div className="flex justify-center">
+                    <Ghost className="h-6 w-6 text-lime-500/60 animate-pulse" />
+                  </div>
+                </div>
+              }
+            />
           </>
         )}
       </main>
