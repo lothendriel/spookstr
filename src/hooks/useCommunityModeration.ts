@@ -72,6 +72,7 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
       }], { signal });
 
       console.log(`📝 Found ${allPosts.length} total posts (kind 1111)`);
+      console.log(`📝 Post IDs:`, allPosts.map(p => p.id.slice(0, 8) + '...'));
 
       // Query for all approval events (kind 4550) for this community
       const approvals = await nostr.query([
@@ -101,13 +102,18 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
 
       // Process remote approval events
       approvals.forEach(approval => {
+        console.log(`🔍 Processing approval event ${approval.id.slice(0, 8)}...`);
+        console.log(`   Tags:`, approval.tags);
+
         const eTags = approval.tags.filter(tag => tag[0] === 'e');
+        console.log(`   Found ${eTags.length} e-tags`);
+
         const actionTag = approval.tags.find(tag => tag[0] === 'action');
 
         eTags.forEach(eTag => {
           if (eTag[1]) {
             approvedEventIds.add(eTag[1]);
-            console.log(`✅ Remote approval: ${eTag[1].slice(0, 8)}...`);
+            console.log(`✅ Remote approval added to set: ${eTag[1].slice(0, 8)}...`);
 
             // Clean up local storage if we have a remote confirmation
             if (localModeratedEvents.has(eTag[1]) && localModeratedEvents.get(eTag[1]) === 'approve') {
@@ -120,15 +126,23 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
         });
       });
 
+      console.log(`✅ Total approved event IDs in set: ${approvedEventIds.size}`);
+      console.log(`✅ Approved event IDs:`, Array.from(approvedEventIds).map(id => id.slice(0, 8) + '...'));
+
       // Process remote denial events
       denials.forEach(denial => {
+        console.log(`🔍 Processing denial event ${denial.id.slice(0, 8)}...`);
+        console.log(`   Tags:`, denial.tags);
+
         const eTags = denial.tags.filter(tag => tag[0] === 'e');
+        console.log(`   Found ${eTags.length} e-tags`);
+
         const actionTag = denial.tags.find(tag => tag[0] === 'action');
 
         eTags.forEach(eTag => {
           if (eTag[1]) {
             deniedEventIds.add(eTag[1]);
-            console.log(`❌ Remote denial: ${eTag[1].slice(0, 8)}...`);
+            console.log(`❌ Remote denial added to set: ${eTag[1].slice(0, 8)}...`);
 
             // Clean up local storage if we have a remote confirmation
             if (localModeratedEvents.has(eTag[1]) && localModeratedEvents.get(eTag[1]) === 'deny') {
@@ -140,6 +154,9 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
           }
         });
       });
+
+      console.log(`❌ Total denied event IDs in set: ${deniedEventIds.size}`);
+      console.log(`❌ Denied event IDs:`, Array.from(deniedEventIds).map(id => id.slice(0, 8) + '...'));
 
       console.log(`🎯 ${approvedEventIds.size} unique approved event IDs`);
       console.log(`🚫 ${deniedEventIds.size} unique denied event IDs`);
