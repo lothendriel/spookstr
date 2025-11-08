@@ -66,7 +66,7 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
     return [];
   }, [parsedEvent]);
 
-  const { data: quotedEvent, isLoading, error } = useQuotedEvent(
+  const { data: quotedEvents, isLoading, error } = useQuotedEvent(
     eventId,
     {
       enabled: !!eventId && parsedEvent.success && filters.length > 0,
@@ -74,6 +74,20 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
       retry: 2, // More retries for better reliability
     }
   );
+
+  // Extract the first event from the array (useRelayEvent returns arrays)
+  const quotedEvent = quotedEvents && quotedEvents.length > 0 ? quotedEvents[0] : null;
+
+  // Debug logging
+  console.log('🔍 QuotedEvent Debug:', {
+    eventId,
+    parsedEventSuccess: parsedEvent.success,
+    parsedEventType: parsedEvent.type,
+    filters,
+    quotedEvents: quotedEvents?.map(e => ({ id: e.id, kind: e.kind })),
+    quotedEvent: quotedEvent ? { id: quotedEvent.id, kind: quotedEvent.kind, hasContent: !!quotedEvent.content } : null,
+    error: error?.message
+  });
 
   if (isLoading) {
     return (
@@ -115,7 +129,7 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
     );
   }
 
-  if (!quotedEvent) {
+  if (!quotedEvent || !quotedEvent.id) {
     return (
       <Card className={`border-lime-500/20 bg-lime-500/5 ${className}`}>
         <CardContent className="p-3">
