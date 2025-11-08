@@ -61,6 +61,16 @@ const Index = () => {
   const fetchNextPage = useInfiniteScroll ? feedData.fetchNextPage : undefined;
   const hasNextPage = useInfiniteScroll ? feedData.hasNextPage : undefined;
 
+  // Debug logging for infinite scroll
+  console.log('[Index] Pagination mode:', useInfiniteScroll ? 'Infinite Scroll' : 'Traditional');
+  console.log('[Index] Feed data:', {
+    isLoading: useInfiniteScroll ? isInfiniteInitialLoading : isLoading,
+    hasError: useInfiniteScroll ? !!infiniteError : !!error,
+    postsCount: useInfiniteScroll ? (infiniteData?.pages?.[0]?.length || 0) : (posts?.length || 0),
+    totalPages: useInfiniteScroll ? infiniteData?.pages?.length || 0 : undefined,
+    hasNextPage: useInfiniteScroll ? hasNextPage : undefined
+  });
+
   // Get feed discovery stats
   const {
     events: discoveredEvents,
@@ -308,13 +318,18 @@ const Index = () => {
 
                     {/* Infinite scroll */}
                     {useInfiniteScroll && infiniteData && (
-                      <InfiniteFeedContent
-                        data={infiniteData}
-                        hasNextPage={hasNextPage}
-                        isFetchingNextPage={isInfiniteLoading}
-                        fetchNextPage={fetchNextPage}
-                        onPostClick={handlePostClick}
-                      />
+                      <>
+                        <div className="text-sm text-lime-500/60 mb-2 text-center">
+                          Debug: {infiniteData?.pages?.length || 0} pages loaded, {infiniteData?.pages?.[0]?.length || 0} posts on first page
+                        </div>
+                        <InfiniteFeedContent
+                          data={infiniteData}
+                          hasNextPage={hasNextPage}
+                          isFetchingNextPage={isInfiniteLoading}
+                          fetchNextPage={fetchNextPage}
+                          onPostClick={handlePostClick}
+                        />
+                      </>
                     )}
                   </div>
                 )}

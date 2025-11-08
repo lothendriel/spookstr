@@ -222,74 +222,54 @@ export function useParanormalFeedInfinite() {
   return useInfiniteQuery({
     queryKey: ['paranormal-feed-infinite', hiddenPubkeys, hasHiddenHashtag, personalizedHashtags],
     queryFn: async ({ pageParam, signal }) => {
+      console.log('[useParanormalFeedInfinite] Fetching page with pageParam:', pageParam);
+
       const PARANORMAL_TAGS = getParanormalTags();
 
-      // Combine paranormal tags with personalized hashtags
+      // Combine paranormal tags with personalized hashtags for a single query
       const allTags = [...PARANORMAL_TAGS];
       if (personalizedHashtags.length > 0) {
         allTags.push(...personalizedHashtags);
       }
 
-      // Build queries based on whether we have personalized hashtags
-      const queries = [];
-
-      // Always query for paranormal content
-      const paranormalQuery: any = {
-        kinds: [1],
-        '#t': PARANORMAL_TAGS,
-        limit: 20, // Reduced limit for infinite scroll
+      // Build a single query that includes all content types
+      const query: any = {
+        kinds: [1, 6], // Include both regular posts and reposts
+        '#t': allTags,
+        limit: 30, // Reasonable limit for infinite scroll
       };
 
       // Add until parameter for pagination (except first page)
       if (pageParam) {
-        paranormalQuery.until = pageParam;
+        query.until = pageParam;
+        console.log('[useParanormalFeedInfinite] Added until parameter:', pageParam);
       }
 
-      queries.push(paranormalQuery);
+      console.log('[useParanormalFeedInfinite] Executing query:', JSON.stringify(query, null, 2));
 
-      // Add personalized hashtag query if any exist
-      if (personalizedHashtags.length > 0) {
-        const personalizedQuery: any = {
-          kinds: [1],
-          '#t': personalizedHashtags,
-          limit: 10,
-        };
+      const events = await nostr.query([query], { signal });
 
-        if (pageParam) {
-          personalizedQuery.until = pageParam;
-        }
-
-        queries.push(personalizedQuery);
-      }
-
-      // Always include reposts
-      const repostQuery: any = {
-        kinds: [6], // Include reposts
-        limit: 10,
-      };
-
-      if (pageParam) {
-        repostQuery.until = pageParam;
-      }
-
-      queries.push(repostQuery);
-
-      const events = await nostr.query(queries, { signal });
+      console.log('[useParanormalFeedInfinite] Raw events received:', events.length);
 
       // Filter out replies and community content to prevent cross-contamination
       let filteredEvents = filterForMainFeed(events);
+      console.log('[useParanormalFeedInfinite] After filterForMainFeed:', filteredEvents.length);
 
       // Filter out NSFW content
       filteredEvents = filterNSFWContent(filteredEvents);
+      console.log('[useParanormalFeedInfinite] After filterNSFWContent:', filteredEvents.length);
 
       // Filter out blocked users
       filteredEvents = filterFunctions.filterBlockedUsersCached(filteredEvents);
+      console.log('[useParanormalFeedInfinite] After filterBlockedUsers:', filteredEvents.length);
 
       // Filter reposts to only include those with paranormal tags
       filteredEvents = filterFunctions.filterRepostsByTagsCached(filteredEvents);
+      console.log('[useParanormalFeedInfinite] After filterRepostsByTags:', filteredEvents.length);
 
       // Sort by created_at (newest first)
       filteredEvents.sort((a, b) => b.created_at - a.created_at);
+      console.log('[useParanormalFeedInfinite] Final filtered events:', filteredEvents.length);
 
       return filteredEvents;
     },

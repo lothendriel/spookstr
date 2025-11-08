@@ -18,12 +18,12 @@ interface InfiniteFeedContentProps {
  * Infinite scroll feed component that automatically loads more content when user scrolls to bottom.
  * Uses intersection observer for performance and removes duplicate events.
  */
-export const InfiniteFeedContent = memo(({ 
-  data, 
-  hasNextPage, 
-  isFetchingNextPage, 
-  fetchNextPage, 
-  onPostClick 
+export const InfiniteFeedContent = memo(({
+  data,
+  hasNextPage,
+  isFetchingNextPage,
+  fetchNextPage,
+  onPostClick
 }: InfiniteFeedContentProps) => {
   const { ref, inView } = useInView({
     threshold: 0.1,
@@ -32,24 +32,32 @@ export const InfiniteFeedContent = memo(({
 
   // Trigger fetch when element comes into view
   if (inView && hasNextPage && !isFetchingNextPage) {
+    console.log('[InfiniteFeedContent] Triggering fetchNextPage - inView:', inView, 'hasNextPage:', hasNextPage, 'isFetchingNextPage:', isFetchingNextPage);
     fetchNextPage();
   }
 
   // Remove duplicate events by ID and flatten pages
   const posts = useMemo(() => {
-    if (!data?.pages) return [];
-    
+    if (!data?.pages) {
+      console.log('[InfiniteFeedContent] No data pages available');
+      return [];
+    }
+
+    console.log('[InfiniteFeedContent] Processing', data.pages.length, 'pages');
     const seen = new Set<string>();
-    return data.pages.flat().filter(event => {
+    const flattened = data.pages.flat().filter(event => {
       if (!event.id || seen.has(event.id)) return false;
       seen.add(event.id);
       return true;
     });
+    console.log('[InfiniteFeedContent] Flattened to', flattened.length, 'unique posts');
+    return flattened;
   }, [data?.pages]);
 
   console.log('[InfiniteFeedContent] Rendering', posts.length, 'unique posts from', data?.pages.length || 0, 'pages');
 
   if (posts.length === 0) {
+    console.log('[InfiniteFeedContent] No posts to render, returning null');
     return null;
   }
 
@@ -63,11 +71,11 @@ export const InfiniteFeedContent = memo(({
           showActions={true}
         />
       ))}
-      
+
       {/* Infinite scroll trigger */}
       {hasNextPage && (
-        <div 
-          ref={ref} 
+        <div
+          ref={ref}
           className="py-8 flex justify-center"
         >
           {isFetchingNextPage && (
