@@ -39,19 +39,22 @@ export function ModerationPanel({ communityId }: ModerationPanelProps) {
     cleanupOldModerationDecisions
   } = useModerationPersistence();
 
-  // Only call moderation hooks when community data is available
+  // Always call moderation hooks with consistent parameters
   const { data: pendingPosts, isLoading: loadingPending, refetch: refetchPending } = usePendingPosts(
-    community?.id || undefined,
-    community?.author || undefined
+    community?.id,
+    community?.author
   );
   const { data: approvedPosts, isLoading: loadingApproved, refetch: refetchApproved } = useApprovedPosts(
-    community?.id || undefined,
-    community?.author || undefined
+    community?.id,
+    community?.author
   );
   const { data: moderationActions, refetch: refetchActions } = useModerationActions(
-    community?.id || undefined,
-    community?.author || undefined
+    community?.id,
+    community?.author
   );
+
+  // State hooks must be called BEFORE any early returns
+
 
   // Show loading state while fetching community data
   if (communityLoading) {
