@@ -26,7 +26,21 @@ interface ModerationPanelProps {
 }
 
 export function ModerationPanel({ communityId }: ModerationPanelProps) {
+  // Move all hook calls to the top to avoid React hooks violation
   const { data: community, isLoading: communityLoading } = useCommunity(communityId);
+  const { user } = useCurrentUser();
+  const queryClient = useQueryClient();
+  const { data: pendingPosts, isLoading: loadingPending, refetch: refetchPending } = usePendingPosts(community?.id, community?.author);
+  const { data: approvedPosts, isLoading: loadingApproved, refetch: refetchApproved } = useApprovedPosts(community?.id, community?.author);
+  const { data: moderationActions, refetch: refetchActions } = useModerationActions(community?.id, community?.author);
+  const { mutateAsync: createEvent, isPending: isPublishing } = useNostrPublish();
+  const { toast } = useToast();
+  const {
+    saveModerationDecision,
+    applyOptimisticUpdates,
+    invalidateModerationQueries,
+    cleanupOldModerationDecisions
+  } = useModerationPersistence();
 
   // Show loading state while fetching community data
   if (communityLoading) {
@@ -67,19 +81,6 @@ export function ModerationPanel({ communityId }: ModerationPanelProps) {
       </div>
     );
   }
-  const { user } = useCurrentUser();
-  const queryClient = useQueryClient();
-  const { data: pendingPosts, isLoading: loadingPending, refetch: refetchPending } = usePendingPosts(community.id, community.author);
-  const { data: approvedPosts, isLoading: loadingApproved, refetch: refetchApproved } = useApprovedPosts(community.id, community.author);
-  const { data: moderationActions, refetch: refetchActions } = useModerationActions(community.id, community.author);
-  const { mutateAsync: createEvent, isPending: isPublishing } = useNostrPublish();
-  const { toast } = useToast();
-  const {
-    saveModerationDecision,
-    applyOptimisticUpdates,
-    invalidateModerationQueries,
-    cleanupOldModerationDecisions
-  } = useModerationPersistence();
 
   // Clean up old local moderation decisions on component mount
   useEffect(() => {
