@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
 import { usePendingPosts, useApprovedPosts, useModerationActions } from '@/hooks/useCommunityModeration';
+import { useModerationPersistence } from '@/hooks/useModerationPersistence';
 import { CommunityDefinition } from '@/hooks/useCommunity';
 import { Shield, CheckCircle, XCircle, MessageSquare, Clock, Eye } from 'lucide-react';
 import { NostrEvent } from '@nostrify/nostrify';
@@ -31,6 +32,20 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
   const { data: moderationActions, refetch: refetchActions } = useModerationActions(community.id, community.author);
   const { mutateAsync: createEvent, isPending: isPublishing } = useNostrPublish();
   const { toast } = useToast();
+  const {
+    saveModerationDecision,
+    applyOptimisticUpdates,
+    invalidateModerationQueries,
+    cleanupOldModerationDecisions
+  } = useModerationPersistence();
+
+  // Clean up old local moderation decisions on component mount
+  useEffect(() => {
+    const cleanedCount = cleanupOldModerationDecisions(7); // Clean up decisions older than 7 days
+    if (cleanedCount > 0) {
+      console.log(`🧹 Cleaned up ${cleanedCount} old moderation decisions on component mount`);
+    }
+  }, [cleanupOldModerationDecisions]);
 
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'deny' | null>(null);
@@ -60,34 +75,67 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
   };
 
   const confirmAction = async () => {
-    if (!selectedPost || !actionType) return;
+    if (!selectedPost || !actionType || !user) return;
 
     const communityTag = `34550:${community.author}:${community.id}`;
     const postKindTag = selectedPost.tags.find(tag => tag[0] === 'k')?.[1] || '1111';
 
     try {
+      // Create moderation decision object for local persistence
+      const moderationDecision = {
+        action: actionType,
+        eventId: selectedPost.id,
+        eventPubkey: selectedPost.pubkey,
+        moderator: user.pubkey,
+        timestamp: Math.floor(Date.now() / 1000),
+        communityId: community.id,
+        communityAuthor: community.author
+      };
+
+      // Save to localStorage first for immediate persistence
+      saveModerationDecision(moderationDecision);
+
+      // Apply optimistic updates to the UI
+      applyOptimisticUpdates(moderationDecision, selectedPost);
+
       if (actionType === 'approve') {
         console.log('🔐 Creating approval event for:', selectedPost.id);
-        console.log('📋 Approval event details:', {
-          kind: 4550,
-          communityTag,
-          postId: selectedPost.id,
-          postAuthor: selectedPost.pubkey,
-          postKind: postKindTag
-        });
 
-        // Create approval event (kind 4550) according to NIP-72
+        // Enhanced approval event with better metadata for persistence
+        const approvalMetadata = {
+          approvedEvent: {
+            id: selectedPost.id,
+            pubkey: selectedPost.pubkey,
+            kind: selectedPost.kind,
+            created_at: selectedPost.created_at,
+            content: selectedPost.content,
+            tags: selectedPost.tags
+          },
+          moderation: {
+            action: 'approve',
+            moderator: user.pubkey,
+            timestamp: moderationDecision.timestamp,
+            communityId: community.id,
+            communityAuthor: community.author,
+            reason: 'Approved by moderator'
+          }
+        };
+
+        // Create approval event (kind 4550) according to NIP-72 with enhanced metadata
         await createEvent({
           event: {
             kind: 4550,
-            content: JSON.stringify(selectedPost), // Include the full approved event
+            content: JSON.stringify(approvalMetadata),
             tags: [
-              ['a', communityTag], // Community reference
-              ['e', selectedPost.id], // Post being approved
-              ['p', selectedPost.pubkey], // Post author (for notifications)
-              ['k', postKindTag] // Original post kind
+              ['a', communityTag],
+              ['e', selectedPost.id],
+              ['p', selectedPost.pubkey],
+              ['k', postKindTag],
+              ['moderator', user.pubkey],
+              ['action', 'approve'],
+              ['timestamp', moderationDecision.timestamp.toString()]
             ],
-            created_at: Math.floor(Date.now() / 1000)
+            created_at: moderationDecision.timestamp
           }
         });
 
@@ -99,31 +147,42 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
         });
       } else {
         console.log('❌ Creating denial event for:', selectedPost.id);
-        console.log('📋 Denial event details:', {
-          kind: 4551,
-          communityTag,
-          postId: selectedPost.id,
-          postAuthor: selectedPost.pubkey,
-          postKind: postKindTag
-        });
 
-        // Create denial event (kind 4551) - custom kind for post denials
+        // Enhanced denial event with better metadata for persistence
+        const denialMetadata = {
+          deniedEvent: {
+            id: selectedPost.id,
+            pubkey: selectedPost.pubkey,
+            kind: selectedPost.kind,
+            created_at: selectedPost.created_at,
+            content: selectedPost.content,
+            tags: selectedPost.tags
+          },
+          moderation: {
+            action: 'deny',
+            moderator: user.pubkey,
+            timestamp: moderationDecision.timestamp,
+            communityId: community.id,
+            communityAuthor: community.author,
+            reason: 'Denied by moderator'
+          }
+        };
+
+        // Create denial event (kind 4551) with enhanced metadata
         await createEvent({
           event: {
             kind: 4551,
-            content: JSON.stringify({
-              deniedEventId: selectedPost.id,
-              deniedEventPubkey: selectedPost.pubkey,
-              reason: 'Denied by moderator',
-              timestamp: Math.floor(Date.now() / 1000)
-            }),
+            content: JSON.stringify(denialMetadata),
             tags: [
-              ['a', communityTag], // Community reference
-              ['e', selectedPost.id], // Post being denied
-              ['p', selectedPost.pubkey], // Post author (for notifications)
-              ['k', postKindTag] // Original post kind
+              ['a', communityTag],
+              ['e', selectedPost.id],
+              ['p', selectedPost.pubkey],
+              ['k', postKindTag],
+              ['moderator', user.pubkey],
+              ['action', 'deny'],
+              ['timestamp', moderationDecision.timestamp.toString()]
             ],
-            created_at: Math.floor(Date.now() / 1000)
+            created_at: moderationDecision.timestamp
           }
         });
 
@@ -135,30 +194,15 @@ export function ModerationPanel({ community }: ModerationPanelProps) {
         });
       }
 
-      // Invalidate all moderation-related queries to force refetch with fresh data
+      // Trigger background refresh to sync with remote events
       setTimeout(async () => {
-        console.log('🔄 Force invalidating and refetching all moderation data...');
+        console.log('🔄 Triggering background refresh for all moderation data...');
 
-        // Remove all cached data for moderation queries
-        await queryClient.removeQueries({
-          queryKey: ['pending-posts']
-        });
-        await queryClient.removeQueries({
-          queryKey: ['approved-posts']
-        });
-        await queryClient.removeQueries({
-          queryKey: ['moderation-actions']
-        });
-
-        // Also invalidate community feed queries to ensure approved posts appear
-        await queryClient.removeQueries({
-          queryKey: ['community-feed']
-        });
-
-        // Then force refetch with fresh data
+        await invalidateModerationQueries(community.id, community.author);
         await Promise.all([refetchPending(), refetchApproved(), refetchActions()]);
-        console.log('🔄 All moderation cache removal and refetch completed');
-      }, 4000); // Wait 4 seconds for the event to propagate to all relays
+
+        console.log('🔄 Background refresh completed');
+      }, 2000); // Reduced to 2 seconds since we have local persistence
 
       setSelectedPost(null);
       setActionType(null);

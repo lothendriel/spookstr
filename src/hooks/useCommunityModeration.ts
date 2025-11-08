@@ -17,6 +17,7 @@ export interface ModerationAction {
 
 /**
  * Hook to fetch all posts and replies that need moderation approval for a community
+ * Enhanced with local state persistence and robust caching
  */
 export function usePendingPosts(communityId?: string, communityAuthor?: string) {
   const { nostr } = useNostr();
@@ -26,10 +27,29 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
     queryFn: async (context) => {
       if (!communityId || !communityAuthor) return [];
 
-      const signal = AbortSignal.any([context.signal, AbortSignal.timeout(10000)]);
+      const signal = AbortSignal.any([context.signal, AbortSignal.timeout(15000)]);
       const communityTag = `34550:${communityAuthor}:${communityId}`;
 
       console.log('🔍 Fetching pending posts for community:', communityTag);
+
+      // First, get local moderation decisions from localStorage
+      const localModeratedEvents = new Map<string, 'approve' | 'deny'>();
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith(`moderation-${communityId}-`)) {
+          try {
+            const data = JSON.parse(localStorage.getItem(key) || '{}');
+            if (data.eventId && data.action) {
+              localModeratedEvents.set(data.eventId, data.action);
+              console.log(`📱 Found local moderation: ${data.action} for ${data.eventId.slice(0, 8)}...`);
+            }
+          } catch (error) {
+            console.warn('⚠️ Failed to parse local moderation data:', key, error);
+          }
+        }
+      }
+
+      console.log(`📱 Found ${localModeratedEvents.size} local moderation decisions`);
 
       // Query for all posts and replies (kind 1111) in this community
       const allPosts = await nostr.query([{
@@ -66,37 +86,64 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
       const approvedEventIds = new Set<string>();
       const deniedEventIds = new Set<string>();
 
+      // Process remote approval events
       approvals.forEach(approval => {
         const eTags = approval.tags.filter(tag => tag[0] === 'e');
-        console.log(`Approval event ${approval.id.slice(0, 8)}... tags:`, approval.tags);
+        const actionTag = approval.tags.find(tag => tag[0] === 'action');
+
         eTags.forEach(eTag => {
           if (eTag[1]) {
             approvedEventIds.add(eTag[1]);
-            console.log(`  -> Approved event: ${eTag[1].slice(0, 8)}...`);
+            console.log(`✅ Remote approval: ${eTag[1].slice(0, 8)}...`);
+
+            // Clean up local storage if we have a remote confirmation
+            if (localModeratedEvents.has(eTag[1]) && localModeratedEvents.get(eTag[1]) === 'approve') {
+              const localKey = `moderation-${communityId}-${eTag[1]}`;
+              localStorage.removeItem(localKey);
+              localModeratedEvents.delete(eTag[1]);
+              console.log(`🧹 Cleaned up local approval for ${eTag[1].slice(0, 8)}...`);
+            }
           }
         });
       });
 
+      // Process remote denial events
       denials.forEach(denial => {
         const eTags = denial.tags.filter(tag => tag[0] === 'e');
-        console.log(`Denial event ${denial.id.slice(0, 8)}... tags:`, denial.tags);
+        const actionTag = denial.tags.find(tag => tag[0] === 'action');
+
         eTags.forEach(eTag => {
           if (eTag[1]) {
             deniedEventIds.add(eTag[1]);
-            console.log(`  -> Denied event: ${eTag[1].slice(0, 8)}...`);
+            console.log(`❌ Remote denial: ${eTag[1].slice(0, 8)}...`);
+
+            // Clean up local storage if we have a remote confirmation
+            if (localModeratedEvents.has(eTag[1]) && localModeratedEvents.get(eTag[1]) === 'deny') {
+              const localKey = `moderation-${communityId}-${eTag[1]}`;
+              localStorage.removeItem(localKey);
+              localModeratedEvents.delete(eTag[1]);
+              console.log(`🧹 Cleaned up local denial for ${eTag[1].slice(0, 8)}...`);
+            }
           }
         });
       });
 
-      console.log(`🎯 ${approvedEventIds.size} unique approved event IDs:`, Array.from(approvedEventIds).map(id => id.slice(0, 8) + '...'));
-      console.log(`🚫 ${deniedEventIds.size} unique denied event IDs:`, Array.from(deniedEventIds).map(id => id.slice(0, 8) + '...'));
+      console.log(`🎯 ${approvedEventIds.size} unique approved event IDs`);
+      console.log(`🚫 ${deniedEventIds.size} unique denied event IDs`);
 
       // Filter out approved and denied posts - only show truly pending posts
+      // Combine remote and local moderation decisions
       const pendingPosts = allPosts
         .filter(post => {
-          const isApproved = approvedEventIds.has(post.id);
-          const isDenied = deniedEventIds.has(post.id);
-          console.log(`Post ${post.id.slice(0, 8)}... - Approved: ${isApproved}, Denied: ${isDenied}`);
+          const isRemoteApproved = approvedEventIds.has(post.id);
+          const isRemoteDenied = deniedEventIds.has(post.id);
+          const localAction = localModeratedEvents.get(post.id);
+
+          const isApproved = isRemoteApproved || localAction === 'approve';
+          const isDenied = isRemoteDenied || localAction === 'deny';
+
+          console.log(`Post ${post.id.slice(0, 8)}... - Remote Approved: ${isRemoteApproved}, Remote Denied: ${isRemoteDenied}, Local: ${localAction}, Final: ${!isApproved && !isDenied}`);
+
           return !isApproved && !isDenied;
         })
         .map(post => {
@@ -118,14 +165,17 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
       return pendingPosts as PendingPost[];
     },
     enabled: !!communityId && !!communityAuthor,
-    refetchInterval: 15000, // Refetch every 15 seconds
-    staleTime: 0, // Always consider data stale to ensure fresh queries
-    gcTime: 30000 // Keep data in cache for 30 seconds only
+    refetchInterval: 30000, // Refetch every 30 seconds (reduced frequency)
+    staleTime: 10000, // Consider data fresh for 10 seconds
+    gcTime: 300000, // Keep data in cache for 5 minutes (increased)
+    retry: 3, // Retry failed queries 3 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000) // Exponential backoff
   });
 }
 
 /**
  * Hook to fetch approved posts for a community
+ * Enhanced with local state persistence and robust caching
  */
 export function useApprovedPosts(communityId?: string, communityAuthor?: string) {
   const { nostr } = useNostr();
@@ -135,10 +185,29 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
     queryFn: async (context) => {
       if (!communityId || !communityAuthor) return [];
 
-      const signal = AbortSignal.any([context.signal, AbortSignal.timeout(10000)]);
+      const signal = AbortSignal.any([context.signal, AbortSignal.timeout(15000)]);
       const communityTag = `34550:${communityAuthor}:${communityId}`;
 
       console.log('🔍 Fetching approved posts for community:', communityTag);
+
+      // First, get local moderation decisions from localStorage
+      const localApprovedEvents = new Set<string>();
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith(`moderation-${communityId}-`)) {
+          try {
+            const data = JSON.parse(localStorage.getItem(key) || '{}');
+            if (data.eventId && data.action === 'approve') {
+              localApprovedEvents.add(data.eventId);
+              console.log(`📱 Found local approval: ${data.eventId.slice(0, 8)}...`);
+            }
+          } catch (error) {
+            console.warn('⚠️ Failed to parse local moderation data:', key, error);
+          }
+        }
+      }
+
+      console.log(`📱 Found ${localApprovedEvents.size} local approved events`);
 
       // Query for all approval events (kind 4550) for this community
       const approvals = await nostr.query([
@@ -156,17 +225,32 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
 
       approvals.forEach(approval => {
         const eTags = approval.tags.filter(tag => tag[0] === 'e');
-        console.log(`Approval event ${approval.id.slice(0, 8)}... tags:`, approval.tags);
+        const actionTag = approval.tags.find(tag => tag[0] === 'action');
+
         eTags.forEach(eTag => {
           if (eTag[1]) {
             approvedEventIds.add(eTag[1]);
-            console.log(`  -> Approved event: ${eTag[1].slice(0, 8)}...`);
+            console.log(`✅ Remote approval: ${eTag[1].slice(0, 8)}...`);
+
+            // Clean up local storage if we have a remote confirmation
+            if (localApprovedEvents.has(eTag[1])) {
+              const localKey = `moderation-${communityId}-${eTag[1]}`;
+              localStorage.removeItem(localKey);
+              localApprovedEvents.delete(eTag[1]);
+              console.log(`🧹 Cleaned up local approval for ${eTag[1].slice(0, 8)}...`);
+            }
           }
         });
       });
 
-      const approvedEventIdsArray = Array.from(approvedEventIds);
-      console.log(`📋 ${approvedEventIdsArray.length} unique approved event IDs:`, approvedEventIdsArray.map(id => id.slice(0, 8) + '...'));
+      // Combine remote and local approved event IDs
+      const allApprovedEventIds = new Set([
+        ...Array.from(approvedEventIds),
+        ...Array.from(localApprovedEvents)
+      ]);
+
+      const approvedEventIdsArray = Array.from(allApprovedEventIds);
+      console.log(`📋 ${approvedEventIdsArray.length} total approved event IDs (remote + local):`, approvedEventIdsArray.map(id => id.slice(0, 8) + '...'));
 
       if (approvedEventIdsArray.length === 0) return [];
 
@@ -194,14 +278,17 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
         .sort((a, b) => b.event.created_at - a.event.created_at);
     },
     enabled: !!communityId && !!communityAuthor,
-    refetchInterval: 15000, // Refetch every 15 seconds
-    staleTime: 0, // Always consider data stale to ensure fresh queries
-    gcTime: 30000 // Keep data in cache for 30 seconds only
+    refetchInterval: 30000, // Refetch every 30 seconds (reduced frequency)
+    staleTime: 10000, // Consider data fresh for 10 seconds
+    gcTime: 300000, // Keep data in cache for 5 minutes (increased)
+    retry: 3, // Retry failed queries 3 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000) // Exponential backoff
   });
 }
 
 /**
  * Hook to fetch all moderation actions (approvals and denials) for a community
+ * Enhanced with local state persistence and robust caching
  */
 export function useModerationActions(communityId?: string, communityAuthor?: string) {
   const { nostr } = useNostr();
@@ -211,10 +298,47 @@ export function useModerationActions(communityId?: string, communityAuthor?: str
     queryFn: async (context) => {
       if (!communityId || !communityAuthor) return [];
 
-      const signal = AbortSignal.any([context.signal, AbortSignal.timeout(10000)]);
+      const signal = AbortSignal.any([context.signal, AbortSignal.timeout(15000)]);
       const communityTag = `34550:${communityAuthor}:${communityId}`;
 
       console.log('🔍 Fetching moderation actions for community:', communityTag);
+
+      // First, get local moderation decisions from localStorage
+      const localActions: ModerationAction[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith(`moderation-${communityId}-`)) {
+          try {
+            const data = JSON.parse(localStorage.getItem(key) || '{}');
+            if (data.eventId && data.action && data.moderator && data.timestamp) {
+              // Create a synthetic event for local actions
+              const syntheticEvent = {
+                id: `local-${data.eventId}`,
+                pubkey: data.moderator,
+                created_at: data.timestamp,
+                tags: [
+                  ['e', data.eventId],
+                  ['action', data.action]
+                ],
+                content: JSON.stringify(data)
+              } as NostrEvent;
+
+              localActions.push({
+                event: syntheticEvent,
+                action: data.action,
+                timestamp: data.timestamp,
+                moderator: data.moderator
+              });
+
+              console.log(`📱 Found local action: ${data.action} by ${data.moderator.slice(0, 8)}...`);
+            }
+          } catch (error) {
+            console.warn('⚠️ Failed to parse local moderation data:', key, error);
+          }
+        }
+      }
+
+      console.log(`📱 Found ${localActions.length} local moderation actions`);
 
       // Query for both approval (4550) and denial (4551) events
       const [approvals, denials] = await Promise.all([
@@ -235,8 +359,11 @@ export function useModerationActions(communityId?: string, communityAuthor?: str
       // Combine and sort all moderation actions
       const allActions: ModerationAction[] = [];
 
+      // Process remote approval events
       approvals.forEach(approval => {
         const eTags = approval.tags.filter(tag => tag[0] === 'e');
+        const actionTag = approval.tags.find(tag => tag[0] === 'action');
+
         eTags.forEach(eTag => {
           if (eTag[1]) {
             allActions.push({
@@ -245,12 +372,22 @@ export function useModerationActions(communityId?: string, communityAuthor?: str
               timestamp: approval.created_at,
               moderator: approval.pubkey
             });
+
+            // Clean up local storage if we have a remote confirmation
+            const localKey = `moderation-${communityId}-${eTag[1]}`;
+            if (localStorage.getItem(localKey)) {
+              localStorage.removeItem(localKey);
+              console.log(`🧹 Cleaned up local action for ${eTag[1].slice(0, 8)}...`);
+            }
           }
         });
       });
 
+      // Process remote denial events
       denials.forEach(denial => {
         const eTags = denial.tags.filter(tag => tag[0] === 'e');
+        const actionTag = denial.tags.find(tag => tag[0] === 'action');
+
         eTags.forEach(eTag => {
           if (eTag[1]) {
             allActions.push({
@@ -259,16 +396,32 @@ export function useModerationActions(communityId?: string, communityAuthor?: str
               timestamp: denial.created_at,
               moderator: denial.pubkey
             });
+
+            // Clean up local storage if we have a remote confirmation
+            const localKey = `moderation-${communityId}-${eTag[1]}`;
+            if (localStorage.getItem(localKey)) {
+              localStorage.removeItem(localKey);
+              console.log(`🧹 Cleaned up local action for ${eTag[1].slice(0, 8)}...`);
+            }
           }
         });
       });
 
+      // Combine remote and local actions
+      const combinedActions = [...allActions, ...localActions];
+
       // Sort by timestamp (newest first)
-      return allActions.sort((a, b) => b.timestamp - a.timestamp);
+      const sortedActions = combinedActions.sort((a, b) => b.timestamp - a.timestamp);
+
+      console.log(`📋 Total moderation actions: ${sortedActions.length} (${allActions.length} remote + ${localActions.length} local)`);
+
+      return sortedActions;
     },
     enabled: !!communityId && !!communityAuthor,
-    refetchInterval: 15000, // Refetch every 15 seconds
-    staleTime: 0, // Always consider data stale to ensure fresh queries
-    gcTime: 30000 // Keep data in cache for 30 seconds only
+    refetchInterval: 30000, // Refetch every 30 seconds (reduced frequency)
+    staleTime: 10000, // Consider data fresh for 10 seconds
+    gcTime: 300000, // Keep data in cache for 5 minutes (increased)
+    retry: 3, // Retry failed queries 3 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000) // Exponential backoff
   });
 }
