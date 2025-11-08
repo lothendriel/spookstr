@@ -40,7 +40,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/useToast';
-import { useBatchPrefetchQuotedEvents } from '@/hooks/useRobustQuotedEvent';
+import { useBatchPrefetchQuotedEvents } from '@/hooks/useQuotedEvent';
 
 interface ParanormalPostProps {
   event: NostrEvent;

@@ -1,4 +1,5 @@
 import { relayHintCache } from './relayHints';
+import { getPopularRelays } from '@/constants/relays';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 /**
@@ -64,23 +65,7 @@ export class RelayHintPopulator {
    * Get popular relays to add as fallback hints
    */
   static getPopularRelays(): string[] {
-    return [
-      'wss://relay.damus.io',
-      'wss://relay.nostr.band',
-      'wss://nos.lol',
-      'wss://relay.primal.net',
-      'wss://nostr.wine',
-      'wss://purplepag.es',
-      'wss://relay.snort.social',
-      'wss://nostr.fmt.wiz.biz',
-      'wss://relay.current.fyi',
-      'wss://brb.io',
-      'wss://nostr.oxtr.dev',
-      'wss://relay.bitcoiner.social',
-      'wss://nostr.mom',
-      'wss://nostr.zebedee.cloud',
-      'wss://spookstr2.nostr1.com'
-    ];
+    return getPopularRelays().map(relay => relay.url);
   }
 
   /**

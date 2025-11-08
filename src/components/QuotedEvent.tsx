@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthor } from '@/hooks/useAuthor';
 import { getDisplayName } from '@/lib/getDisplayName';
 import { NoteContent } from '@/components/NoteContent';
-import { useRobustQuotedEvent } from '@/hooks/useRobustQuotedEvent';
+import { useQuotedEvent } from '@/hooks/useQuotedEvent';
 import { nip19 } from 'nostr-tools';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -66,7 +66,7 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
     return [];
   }, [parsedEvent]);
 
-  const { data: quotedEvent, isLoading, error } = useRobustQuotedEvent(
+  const { data: quotedEvent, isLoading, error } = useQuotedEvent(
     eventId,
     {
       enabled: !!eventId && parsedEvent.success && filters.length > 0,
