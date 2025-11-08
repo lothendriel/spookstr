@@ -244,49 +244,62 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
 
       console.log(`✅ Found ${approvals.length} approval events for approved posts`);
 
-      // Extract approved event IDs with better logging
+      // Extract approved posts directly from approval events (kind 4550)
+      // According to NIP-72, approval events contain the full approved event in content
+      const approvedPosts: NostrEvent[] = [];
       const approvedEventIds = new Set<string>();
 
       approvals.forEach(approval => {
         const eTags = approval.tags.filter(tag => tag[0] === 'e');
-        const actionTag = approval.tags.find(tag => tag[0] === 'action');
 
         eTags.forEach(eTag => {
           if (eTag[1]) {
-            approvedEventIds.add(eTag[1]);
-            console.log(`✅ Remote approval: ${eTag[1].slice(0, 8)}...`);
+            const eventId = eTag[1];
+
+            // Skip if we already processed this event ID
+            if (approvedEventIds.has(eventId)) {
+              console.log(`⏭️ Skipping duplicate approval: ${eventId.slice(0, 8)}...`);
+              return;
+            }
+
+            approvedEventIds.add(eventId);
+            console.log(`✅ Processing approval for: ${eventId.slice(0, 8)}...`);
+
+            // Try to extract the approved event from the approval event's content
+            try {
+              const parsed = JSON.parse(approval.content);
+
+              // Check if it's our enhanced format with approvedEvent
+              if (parsed.approvedEvent && parsed.approvedEvent.id === eventId) {
+                approvedPosts.push(parsed.approvedEvent as NostrEvent);
+                console.log(`📦 Extracted approved post from approval content: ${eventId.slice(0, 8)}...`);
+              }
+              // Check if it's the old format (full event directly in content)
+              else if (parsed.id === eventId) {
+                approvedPosts.push(parsed as NostrEvent);
+                console.log(`📦 Extracted approved post from approval content (old format): ${eventId.slice(0, 8)}...`);
+              }
+              else {
+                console.warn(`⚠️ Approval content doesn't match event ID: ${eventId.slice(0, 8)}...`);
+              }
+            } catch (error) {
+              console.warn(`⚠️ Failed to parse approval content for ${eventId.slice(0, 8)}...:`, error);
+            }
 
             // Clean up local storage if we have a remote confirmation
-            if (localApprovedEvents.has(eTag[1])) {
-              const localKey = `moderation-${communityId}-${eTag[1]}`;
+            if (localApprovedEvents.has(eventId)) {
+              const localKey = `moderation-${communityId}-${eventId}`;
               localStorage.removeItem(localKey);
-              localApprovedEvents.delete(eTag[1]);
-              console.log(`🧹 Cleaned up local approval for ${eTag[1].slice(0, 8)}...`);
+              localApprovedEvents.delete(eventId);
+              console.log(`🧹 Cleaned up local approval for ${eventId.slice(0, 8)}...`);
             }
           }
         });
       });
 
-      // Combine remote and local approved event IDs
-      const allApprovedEventIds = new Set([
-        ...Array.from(approvedEventIds),
-        ...Array.from(localApprovedEvents)
-      ]);
+      console.log(`📝 Found ${approvedPosts.length} approved posts from ${approvals.length} approval events`);
 
-      const approvedEventIdsArray = Array.from(allApprovedEventIds);
-      console.log(`📋 ${approvedEventIdsArray.length} total approved event IDs (remote + local):`, approvedEventIdsArray.map(id => id.slice(0, 8) + '...'));
-
-      if (approvedEventIdsArray.length === 0) return [];
-
-      // Query for the actual approved posts
-      const approvedPosts = await nostr.query([{
-        kinds: [1111],
-        ids: approvedEventIdsArray,
-        limit: 200
-      }], { signal });
-
-      console.log(`📝 Found ${approvedPosts.length} actual approved posts`);
-
+      // Return the approved posts we extracted from approval events
       return approvedPosts
         .map(post => {
           const parentEventTag = post.tags.find(tag =>
