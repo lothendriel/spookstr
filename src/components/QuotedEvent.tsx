@@ -21,7 +21,7 @@ interface QuotedEventProps {
 
 /** Renders a quoted Nostr event by fetching and displaying its content with relay hints */
 export function QuotedEvent({ eventId, className }: QuotedEventProps) {
-  // Parse the NIP-19 identifier to determine the type and data
+  // Parse NIP-19 identifier to determine to type and data
   const parsedEvent = useMemo(() => {
     try {
       const decoded = nip19.decode(eventId);
@@ -39,7 +39,7 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
     }
   }, [eventId]);
 
-  // Build appropriate filters based on the event type
+  // Build appropriate filters based on event type
   const filters = useMemo(() => {
     if (!parsedEvent.success || !parsedEvent.data) {
       return [];
@@ -149,8 +149,21 @@ interface QuotedEventContentProps {
   originalEventId?: string;
 }
 
-// Dynamic renderer that chooses the appropriate component based on event kind
+// Dynamic renderer that chooses to appropriate component based on event kind
 function DynamicEventRenderer({ event, className, originalEventId }: QuotedEventContentProps) {
+  // Validate event before rendering
+  if (!event || !event.kind) {
+    return (
+      <Card className={`border-red-500/20 bg-red-500/5 ${className}`}>
+        <CardContent className="p-3 text-center">
+          <div className="text-red-300 text-sm">
+            Invalid event data
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Handle different event kinds with specialized renderers
   switch (event.kind) {
     case 30311:
@@ -180,6 +193,19 @@ function DynamicEventRenderer({ event, className, originalEventId }: QuotedEvent
 }
 
 function QuotedEventContent({ event, className, originalEventId }: QuotedEventContentProps) {
+  // Validate event before processing
+  if (!event || !event.pubkey) {
+    return (
+      <Card className={`border-red-500/20 bg-red-500/5 ${className}`}>
+        <CardContent className="p-3 text-center">
+          <div className="text-red-300 text-sm">
+            Invalid quoted event data
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const author = useAuthor(event.pubkey);
   const navigate = useNavigate();
   const metadata = author.data?.metadata;
@@ -189,7 +215,7 @@ function QuotedEventContent({ event, className, originalEventId }: QuotedEventCo
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
 
-    // Use the original nip19 identifier if available, otherwise create appropriate format
+    // Use original nip19 identifier if available, otherwise create appropriate format
     if (originalEventId) {
       navigate(`/${originalEventId}`);
     } else {
