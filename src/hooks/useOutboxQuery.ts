@@ -2,59 +2,9 @@ import { useNostr } from '@nostrify/react';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { useAppContext } from './useAppContext';
 import { useUserRelays } from './useUserRelays';
-import { useRelayDiscovery } from './useRelayDiscovery';
-import { relayHintCache } from '@/lib/relayHints';
-import { POPULAR_RELAYS } from '@/constants/relays';
 import type { NostrEvent, Filter } from '@nostrify/nostrify';
 
 const SPOOKSTR_RELAY = 'wss://spookstr2.nostr1.com';
-
-/**
- * Get additional relays for fallback queries
- * Combines popular relays with cached relay hints
- */
-function getAdditionalRelaysForFallback(currentRelays: string[]): string[] {
-  const currentRelaySet = new Set(currentRelays);
-  const additionalRelays = new Set<string>();
-
-  // 1. Add popular relays (excluding current ones)
-  for (const relay of POPULAR_RELAYS) {
-    if (!currentRelaySet.has(relay.url) && additionalRelays.size < 10) {
-      additionalRelays.add(relay.url);
-    }
-  }
-
-  // 2. Add relays from hint cache (excluding current ones)
-  const cachedHints = relayHintCache.getEnhancedRelays({
-    baseRelays: [],
-    maxRelays: 15
-  });
-
-  for (const relay of cachedHints) {
-    if (!currentRelaySet.has(relay) && additionalRelays.size < 15) {
-      additionalRelays.add(relay);
-    }
-  }
-
-  // 3. Add some well-known reliable relays as final fallback
-  const reliableFallbacks = [
-    'wss://relay.damus.io',
-    'wss://nos.lol',
-    'wss://relay.nostr.band',
-    'wss://relay.primal.net',
-    'wss://purplepag.es',
-    'wss://nostr.wine',
-    'wss://relay.snort.social',
-  ];
-
-  for (const relay of reliableFallbacks) {
-    if (!currentRelaySet.has(relay) && additionalRelays.size < 20) {
-      additionalRelays.add(relay);
-    }
-  }
-
-  return Array.from(additionalRelays);
-}
 
 interface OutboxQueryOptions {
   /** The pubkey of the user whose content we're fetching (for outbox model) */
@@ -178,7 +128,6 @@ export function useOutboxInfiniteQuery({
 }: OutboxQueryOptions & { limit?: number }) {
   const { nostr } = useNostr();
   const { config, presetRelays = [] } = useAppContext();
-  const { connectTemporarily, isConnecting, queryWithFallbackRelays, isFallbackQuerying } = useRelayDiscovery();
 
   // Fetch the author's relay list
   const { data: authorRelayList } = useUserRelays(authorPubkey);
@@ -228,8 +177,6 @@ export function useOutboxInfiniteQuery({
       console.log('OutboxInfiniteQuery: Querying relays:', finalRelays);
       console.log('OutboxInfiniteQuery: Page param:', pageParam ? new Date(pageParam * 1000).toISOString() : 'initial');
 
-      let allEvents: NostrEvent[] = [];
-
       try {
         const relayGroup = nostr.group(finalRelays);
 
@@ -252,64 +199,12 @@ export function useOutboxInfiniteQuery({
           }
         }
 
-        allEvents = Array.from(uniqueEvents.values());
-
-        // Store relay hints from discovered events
-        for (const event of allEvents) {
-          relayHintCache.storeHints(event);
-        }
-
-        // Check if we should trigger fallback for potentially missing content
-        const shouldTriggerFallback = pageParam === undefined && // Only for initial page
-          authorPubkey &&
-          allEvents.length < limit && // Less than expected results
-          !isFallbackQuerying; // Not already running fallback
-
-        if (shouldTriggerFallback) {
-          console.log('OutboxInfiniteQuery: 🔄 Triggering fallback for potentially missing content');
-
-          try {
-            // Get additional relays from the relay hint cache and popular relays
-            const additionalRelays = getAdditionalRelaysForFallback(finalRelays);
-
-            if (additionalRelays.length > 0) {
-              console.log('OutboxInfiniteQuery: 🎯 Querying additional relays:', additionalRelays);
-
-              // Query the additional relays with the same filters
-              const fallbackEvents = await queryWithFallbackRelays({
-                filters: paginatedFilters,
-                fallbackRelays: additionalRelays,
-                signal
-              });
-
-              if (fallbackEvents.length > 0) {
-                console.log('OutboxInfiniteQuery: 🎯 Fallback found additional events:', fallbackEvents.length);
-
-                // Merge fallback events with original results
-                for (const event of fallbackEvents) {
-                  if (!uniqueEvents.has(event.id)) {
-                    uniqueEvents.set(event.id, event);
-                  }
-                }
-
-                allEvents = Array.from(uniqueEvents.values());
-
-                // Store relay hints from fallback events too
-                for (const event of fallbackEvents) {
-                  relayHintCache.storeHints(event);
-                }
-              }
-            }
-          } catch (fallbackError) {
-            console.warn('OutboxInfiniteQuery: ⚠️ Fallback failed:', fallbackError);
-            // Continue with original results, don't fail the whole query
-          }
-        }
+        const uniqueEventsArray = Array.from(uniqueEvents.values());
 
         // Sort by created_at (newest first)
-        allEvents.sort((a, b) => b.created_at - a.created_at);
+        uniqueEventsArray.sort((a, b) => b.created_at - a.created_at);
 
-        return allEvents;
+        return uniqueEventsArray;
       } catch (error) {
         console.error('OutboxInfiniteQuery: Error:', error);
 

@@ -453,45 +453,6 @@ export function useRelayDiscovery() {
     },
   });
 
-  // Connect to additional relays with specific filters for fallback queries
-  const queryWithFallbackRelays = useMutation({
-    mutationFn: async ({
-      filters,
-      fallbackRelays,
-      signal
-    }: {
-      filters: Filter[];
-      fallbackRelays: string[];
-      signal?: AbortSignal
-    }): Promise<NostrEvent[]> => {
-      if (fallbackRelays.length === 0) return [];
-
-      try {
-        const querySignal = signal || AbortSignal.timeout(15000);
-
-        console.log('QueryWithFallbackRelays: Querying additional relays:', fallbackRelays);
-
-        // Create temporary relay group for fallback relays
-        const fallbackGroup = nostr.group(fallbackRelays);
-
-        // Query with the same filters
-        const events = await fallbackGroup.query(filters, { signal: querySignal });
-
-        console.log('QueryWithFallbackRelays: Found events from fallback:', events.length);
-
-        // Store relay hints from discovered events
-        for (const event of events) {
-          relayHintCache.storeHints(event);
-        }
-
-        return events;
-      } catch (error) {
-        console.warn('QueryWithFallbackRelays: Failed to query fallback relays:', error);
-        return [];
-      }
-    },
-  });
-
   // Clear cached discovery results
   const clearCache = useCallback(() => {
     localStorage.removeItem(DISCOVERY_CACHE_KEY);
@@ -516,8 +477,6 @@ export function useRelayDiscovery() {
     isDiscovering: discoveryState.isDiscovering || discoverRelays.isPending,
     connectTemporarily: connectTemporarily.mutateAsync,
     isConnecting: connectTemporarily.isPending,
-    queryWithFallbackRelays: queryWithFallbackRelays.mutateAsync,
-    isFallbackQuerying: queryWithFallbackRelays.isPending,
     addTempRelay,
     getCurrentRelayUrls,
     clearCache,
