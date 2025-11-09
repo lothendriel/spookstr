@@ -179,27 +179,17 @@ export function useNotifications() {
       const relayGroup = readRelays.length > 0 ? nostr.group(readRelays) : nostr;
       console.log(`[Notifications] Querying ${readRelays.length} relays (spookstrOnly: ${config.spookstrOnlyMode}):`, readRelays);
 
-      // **FIX 4: Improved query strategy with better fallback handling**
-      let queryPostIds: string[];
-      if (!pageParam) {
-        // For initial load, only check interactions on recent posts (last 50)
-        // This dramatically reduces query size for new notification checks
-        const recentPosts = userPosts
-          .sort((a, b) => b.created_at - a.created_at)
-          .slice(0, 50);
-        queryPostIds = recentPosts.map(post => post.id);
-        console.log(`[Notifications] 🆕 Initial load: checking interactions on ${queryPostIds.length} recent posts`);
-      } else {
-        // For pagination, check all posts
-        queryPostIds = userPostIds;
-        console.log(`[Notifications] 📖 Pagination: checking interactions on all ${queryPostIds.length} posts`);
-      }
+      // **FIX 4: Improved query strategy - check all posts for infinite scroll**
+      // With infinite scroll, we don't need to artificially limit initial discovery
+      // Let the pagination system handle loading progressively
+      const queryPostIds = userPostIds;
+      console.log(`[Notifications] 🔄 Checking interactions on all ${queryPostIds.length} posts`);
 
       // Build query filter with pagination
       const filter: any = {
         kinds: [1, 6, 7, 9735, 16],
         '#e': queryPostIds,
-        limit: 100, // Reduced from 200 for better performance
+        limit: 200, // Increased limit for better infinite scroll experience
       };
 
       if (pageParam) {
@@ -364,7 +354,7 @@ export function useNotifications() {
       // If we got the full limit of interactions, there might be more
       const hasMore = interactions.length >= filter.limit;
       const oldestTimestamp = sortedNotifications.length > 0
-        ? sortedNotifications[sortedNotifications.length - 1].timestamp - 1 // Subtract 1 to avoid duplicates
+        ? Math.min(...sortedNotifications.map(n => n.timestamp)) - 1 // Get oldest timestamp and subtract 1
         : undefined;
 
       console.log(`[Notifications] ✅ Returning ${sortedNotifications.length} notifications, hasMore: ${hasMore}`);
