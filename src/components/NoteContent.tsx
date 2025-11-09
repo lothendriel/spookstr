@@ -109,76 +109,108 @@ export function NoteContent({
       }
 
       // Find the media URL in the current processed text
-      // We need to search for both the original URL and normalized URL
+      // We need to search for the exact URL as it appears in the text
       let mediaIndex = -1;
       let foundUrl = media.url;
 
-      // Try to find the original URL first
+      // Strategy 1: Try to find the exact original URL first
       if (processedText.includes(media.url)) {
         mediaIndex = processedText.indexOf(media.url);
         foundUrl = media.url;
+        console.log('🔍 Found exact URL match:', media.url);
       } else {
-        // If not found, try to find the URL without query parameters
-        const urlWithoutQuery = media.url.split('?')[0];
-        if (processedText.includes(urlWithoutQuery)) {
-          mediaIndex = processedText.indexOf(urlWithoutQuery);
-          foundUrl = urlWithoutQuery;
+        // Strategy 2: Try to find the URL with different protocol (http vs https)
+        const alternateProtocol = media.url.startsWith('https://')
+          ? media.url.replace('https://', 'http://')
+          : media.url.replace('http://', 'https://');
+
+        if (processedText.includes(alternateProtocol)) {
+          mediaIndex = processedText.indexOf(alternateProtocol);
+          foundUrl = alternateProtocol;
+          console.log('🔍 Found alternate protocol match:', alternateProtocol);
         } else {
-          // Try finding filename-based match for blossom or other similar CDN links
-          const filenameParts = media.url.split('/');
-          const filename = filenameParts[filenameParts.length - 1];
+          // Strategy 3: Try to find URL without www prefix
+          const withoutWww = media.url.replace('www.', '');
+          if (processedText.includes(withoutWww)) {
+            mediaIndex = processedText.indexOf(withoutWww);
+            foundUrl = withoutWww;
+            console.log('🔍 Found without www match:', withoutWww);
+          } else {
+            // Strategy 4: Try to find URL without query parameters (as fallback)
+            const urlWithoutQuery = media.url.split('?')[0];
+            if (processedText.includes(urlWithoutQuery)) {
+              mediaIndex = processedText.indexOf(urlWithoutQuery);
+              foundUrl = urlWithoutQuery;
+              console.log('🔍 Found without query params:', urlWithoutQuery);
+            } else {
+              // Strategy 5: Try finding filename-based match for blossom or other similar CDN links
+              const filenameParts = media.url.split('/');
+              const filename = filenameParts[filenameParts.length - 1];
 
-          if (filename && processedText.includes(filename)) {
-            // Look for any URL containing this filename
-            const lines = processedText.split('\n');
-            for (const line of lines) {
-              if (line.includes(filename)) {
-                mediaIndex = processedText.indexOf(line);
-                foundUrl = line;
-                break;
-              }
-            }
-          }
-
-          // If still not found, try matching any URL with the same file hash/ID
-          if (mediaIndex < 0) {
-            // Extract file hash/ID from URL (common in CDN URLs)
-            const fileIdMatch = media.url.match(/\/([a-f0-9]{32,})\./i);
-            if (fileIdMatch && fileIdMatch[1]) {
-              const fileId = fileIdMatch[1];
-              if (processedText.includes(fileId)) {
-                // Find a line containing this file ID
+              if (filename && processedText.includes(filename)) {
+                // Look for any URL containing this filename
                 const lines = processedText.split('\n');
                 for (const line of lines) {
-                  if (line.includes(fileId)) {
-                    mediaIndex = processedText.indexOf(line);
-                    foundUrl = line;
-                    break;
+                  if (line.includes(filename)) {
+                    // Extract the full URL from the line
+                    const urlMatch = line.match(/https?:\/\/[^\s]+/);
+                    if (urlMatch) {
+                      mediaIndex = processedText.indexOf(line);
+                      foundUrl = urlMatch[0];
+                      console.log('🔍 Found filename-based match:', foundUrl);
+                      break;
+                    }
                   }
                 }
               }
-            }
-          }
 
-          // As a fallback, try to find just the Instagram ID in the URL
-          if (mediaIndex < 0) {
-            const instagramIdMatch = media.url.match(/\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
-            if (instagramIdMatch) {
-              const instagramId = instagramIdMatch[1];
-              const possibleUrls = [
-                `/p/${instagramId}`,
-                `/reel/${instagramId}`,
-                `instagram.com/p/${instagramId}`,
-                `instagram.com/reel/${instagramId}`,
-                `www.instagram.com/p/${instagramId}`,
-                `www.instagram.com/reel/${instagramId}`,
-              ];
+              // Strategy 6: Try matching any URL with the same file hash/ID
+              if (mediaIndex < 0) {
+                // Extract file hash/ID from URL (common in CDN URLs)
+                const fileIdMatch = media.url.match(/\/([a-f0-9]{32,})\./i);
+                if (fileIdMatch && fileIdMatch[1]) {
+                  const fileId = fileIdMatch[1];
+                  if (processedText.includes(fileId)) {
+                    // Find a line containing this file ID
+                    const lines = processedText.split('\n');
+                    for (const line of lines) {
+                      if (line.includes(fileId)) {
+                        // Extract the full URL from the line
+                        const urlMatch = line.match(/https?:\/\/[^\s]+/);
+                        if (urlMatch) {
+                          mediaIndex = processedText.indexOf(line);
+                          foundUrl = urlMatch[0];
+                          console.log('🔍 Found file ID-based match:', foundUrl);
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
 
-              for (const possibleUrl of possibleUrls) {
-                if (processedText.includes(possibleUrl)) {
-                  mediaIndex = processedText.indexOf(possibleUrl);
-                  foundUrl = possibleUrl;
-                  break;
+              // Strategy 7: As a fallback, try to find just the Instagram ID in the URL
+              if (mediaIndex < 0) {
+                const instagramIdMatch = media.url.match(/\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
+                if (instagramIdMatch) {
+                  const instagramId = instagramIdMatch[1];
+                  const possibleUrls = [
+                    `/p/${instagramId}`,
+                    `/reel/${instagramId}`,
+                    `instagram.com/p/${instagramId}`,
+                    `instagram.com/reel/${instagramId}`,
+                    `www.instagram.com/p/${instagramId}`,
+                    `www.instagram.com/reel/${instagramId}`,
+                  ];
+
+                  for (const possibleUrl of possibleUrls) {
+                    if (processedText.includes(possibleUrl)) {
+                      mediaIndex = processedText.indexOf(possibleUrl);
+                      foundUrl = possibleUrl;
+                      console.log('🔍 Found Instagram ID fallback match:', foundUrl);
+                      break;
+                    }
+                  }
                 }
               }
             }
@@ -186,7 +218,32 @@ export function NoteContent({
         }
       }
 
+      // Final fallback: If we still haven't found it, try to find any URL in the text
+      if (mediaIndex < 0) {
+        const urlRegex = /https?:\/\/[^\s]+/g;
+        const urlMatch = urlRegex.exec(processedText);
+        if (urlMatch) {
+          // Check if this URL contains the same domain or filename as our media URL
+          const candidateUrl = urlMatch[0];
+          const mediaDomain = new URL(media.url).hostname;
+          const candidateDomain = new URL(candidateUrl).hostname;
+
+          if (mediaDomain === candidateDomain || candidateUrl.includes(media.url.split('/').pop() || '')) {
+            mediaIndex = urlMatch.index;
+            foundUrl = candidateUrl;
+            console.log('🔍 Found domain/filename fallback match:', foundUrl);
+          }
+        }
+      }
+
       if (mediaIndex >= 0) {
+        console.log('✅ Successfully found media URL in text:', {
+          mediaType: media.type,
+          foundUrl,
+          mediaIndex,
+          fullMediaUrl: media.url
+        });
+
         // Add text before the media URL (if any)
         if (mediaIndex > 0) {
           const beforeText = processedText.substring(0, mediaIndex);
@@ -203,39 +260,82 @@ export function NoteContent({
         );
 
         // Remove the processed part from the text
-        // Also remove any trailing punctuation or whitespace that might be attached
+        // We need to ensure we remove the COMPLETE URL including all query parameters
         let endIndex = mediaIndex + foundUrl.length;
 
-        // Check if there's a trailing slash or query parameters that should be removed
+        // Check if we need to extend the removal to capture the full URL with query parameters
         if (processedText.length > endIndex) {
-          const nextChar = processedText[endIndex];
-          if (nextChar === '/' || nextChar === '?') {
-            // Find the end of the URL (next space or end of string)
-            const urlEnd = processedText.indexOf(' ', endIndex);
-            if (urlEnd === -1) {
-              // URL goes to end of string
-              endIndex = processedText.length;
-            } else {
-              endIndex = urlEnd;
-            }
+          // Look for the actual URL in the text that might be longer than what we matched
+          const remainingText = processedText.substring(mediaIndex);
+
+          // Find the complete URL by looking for the next space or end of string
+          // This ensures we capture the full URL including all query parameters
+          const urlEndInRemaining = remainingText.indexOf(' ');
+          const actualUrlLength = urlEndInRemaining === -1 ? remainingText.length : urlEndInRemaining;
+
+          // Use the actual URL length from the text
+          endIndex = mediaIndex + actualUrlLength;
+
+          // Log for debugging
+          console.log('🔗 URL removal debug:', {
+            foundUrl,
+            actualUrlInText: remainingText.substring(0, actualUrlLength),
+            mediaIndex,
+            endIndex,
+            remainingTextPreview: remainingText.substring(0, 100)
+          });
+        }
+
+        // Final check: ensure we're not leaving behind URL fragments
+        const removedText = processedText.substring(mediaIndex, endIndex);
+        const remainingAfterRemoval = processedText.substring(endIndex);
+
+        // Check if what remains starts with URL-like fragments (like &ct=g)
+        const urlFragmentRegex = /^[&?][^s]+/;
+        if (urlFragmentRegex.test(remainingAfterRemoval.trim())) {
+          console.warn('🚨 Detected URL fragment after removal:', {
+            removedText,
+            remainingFragment: remainingAfterRemoval.trim(),
+            extendingRemoval: true
+          });
+
+          // Extend removal to include the fragment
+          const fragmentEnd = remainingAfterRemoval.indexOf(' ');
+          if (fragmentEnd === -1) {
+            endIndex = processedText.length; // Remove to end
+          } else {
+            endIndex += fragmentEnd; // Remove to next space
           }
         }
 
         processedText = processedText.substring(endIndex);
+
+        console.log('✅ Final URL removal result:', {
+          removedLength: endIndex - mediaIndex,
+          remainingTextPreview: processedText.substring(0, 50)
+        });
       } else {
-        console.warn('Could not find media URL in text for removal:', media.url);
-        console.warn('Current processed text:', processedText);
+        console.warn('❌ Could not find media URL in text for removal:', media.url);
+        console.warn('🔍 Current processed text preview:', processedText.substring(0, 200));
+        console.warn('🔍 Full processed text length:', processedText.length);
 
         // For debugging - log media and event details
-        console.debug('Media item that failed to match:', {
+        console.debug('📎 Media item that failed to match:', {
           type: media.type,
           url: media.url,
           filename: media.url.split('/').pop(),
+          domain: new URL(media.url).hostname
         });
+
+        // Try to find any URLs in the text for comparison
+        const textUrls = processedText.match(/https?:\/\/[^\s]+/g);
+        if (textUrls) {
+          console.warn('🔗 URLs found in text:', textUrls);
+        }
 
         // Log the full event for debugging
         if (event.tags.some(tag => tag[0] === 'imeta')) {
-          console.debug('Event with imeta tags had URL matching issues:', {
+          console.debug('📋 Event with imeta tags had URL matching issues:', {
             id: event.id.substring(0, 8) + '...',
             imetaTags: event.tags.filter(tag => tag[0] === 'imeta'),
             contentExcerpt: event.content.substring(0, 100) + '...',
