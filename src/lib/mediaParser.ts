@@ -83,7 +83,7 @@ const mediaPatterns = {
   genericCDN: /https?:\/\/[^\s]+\/(?:media|attachments|files|assets|images|static|uploads|content|cdn-cgi|mediaproxy)(?:_attachments)?\/[^\s]+/gi,
   // IMDB links for special preview handling
   imdb: /https?:\/\/(?:www\.)?imdb\.com\/(?:title|name)\/(?:[a-z0-9]+)(?:\/[^\s]*)?/gi,
-  website: /https?:\/\/(?:www\.)?(?!www\.youtube\.com|youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropbox\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|cdn\.bsky\.app|image\.nostr\.build|nostr\.build|void\.cat|cdn\.satellite\.earth|media\.tenor\.com|media\.giphy\.com|media\.witter\.cz|files\.mastodon\.social|media\.mas\.to|blossom\.primal\.net|media\.channels\.im|cdn\.masto\.host|media\.pubeurope\.com|o\.mastodon\.nz|social\.anoxinon\.de|imdb\.com|instagram\.com|twitter\.com|x\.com|facebook\.com|odysee\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|jpe|jp|j|png|pn|p|gif|gi|g|webp|svg|bmp|avif|ico|tiff?|tif|psd|heic?|heif|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
+  website: /https?:\/\/(?:www\.)?(?!www\.youtube\.com|youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com|tiktok\.com|open\.spotify\.com|i\.imgur\.com|images\.imgur\.com|preview\.redd\.it|i\.redd\.it|pbs\.twimg\.com|cdn\.discordapp\.com|media\.discordapp\.net|attachments|camo\.githubusercontent\.com|user-images\.githubusercontent\.com|images\.unsplash\.com|images\.pexels\.com|dl\.dropbox\.com|lh3\.googleusercontent\.com|storage\.googleapis\.com|cloudinary\.com|images\.prismic\.io|www\.dropbox\.com\/s|cdn\.instagram\.com|scontent\.instagram\.com|fbcdn\.net|platform\.twitter\.com|cdn\.bsky\.app|image\.nostr\.build|nostr\.build|void\.cat|cdn\.satellite\.earth|media\.tenor\.com|media\.giphy\.com|media\.witter\.cz|files\.mastodon\.social|media\.mas\.to|blossom\.primal\.net|media\.channels\.im|cdn\.masto\.host|media\.pubeurope\.com|o\.mastodon\.nz|social\.anoxinon\.de|imdb\.com|twitter\.com|x\.com|facebook\.com|odysee\.com)[^\s]+\.[a-z]{2,}(?:\/[^\s]*)?(?<!\.(?:jpg|jpeg|jpe|jp|j|png|pn|p|gif|gi|g|webp|svg|bmp|avif|ico|tiff?|tif|psd|heic?|heif|jif|jfif|mp4|webm|mov|avi|mkv|flv|ogv|3gp|m4v|wmv|asf|rm|rmvb|ts|m2ts|mts|divx|xvid|mp3|wav|ogg|flac|m4a|aac|opus|wma|ra|ac3|dts))(?:\?[^\s]*)?/gi,
 };
 
 // Helper function to normalize URLs (ensure HTTPS and consistent format)
@@ -334,10 +334,24 @@ export function parseMediaFromContent(content: string, skipUrls: Set<string> = n
 
       if (!processedUrls.has(normalizedUrl)) {
         console.log(`✅ Matched as ${type}:`, url);
+
+        // Special debugging for Instagram
+        if (type === 'instagram') {
+          console.log('📷 Instagram URL matched successfully!');
+          console.log('🔍 Instagram match details:', {
+            fullMatch: match[0],
+            id: match[1],
+            url: url,
+            normalizedUrl: normalizedUrl
+          });
+        }
+
         const mediaItem = createMediaItem(url, type, match);
         if (mediaItem) {
           mediaItems.push(mediaItem);
           processedUrls.add(normalizedUrl);
+        } else {
+          console.warn(`⚠️ Failed to create media item for ${type}:`, url);
         }
       }
     }
