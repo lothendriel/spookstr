@@ -182,69 +182,85 @@ export function useRelayQuery({
  * Specialized hook for fetching a single event by ID with enhanced discovery
  */
 export function useRelayEvent(eventId: string, enabled = true): HookResult<NostrEvent[]> {
-  // Convert NIP-19 identifier to hex ID for Nostr protocol filters
-  const hexId = useMemo(() => {
-    if (!eventId) return '';
+  // Enhanced NIP-19 identifier processing with better error handling
+  const { hexId, decodedType, filters } = useMemo(() => {
+    if (!eventId) {
+      return { hexId: '', decodedType: null, filters: [] };
+    }
 
-    // If it's already a hex ID, return as-is
+    console.log('🔍 useRelayEvent: Processing eventId:', eventId.substring(0, 20) + '...');
+
+    // If it's already a hex ID, use it directly
     if (eventId.match(/^[0-9a-fA-F]{64}$/)) {
-      return eventId;
+      console.log('🔍 useRelayEvent: Using hex ID directly');
+      return {
+        hexId: eventId,
+        decodedType: 'hex',
+        filters: [{ ids: [eventId], limit: 1 }]
+      };
     }
 
     // If it's a NIP-19 identifier, decode it
     try {
       const decoded = nip19.decode(eventId);
-      if (decoded.type === 'note' || decoded.type === 'nevent') {
-        const id = decoded.type === 'note' ? decoded.data : decoded.data.id;
-        console.log('🔍 useRelayEvent: Decoded NIP-19 to hex:', {
-          original: eventId.substring(0, 12) + '...',
-          hex: id.substring(0, 8) + '...'
-        });
-        return id;
+      console.log('🔍 useRelayEvent: Decoded NIP-19 type:', decoded.type);
+
+      if (decoded.type === 'note') {
+        const id = decoded.data;
+        console.log('🔍 useRelayEvent: Note ID decoded:', id.substring(0, 8) + '...');
+        return {
+          hexId: id,
+          decodedType: 'note',
+          filters: [{ ids: [id], limit: 1 }]
+        };
+      } else if (decoded.type === 'nevent') {
+        const neventData = decoded.data as { id: string; author?: string; relays?: string[] };
+        console.log('🔍 useRelayEvent: Nevent ID decoded:', neventData.id.substring(0, 8) + '...');
+        return {
+          hexId: neventData.id,
+          decodedType: 'nevent',
+          filters: [{ ids: [neventData.id], limit: 1 }]
+        };
       } else if (decoded.type === 'naddr') {
-        // For addressable events, we need to use kind, author, and d-tag
-        // This is handled by the filter logic in useRelayQuery
-        return eventId; // Return original for naddr handling
-      }
-    } catch (error) {
-      console.warn('Failed to decode NIP-19 identifier:', error);
-    }
-
-    return eventId; // Fallback to original
-  }, [eventId]);
-
-  // For naddr identifiers, we need special handling
-  const filters = useMemo(() => {
-    if (!eventId) return [];
-
-    try {
-      const decoded = nip19.decode(eventId);
-      if (decoded.type === 'naddr') {
         const naddr = decoded.data as { identifier: string; pubkey: string; kind: number; relays?: string[] };
-        return [{
-          kinds: [naddr.kind],
-          authors: [naddr.pubkey],
-          '#d': [naddr.identifier],
-          limit: 1
-        }];
+        console.log('🔍 useRelayEvent: Naddr decoded:', {
+          kind: naddr.kind,
+          pubkey: naddr.pubkey.substring(0, 8) + '...',
+          identifier: naddr.identifier
+        });
+        return {
+          hexId: eventId, // Keep original for naddr
+          decodedType: 'naddr',
+          filters: [{
+            kinds: [naddr.kind],
+            authors: [naddr.pubkey],
+            '#d': [naddr.identifier],
+            limit: 1
+          }]
+        };
       }
     } catch (error) {
-      // Not an naddr, continue with hex ID filter
+      console.error('🔍 useRelayEvent: Failed to decode NIP-19 identifier:', error);
     }
 
-    // For note, nevent, or hex IDs, use the ids filter
-    return [{ ids: [hexId], limit: 1 }];
-  }, [eventId, hexId]);
+    // Fallback: try to use as-is if it looks like a valid ID
+    console.warn('🔍 useRelayEvent: Using fallback for unrecognized format');
+    return {
+      hexId: eventId,
+      decodedType: 'fallback',
+      filters: [{ ids: [eventId], limit: 1 }]
+    };
+  }, [eventId]);
 
   return useRelayQuery({
     filters,
     enabled: enabled && !!eventId,
     staleTime: 60000, // 1 minute for single events
-    retry: 2, // More retries for single events
-    maxRelays: 8, // More relays for single event discovery
+    retry: 3, // More retries for better reliability
+    maxRelays: 10, // More relays for single event discovery
     useRelayHints: true,
     useFallbacks: true,
-    timeout: 8000,
+    timeout: 12000, // Longer timeout for quoted events
     queryKey: queryKeys.post.details(eventId),
   });
 }
@@ -307,13 +323,32 @@ function getBaseRelays(config: any, presetRelays: any[]): string[] {
     baseRelays = [config.relayUrl];
   }
 
-  // Always include Spookstr relay for better coverage
-  const spookstrRelay = 'wss://spookstr2.nostr1.com';
-  if (!baseRelays.includes(spookstrRelay)) {
-    baseRelays.unshift(spookstrRelay);
+  // Always include high-priority relays for better coverage
+  const highPriorityRelays = [
+    'wss://spookstr2.nostr1.com',
+    'wss://relay.damus.io',
+    'wss://relay.nostr.band',
+    'wss://nos.lol',
+    'wss://relay.primal.net'
+  ];
+
+  // Add high-priority relays that aren't already included
+  for (const relay of highPriorityRelays) {
+    if (!baseRelays.includes(relay)) {
+      baseRelays.unshift(relay);
+    }
   }
 
-  return baseRelays;
+  // Add preset relays for additional coverage
+  for (const preset of presetRelays) {
+    if (preset.url && !baseRelays.includes(preset.url)) {
+      baseRelays.push(preset.url);
+    }
+  }
+
+  // Limit to reasonable number to avoid overwhelming the network
+  const uniqueRelays = Array.from(new Set(baseRelays));
+  return uniqueRelays.slice(0, 8);
 }
 
 function deduplicateEvents(events: NostrEvent[]): NostrEvent[] {
@@ -334,12 +369,13 @@ async function executeFallbackQuery(
   filters: Filter[],
   signal: AbortSignal
 ): Promise<NostrEvent[]> {
-  console.log('RelayQuery: Executing fallback query');
+  console.log('RelayQuery: Executing fallback query with enhanced strategies');
 
   try {
-    // Try default nostr instance first
+    // Strategy 1: Try default nostr instance first
+    console.log('RelayQuery: Fallback strategy 1 - Default nostr instance');
     const events = await nostr.query(filters, { signal });
-    console.log('RelayQuery: Fallback query found events:', events.length);
+    console.log('RelayQuery: Fallback strategy 1 found events:', events.length);
 
     // Store hints even from fallback
     for (const event of events) {
@@ -348,8 +384,39 @@ async function executeFallbackQuery(
 
     return events;
   } catch (fallbackError) {
-    console.error('RelayQuery: Fallback query also failed:', fallbackError);
+    console.warn('RelayQuery: Fallback strategy 1 failed:', fallbackError);
 
+    // Strategy 2: Try individual high-priority relays
+    console.log('RelayQuery: Fallback strategy 2 - Individual high-priority relays');
+    const highPriorityRelays = [
+      'wss://spookstr2.nostr1.com',
+      'wss://relay.damus.io',
+      'wss://relay.nostr.band',
+      'wss://nos.lol',
+      'wss://relay.primal.net'
+    ];
+
+    for (const relayUrl of highPriorityRelays) {
+      try {
+        console.log('RelayQuery: Trying fallback relay:', relayUrl);
+        const relay = nostr.relay(relayUrl);
+        const relayEvents = await relay.query(filters, { signal });
+        console.log('RelayQuery: Fallback relay found events:', relayEvents.length);
+
+        if (relayEvents.length > 0) {
+          // Store hints from successful relay
+          for (const event of relayEvents) {
+            relayHintCache.storeHints(event);
+          }
+          return relayEvents;
+        }
+      } catch (relayError) {
+        console.warn('RelayQuery: Fallback relay failed:', relayUrl, relayError);
+        continue;
+      }
+    }
+
+    console.error('RelayQuery: All fallback strategies failed');
     // Return empty array rather than throwing to prevent UI errors
     return [];
   }

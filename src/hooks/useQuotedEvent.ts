@@ -13,7 +13,7 @@ interface QuotedEventOptions {
 }
 
 /**
- * Simplified quoted event discovery using the unified relay query system.
+ * Enhanced quoted event discovery using the unified relay query system.
  *
  * This hook leverages the advanced relay hint and fallback strategies
  * built into the unified useRelayQuery hook, providing robust event
@@ -25,8 +25,23 @@ export function useQuotedEvent(
 ) {
   const { enabled = true, staleTime = 120000, retry = 1 } = options;
 
+  console.log('🔍 useQuotedEvent: Fetching event:', eventId?.substring(0, 20) + '...', {
+    enabled,
+    staleTime,
+    retry
+  });
+
   // Use the unified relay event hook with enhanced settings for quoted events
   const result = useRelayEvent(eventId || '', enabled && !!eventId);
+
+  // Add additional logging for debugging
+  console.log('🔍 useQuotedEvent: Result:', {
+    eventId: eventId?.substring(0, 20) + '...',
+    isLoading: result.isLoading,
+    error: result.error?.message,
+    dataLength: result.data?.length || 0,
+    hasData: !!result.data && result.data.length > 0
+  });
 
   return {
     ...result,
