@@ -10,11 +10,12 @@ import { nip19 } from 'nostr-tools';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, ExternalLink } from 'lucide-react';
+import { RefreshCw, ExternalLink, AlertTriangle } from 'lucide-react';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { LiveStreamEvent } from '@/components/LiveStreamEvent';
 import { MarketplaceListing } from '@/components/MarketplaceListing';
 import { LongFormContent } from '@/components/LongFormContent';
+import { validateEventId, validateEventIdSuspicion } from '@/lib/eventValidation';
 
 interface QuotedEventProps {
   eventId: string;
@@ -25,24 +26,39 @@ interface QuotedEventProps {
 export function QuotedEvent({ eventId, className }: QuotedEventProps) {
   const [retryCount, setRetryCount] = useState(0);
 
+  // Validate the event ID first
+  const validation = useMemo(() => validateEventId(eventId), [eventId]);
+  const suspicion = useMemo(() => validateEventIdSuspicion(eventId), [eventId]);
+
   // Parse NIP-19 identifier to determine to type and data
   const parsedEvent = useMemo(() => {
+    if (!validation.isValid) {
+      return {
+        type: null,
+        data: null,
+        success: false,
+        error: validation.error
+      };
+    }
+
     try {
       const decoded = nip19.decode(eventId);
       return {
         type: decoded.type,
         data: decoded.data,
-        success: true
+        success: true,
+        error: null
       };
     } catch (error) {
       console.error('🔍 QuotedEvent: Failed to parse NIP-19 identifier:', error);
       return {
         type: null,
         data: null,
-        success: false
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown parsing error'
       };
     }
-  }, [eventId]);
+  }, [eventId, validation]);
 
   // Build appropriate filters based on event type
   const filters = useMemo(() => {
@@ -70,6 +86,46 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
 
     return [];
   }, [parsedEvent]);
+
+  // Show validation error immediately if event ID is invalid
+  if (!validation.isValid) {
+    return (
+      <Card className={`border-red-500/20 bg-red-500/5 ${className}`}>
+        <CardContent className="p-3">
+          <div className="text-center space-y-3">
+            <div className="flex items-center justify-center space-x-2 text-red-400/80">
+              <AlertTriangle className="w-4 h-4" />
+              <span className="text-sm font-medium">Invalid quoted post ID</span>
+            </div>
+            <div className="text-xs text-red-500/60">
+              {validation.error}
+            </div>
+            {suspicion.isSuspicious && (
+              <div className="text-xs text-red-500/40">
+                <div className="font-medium mb-1">Possible issues:</div>
+                <ul className="list-disc list-inside space-y-1">
+                  {suspicion.reasons.map((reason, index) => (
+                    <li key={index}>{reason}</li>
+                  ))}
+                </ul>
+                {suspicion.suggestions.length > 0 && (
+                  <div className="font-medium mt-2 mb-1">Suggestions:</div>
+                )}
+                <ul className="list-disc list-inside space-y-1">
+                  {suspicion.suggestions.map((suggestion, index) => (
+                    <li key={index}>{suggestion}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="text-xs text-red-500/40 font-mono">
+              ID: {eventId.length > 40 ? eventId.substring(0, 40) + '...' : eventId}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const { data: quotedEvents, isLoading, error, refetch } = useQuotedEvent(
     eventId,
@@ -168,16 +224,21 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
   }
 
   if (!quotedEvent || !quotedEvent.id) {
+    // Determine if this is likely a genuine "not found" vs network issue
+    const isGenuinelyNotFound = !isLoading && !error && retryCount >= 2;
+
     return (
       <Card className={`border-red-500/20 bg-red-500/5 ${className}`}>
         <CardContent className="p-3">
           <div className="text-center space-y-3">
             <div className="text-red-400/80 text-sm font-medium">
-              Quoted post not found
+              {isGenuinelyNotFound ? 'Quoted post not found' : 'Having trouble finding this quoted post'}
             </div>
             <div className="text-xs text-red-500/60">
-              Searched multiple relays and strategies
-              {retryCount > 0 && ` (${retryCount} retry${retryCount > 1 ? 's' : ''})`}
+              {isGenuinelyNotFound
+                ? 'This event may have been deleted or never existed'
+                : `Searched multiple relays and strategies${retryCount > 0 ? ` (${retryCount} retry${retryCount > 1 ? 's' : ''})` : ''}`
+              }
             </div>
             <div className="flex flex-col gap-2">
               <Button
@@ -190,7 +251,7 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
                 className="text-xs border-red-500/30 hover:bg-red-500/10"
               >
                 <RefreshCw className="w-3 h-3 mr-1" />
-                Try Again
+                {isGenuinelyNotFound ? 'Retry Search' : 'Try Again'}
               </Button>
               <a
                 href={`https://njump.me/nostr:${eventId}`}
@@ -202,6 +263,11 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
                 View on Nostr
               </a>
             </div>
+            {isGenuinelyNotFound && (
+              <div className="text-xs text-red-500/40 mt-2">
+                Event ID: {eventId.substring(0, 20)}...
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

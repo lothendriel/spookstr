@@ -386,7 +386,7 @@ async function executeFallbackQuery(
   } catch (fallbackError) {
     console.warn('RelayQuery: Fallback strategy 1 failed:', fallbackError);
 
-    // Strategy 2: Try individual high-priority relays
+    // Strategy 2: Try individual high-priority relays with better error handling
     console.log('RelayQuery: Fallback strategy 2 - Individual high-priority relays');
     const highPriorityRelays = [
       'wss://spookstr2.nostr1.com',
@@ -396,11 +396,25 @@ async function executeFallbackQuery(
       'wss://relay.primal.net'
     ];
 
-    for (const relayUrl of highPriorityRelays) {
+    // Add some additional reliable relays for better coverage
+    const additionalRelays = [
+      'wss://relay.mostr.pub',
+      'wss://nostr.wine',
+      'wss://purplepag.es',
+      'wss://relay.snort.social'
+    ];
+
+    const allRelays = [...highPriorityRelays, ...additionalRelays];
+
+    for (const relayUrl of allRelays) {
       try {
         console.log('RelayQuery: Trying fallback relay:', relayUrl);
         const relay = nostr.relay(relayUrl);
-        const relayEvents = await relay.query(filters, { signal });
+        const relayEvents = await relay.query(filters, {
+          signal,
+          // Add a shorter timeout for individual relay queries
+          timeout: AbortSignal.timeout(5000)
+        });
         console.log('RelayQuery: Fallback relay found events:', relayEvents.length);
 
         if (relayEvents.length > 0) {
@@ -411,12 +425,12 @@ async function executeFallbackQuery(
           return relayEvents;
         }
       } catch (relayError) {
-        console.warn('RelayQuery: Fallback relay failed:', relayUrl, relayError);
+        console.warn('RelayQuery: Fallback relay failed:', relayUrl, relayError.message || relayError);
         continue;
       }
     }
 
-    console.error('RelayQuery: All fallback strategies failed');
+    console.error('RelayQuery: All fallback strategies failed - event may not exist');
     // Return empty array rather than throwing to prevent UI errors
     return [];
   }
