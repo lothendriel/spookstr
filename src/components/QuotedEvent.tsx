@@ -5,17 +5,18 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthor } from '@/hooks/useAuthor';
 import { getDisplayName } from '@/lib/getDisplayName';
 import { NoteContent } from '@/components/NoteContent';
-import { useQuotedEvent } from '@/hooks/useQuotedEvent';
+import { useQuotedEvent, type QuotedEventBlockReason } from '@/hooks/useQuotedEvent';
 import { nip19 } from 'nostr-tools';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, ExternalLink, AlertTriangle } from 'lucide-react';
+import { RefreshCw, ExternalLink, AlertTriangle, UserOff, Hash } from 'lucide-react';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { LiveStreamEvent } from '@/components/LiveStreamEvent';
 import { MarketplaceListing } from '@/components/MarketplaceListing';
 import { LongFormContent } from '@/components/LongFormContent';
 import { validateEventId, validateEventIdSuspicion } from '@/lib/eventValidation';
+import { Link } from 'react-router-dom';
 
 interface QuotedEventProps {
   eventId: string;
@@ -127,7 +128,7 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
     );
   }
 
-  const { data: quotedEvents, isLoading, error, refetch } = useQuotedEvent(
+  const { data: quotedEvents, isLoading, error, refetch, blockReason } = useQuotedEvent(
     eventId,
     {
       enabled: !!eventId && parsedEvent.success && filters.length > 0,
@@ -138,6 +139,63 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
 
   // Extract the first event from the array (useRelayEvent returns arrays)
   const quotedEvent = quotedEvents && quotedEvents.length > 0 ? quotedEvents[0] : null;
+
+  // Handle blocked content
+  if (blockReason) {
+    return (
+      <Card className={`border-yellow-500/20 bg-yellow-500/5 ${className}`}>
+        <CardContent className="p-3">
+          <div className="text-center space-y-3">
+            <div className="flex items-center justify-center space-x-2 text-yellow-400/80">
+              {blockReason.type === 'user' ? (
+                <UserOff className="w-4 h-4" />
+              ) : (
+                <Hash className="w-4 h-4" />
+              )}
+              <span className="text-sm font-medium">
+                {blockReason.type === 'user' ? 'User Hidden' : 'Hashtag Hidden'}
+              </span>
+            </div>
+            <div className="text-xs text-yellow-500/60">
+              {blockReason.reason}
+            </div>
+            <div className="text-xs text-yellow-500/40">
+              {blockReason.type === 'user' ? (
+                <>
+                  User: <span className="font-mono">{blockReason.details.blockedItem.substring(0, 12)}...</span>
+                </>
+              ) : (
+                <>
+                  Hashtag: <span className="font-mono">#{blockReason.details.blockedItem}</span>
+                </>
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="text-xs border-yellow-500/30 hover:bg-yellow-500/10"
+              >
+                <Link to="/settings">
+                  Manage Hidden Items
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => refetch()}
+                className="text-xs text-yellow-400/60 hover:text-yellow-300"
+              >
+                <RefreshCw className="w-3 h-3 mr-1" />
+                Refresh
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   // Enhanced debug logging
   console.log('🔍 QuotedEvent Debug:', {

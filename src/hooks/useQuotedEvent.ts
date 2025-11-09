@@ -1,15 +1,26 @@
 import { useRelayEvent } from './useRelayQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { nip19 } from 'nostr-tools';
+import { useHiddenUsers } from './useHiddenUsers';
+import { useHiddenHashtags } from './useHiddenHashtags';
 import type { NostrEvent } from '@nostrify/nostrify';
 
-interface QuotedEventOptions {
+export interface QuotedEventOptions {
   /** Whether the query is enabled */
   enabled?: boolean;
   /** How long data stays fresh */
   staleTime?: number;
   /** Number of retries */
   retry?: number;
+}
+
+export interface QuotedEventBlockReason {
+  type: 'user' | 'hashtag';
+  reason: string;
+  details: {
+    blockedItem: string;
+    blockedItemType: 'pubkey' | 'hashtag';
+  };
 }
 
 /**
@@ -31,8 +42,56 @@ export function useQuotedEvent(
     retry
   });
 
+  const { isUserHidden } = useHiddenUsers();
+  const { hasHiddenHashtag } = useHiddenHashtags();
+
   // Use the unified relay event hook with enhanced settings for quoted events
   const result = useRelayEvent(eventId || '', enabled && !!eventId);
+
+  // Check if the quoted event is blocked due to user settings
+  const blockReason: QuotedEventBlockReason | null = useMemo(() => {
+    if (!result.data || result.data.length === 0) {
+      return null;
+    }
+
+    const event = result.data[0];
+
+    // Check if the author is hidden
+    if (isUserHidden(event.pubkey)) {
+      return {
+        type: 'user',
+        reason: 'This quoted post is from a user you have hidden in your settings',
+        details: {
+          blockedItem: event.pubkey,
+          blockedItemType: 'pubkey'
+        }
+      };
+    }
+
+    // Check if the event contains any hidden hashtags
+    if (hasHiddenHashtag(event.tags)) {
+      // Find which hashtag is hidden
+      const hiddenTag = event.tags
+        .filter(([tagName]) => tagName === 't')
+        .find(([, tagValue]) => {
+          const normalized = tagValue?.toLowerCase();
+          return hiddenHashtags.some(h => h.toLowerCase() === normalized);
+        });
+
+      if (hiddenTag && hiddenTag[1]) {
+        return {
+          type: 'hashtag',
+          reason: 'This quoted post contains a hashtag you have hidden in your settings',
+          details: {
+            blockedItem: hiddenTag[1],
+            blockedItemType: 'hashtag'
+          }
+        };
+      }
+    }
+
+    return null;
+  }, [result.data, isUserHidden, hasHiddenHashtag]);
 
   // Add additional logging for debugging
   console.log('🔍 useQuotedEvent: Result:', {
@@ -40,11 +99,17 @@ export function useQuotedEvent(
     isLoading: result.isLoading,
     error: result.error?.message,
     dataLength: result.data?.length || 0,
-    hasData: !!result.data && result.data.length > 0
+    hasData: !!result.data && result.data.length > 0,
+    blockReason: blockReason ? {
+      type: blockReason.type,
+      reason: blockReason.reason,
+      blockedItem: blockReason.details.blockedItem.substring(0, 12) + '...'
+    } : null
   });
 
   return {
     ...result,
+    blockReason,
     // Transform the data to handle the case where eventId might be undefined
     data: eventId ? result.data : null,
   };
