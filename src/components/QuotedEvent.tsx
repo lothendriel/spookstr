@@ -1,22 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuthor } from '@/hooks/useAuthor';
 import { getDisplayName } from '@/lib/getDisplayName';
 import { NoteContent } from '@/components/NoteContent';
-import { useQuotedEvent, type QuotedEventBlockReason } from '@/hooks/useQuotedEvent';
+import { useQuotedEvent } from '@/hooks/useQuotedEvent';
 import { nip19 } from 'nostr-tools';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { RefreshCw, ExternalLink, AlertTriangle, UserOff, Hash } from 'lucide-react';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { LiveStreamEvent } from '@/components/LiveStreamEvent';
 import { MarketplaceListing } from '@/components/MarketplaceListing';
 import { LongFormContent } from '@/components/LongFormContent';
-import { validateEventId, validateEventIdSuspicion } from '@/lib/eventValidation';
-import { Link } from 'react-router-dom';
 
 interface QuotedEventProps {
   eventId: string;
@@ -25,41 +21,23 @@ interface QuotedEventProps {
 
 /** Renders a quoted Nostr event by fetching and displaying its content with relay hints */
 export function QuotedEvent({ eventId, className }: QuotedEventProps) {
-  const [retryCount, setRetryCount] = useState(0);
-
-  // Validate the event ID first
-  const validation = useMemo(() => validateEventId(eventId), [eventId]);
-  const suspicion = useMemo(() => validateEventIdSuspicion(eventId), [eventId]);
-
   // Parse NIP-19 identifier to determine to type and data
   const parsedEvent = useMemo(() => {
-    if (!validation.isValid) {
-      return {
-        type: null,
-        data: null,
-        success: false,
-        error: validation.error
-      };
-    }
-
     try {
       const decoded = nip19.decode(eventId);
       return {
         type: decoded.type,
         data: decoded.data,
-        success: true,
-        error: null
+        success: true
       };
-    } catch (error) {
-      console.error('🔍 QuotedEvent: Failed to parse NIP-19 identifier:', error);
+    } catch {
       return {
         type: null,
         data: null,
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown parsing error'
+        success: false
       };
     }
-  }, [eventId, validation]);
+  }, [eventId]);
 
   // Build appropriate filters based on event type
   const filters = useMemo(() => {
@@ -88,47 +66,7 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
     return [];
   }, [parsedEvent]);
 
-  // Show validation error immediately if event ID is invalid
-  if (!validation.isValid) {
-    return (
-      <Card className={`border-red-500/20 bg-red-500/5 ${className}`}>
-        <CardContent className="p-3">
-          <div className="text-center space-y-3">
-            <div className="flex items-center justify-center space-x-2 text-red-400/80">
-              <AlertTriangle className="w-4 h-4" />
-              <span className="text-sm font-medium">Invalid quoted post ID</span>
-            </div>
-            <div className="text-xs text-red-500/60">
-              {validation.error}
-            </div>
-            {suspicion.isSuspicious && (
-              <div className="text-xs text-red-500/40">
-                <div className="font-medium mb-1">Possible issues:</div>
-                <ul className="list-disc list-inside space-y-1">
-                  {suspicion.reasons.map((reason, index) => (
-                    <li key={index}>{reason}</li>
-                  ))}
-                </ul>
-                {suspicion.suggestions.length > 0 && (
-                  <div className="font-medium mt-2 mb-1">Suggestions:</div>
-                )}
-                <ul className="list-disc list-inside space-y-1">
-                  {suspicion.suggestions.map((suggestion, index) => (
-                    <li key={index}>{suggestion}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <div className="text-xs text-red-500/40 font-mono">
-              ID: {eventId.length > 40 ? eventId.substring(0, 40) + '...' : eventId}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const { data: quotedEvents, isLoading, error, refetch, blockReason } = useQuotedEvent(
+  const { data: quotedEvents, isLoading, error } = useQuotedEvent(
     eventId,
     {
       enabled: !!eventId && parsedEvent.success && filters.length > 0,
@@ -140,90 +78,15 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
   // Extract the first event from the array (useRelayEvent returns arrays)
   const quotedEvent = quotedEvents && quotedEvents.length > 0 ? quotedEvents[0] : null;
 
-  // Handle blocked content
-  if (blockReason) {
-    return (
-      <Card className={`border-yellow-500/20 bg-yellow-500/5 ${className}`}>
-        <CardContent className="p-3">
-          <div className="text-center space-y-3">
-            <div className="flex items-center justify-center space-x-2 text-yellow-400/80">
-              {blockReason.type === 'user' ? (
-                <UserOff className="w-4 h-4" />
-              ) : (
-                <Hash className="w-4 h-4" />
-              )}
-              <span className="text-sm font-medium">
-                {blockReason.type === 'user' ? 'User Hidden' : 'Hashtag Hidden'}
-              </span>
-            </div>
-            <div className="text-xs text-yellow-500/60">
-              {blockReason.reason}
-            </div>
-            <div className="text-xs text-yellow-500/40">
-              {blockReason.type === 'user' ? (
-                <>
-                  User: <span className="font-mono">{blockReason.details.blockedItem.substring(0, 12)}...</span>
-                </>
-              ) : (
-                <>
-                  Hashtag: <span className="font-mono">#{blockReason.details.blockedItem}</span>
-                </>
-              )}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                asChild
-                className="text-xs border-yellow-500/30 hover:bg-yellow-500/10"
-              >
-                <Link to="/settings">
-                  Manage Hidden Items
-                </Link>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => refetch()}
-                className="text-xs text-yellow-400/60 hover:text-yellow-300"
-              >
-                <RefreshCw className="w-3 h-3 mr-1" />
-                Refresh
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Enhanced debug logging
+  // Debug logging
   console.log('🔍 QuotedEvent Debug:', {
-    eventId: eventId.substring(0, 20) + '...',
+    eventId,
     parsedEventSuccess: parsedEvent.success,
     parsedEventType: parsedEvent.type,
-    filters: filters.map(f => ({
-      kinds: f.kinds,
-      ids: f.ids?.map(id => id.substring(0, 8) + '...'),
-      authors: f.authors?.map(pk => pk.substring(0, 8) + '...'),
-      '#d': f['#d']
-    })),
-    quotedEventsCount: quotedEvents?.length || 0,
-    quotedEvents: quotedEvents?.map(e => ({
-      id: e.id.substring(0, 8) + '...',
-      kind: e.kind,
-      hasContent: !!e.content,
-      contentLength: e.content?.length || 0
-    })),
-    quotedEvent: quotedEvent ? {
-      id: quotedEvent.id.substring(0, 8) + '...',
-      kind: quotedEvent.kind,
-      hasContent: !!quotedEvent.content,
-      contentLength: quotedEvent.content?.length || 0
-    } : null,
-    isLoading,
-    error: error?.message,
-    errorType: error?.name
+    filters,
+    quotedEvents: quotedEvents?.map(e => ({ id: e.id, kind: e.kind })),
+    quotedEvent: quotedEvent ? { id: quotedEvent.id, kind: quotedEvent.kind, hasContent: !!quotedEvent.content } : null,
+    error: error?.message
   });
 
   if (isLoading) {
@@ -243,38 +106,23 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
 
   if (error) {
     return (
-      <Card className={`border-orange-500/20 bg-orange-500/5 ${className}`}>
+      <Card className={`border-lime-500/20 bg-lime-500/5 ${className}`}>
         <CardContent className="p-3">
-          <div className="text-center space-y-3">
-            <div className="text-orange-400/80 text-sm font-medium">
+          <div className="text-center space-y-2">
+            <div className="text-lime-500/60 text-sm">
               Having trouble finding this quoted post
             </div>
-            <div className="text-xs text-orange-500/60">
-              Error: {error.message || 'Network error'}
+            <div className="text-xs text-lime-500/40">
+              Trying multiple relay sources...
             </div>
-            <div className="flex flex-col gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setRetryCount(prev => prev + 1);
-                  refetch();
-                }}
-                className="text-xs border-orange-500/30 hover:bg-orange-500/10"
-              >
-                <RefreshCw className="w-3 h-3 mr-1" />
-                Retry Search
-              </Button>
-              <a
-                href={`https://njump.me/nostr:${eventId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-orange-400 hover:text-orange-300 hover:underline inline-flex items-center justify-center"
-              >
-                <ExternalLink className="w-3 h-3 mr-1" />
-                View on Nostr
-              </a>
-            </div>
+            <a
+              href={`https://njump.me/nostr:${eventId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-lime-400 hover:text-lime-300 hover:underline block"
+            >
+              View on Nostr →
+            </a>
           </div>
         </CardContent>
       </Card>
@@ -282,50 +130,24 @@ export function QuotedEvent({ eventId, className }: QuotedEventProps) {
   }
 
   if (!quotedEvent || !quotedEvent.id) {
-    // Determine if this is likely a genuine "not found" vs network issue
-    const isGenuinelyNotFound = !isLoading && !error && retryCount >= 2;
-
     return (
-      <Card className={`border-red-500/20 bg-red-500/5 ${className}`}>
+      <Card className={`border-lime-500/20 bg-lime-500/5 ${className}`}>
         <CardContent className="p-3">
-          <div className="text-center space-y-3">
-            <div className="text-red-400/80 text-sm font-medium">
-              {isGenuinelyNotFound ? 'Quoted post not found' : 'Having trouble finding this quoted post'}
+          <div className="text-center space-y-2">
+            <div className="text-lime-500/60 text-sm">
+              Quoted post not found
             </div>
-            <div className="text-xs text-red-500/60">
-              {isGenuinelyNotFound
-                ? 'This event may have been deleted or never existed'
-                : `Searched multiple relays and strategies${retryCount > 0 ? ` (${retryCount} retry${retryCount > 1 ? 's' : ''})` : ''}`
-              }
+            <div className="text-xs text-lime-500/40">
+              Searched multiple relays and strategies
             </div>
-            <div className="flex flex-col gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setRetryCount(prev => prev + 1);
-                  refetch();
-                }}
-                className="text-xs border-red-500/30 hover:bg-red-500/10"
-              >
-                <RefreshCw className="w-3 h-3 mr-1" />
-                {isGenuinelyNotFound ? 'Retry Search' : 'Try Again'}
-              </Button>
-              <a
-                href={`https://njump.me/nostr:${eventId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-red-400 hover:text-red-300 hover:underline inline-flex items-center justify-center"
-              >
-                <ExternalLink className="w-3 h-3 mr-1" />
-                View on Nostr
-              </a>
-            </div>
-            {isGenuinelyNotFound && (
-              <div className="text-xs text-red-500/40 mt-2">
-                Event ID: {eventId.substring(0, 20)}...
-              </div>
-            )}
+            <a
+              href={`https://njump.me/nostr:${eventId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-lime-400 hover:text-lime-300 hover:underline block"
+            >
+              View on Nostr →
+            </a>
           </div>
         </CardContent>
       </Card>
