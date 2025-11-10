@@ -1,6 +1,7 @@
 import { useNostr } from '@/hooks/useNostr';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { nip19 } from 'nostr-tools';
+import { useMemo } from 'react';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface BadgeDefinition {
@@ -67,7 +68,10 @@ export function useBadgeAwards(pubkey: string) {
     queryFn: async ({ signal }) => {
       console.log('🎯 Fetching badge awards for:', pubkey);
 
-      const events = await nostr.query([{ kinds: [8], '#p': [pubkey] }], { signal });
+      const timeoutSignal = AbortSignal.timeout(10000); // 10 second timeout
+      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+
+      const events = await nostr.query([{ kinds: [8], '#p': [pubkey] }], { signal: combinedSignal });
 
       console.log('📋 Badge award events found:', events.length);
 
@@ -83,6 +87,8 @@ export function useBadgeAwards(pubkey: string) {
     },
     enabled: !!pubkey,
     staleTime: 300000, // 5 minutes
+    gcTime: 300000,
+    retry: 2,
   });
 }
 
@@ -97,13 +103,19 @@ export function useProfileBadges(pubkey: string) {
     queryFn: async ({ signal }) => {
       console.log('🔍 Fetching profile badges for:', pubkey);
 
+      const timeoutSignal = AbortSignal.timeout(10000); // 10 second timeout
+      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+
       const events = await nostr.query([
         { kinds: [30008], authors: [pubkey], '#d': ['profile_badges'] }
-      ], { signal });
+      ], { signal: combinedSignal });
 
       console.log('📋 Profile badge events found:', events.length);
 
-      if (events.length === 0) return [];
+      if (events.length === 0) {
+        console.log('❌ No profile badge events found for user');
+        return [];
+      }
 
       const event = events[0];
       const profileBadges: ProfileBadge[] = [];
@@ -129,6 +141,8 @@ export function useProfileBadges(pubkey: string) {
     },
     enabled: !!pubkey,
     staleTime: 300000, // 5 minutes
+    gcTime: 300000, // Keep in cache for 5 minutes
+    retry: 2,
   });
 }
 
@@ -136,6 +150,7 @@ export function useProfileBadges(pubkey: string) {
  * Hook to get complete badge information for a user's profile
  */
 export function useUserBadges(pubkey: string) {
+  console.log('🎪 useUserBadges called with pubkey:', pubkey?.slice(0, 8) + '...');
   const { nostr } = useNostr();
   const { data: profileBadges = [], isLoading: isLoadingProfileBadges } = useProfileBadges(pubkey);
   const { data: badgeAwards = [], isLoading: isLoadingBadgeAwards } = useBadgeAwards(pubkey);
@@ -220,41 +235,63 @@ export function useUserBadges(pubkey: string) {
   });
 
   // Combine profile badges with their definitions and awards
-  const userBadges = profileBadges.map((profileBadge, index) => {
-    const definition = badgeDefinitions.data?.[index];
-    const award = badgeAwards.find(award => award.id === profileBadge.badgeAward);
+  const userBadges = useMemo(() => {
+    if (!profileBadges || profileBadges.length === 0) {
+      console.log('🎪 No profile badges to combine');
+      return [];
+    }
 
-    console.log('🔗 Combining badge:', {
-      profileBadge,
-      definition: definition?.name || 'No definition',
-      award: award?.id || 'No award'
+    const combined = profileBadges.map((profileBadge, index) => {
+      const definition = badgeDefinitions.data?.[index];
+      const award = badgeAwards.find(award => award.id === profileBadge.badgeAward);
+
+      console.log('🔗 Combining badge:', {
+        profileBadge,
+        definition: definition?.name || 'No definition',
+        award: award?.id || 'No award'
+      });
+
+      return {
+        profileBadge,
+        definition,
+        award,
+      };
+    }).filter(badge => {
+      // Only filter if BOTH definition and award are missing
+      // If we have at least one, we can show the badge
+      const hasDefinition = badge.definition !== undefined;
+      const hasAward = badge.award !== undefined;
+
+      console.log('🎯 Filtering badge:', {
+        hasDefinition,
+        hasAward,
+        keep: hasDefinition || hasAward
+      });
+
+      return hasDefinition || hasAward;
     });
 
-    return {
-      profileBadge,
-      definition,
-      award,
-    };
-  }).filter(badge => {
-    // Only filter if BOTH definition and award are missing
-    // If we have at least one, we can show the badge
-    const hasDefinition = badge.definition !== undefined;
-    const hasAward = badge.award !== undefined;
-
-    console.log('🎯 Filtering badge:', {
-      hasDefinition,
-      hasAward,
-      keep: hasDefinition || hasAward
-    });
-
-    return hasDefinition || hasAward;
-  });
+    console.log('🏆 Final user badges:', combined);
+    return combined;
+  }, [profileBadges, badgeDefinitions.data, badgeAwards]);
 
   console.log('🏆 Final user badges:', userBadges);
 
+  // Add a timeout to prevent infinite loading
+  const isLoading = useMemo(() => {
+    const loading = isLoadingProfileBadges || isLoadingBadgeAwards || badgeDefinitions.isLoading;
+    console.log('⏳ Badge loading state:', {
+      isLoadingProfileBadges,
+      isLoadingBadgeAwards,
+      badgeDefinitionsLoading: badgeDefinitions.isLoading,
+      finalLoading: loading
+    });
+    return loading;
+  }, [isLoadingProfileBadges, isLoadingBadgeAwards, badgeDefinitions.isLoading]);
+
   return {
     userBadges,
-    isLoading: isLoadingProfileBadges || isLoadingBadgeAwards || badgeDefinitions.isLoading,
+    isLoading,
     error: badgeDefinitions.error,
   };
 }
