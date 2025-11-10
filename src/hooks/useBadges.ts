@@ -346,16 +346,45 @@ export function useUserBadges(pubkey: string) {
   console.log('🏆 Final user badges:', userBadges);
 
   // Add a timeout to prevent infinite loading
+  const [forceLoadingComplete, setForceLoadingComplete] = useState(false);
+
+  // Force loading to complete after 5 seconds to prevent hanging
+  useMemo(() => {
+    if (isLoadingProfileBadges || isLoadingBadgeAwards || badgeDefinitions.isLoading) {
+      const timer = setTimeout(() => {
+        console.log('⏰ Force completing badge loading after timeout');
+        setForceLoadingComplete(true);
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    } else {
+      setForceLoadingComplete(false);
+    }
+  }, [isLoadingProfileBadges, isLoadingBadgeAwards, badgeDefinitions.isLoading]);
   const isLoading = useMemo(() => {
-    const loading = isLoadingProfileBadges || isLoadingBadgeAwards || badgeDefinitions.isLoading;
+    // Don't show loading if we've forced completion
+    if (forceLoadingComplete) return false;
+    // Only consider loading if we're still fetching the initial data
+    // Don't get stuck on badge definitions loading
+    const hasProfileBadges = profileBadges.length > 0;
+    const hasBadgeAwards = badgeAwards.length > 0;
+
+    // If we have the basic data, don't wait for definitions to finish loading
+    const basicDataLoaded = hasProfileBadges || hasBadgeAwards;
+
+    const loading = (isLoadingProfileBadges || isLoadingBadgeAwards) && !basicDataLoaded;
+
     console.log('⏳ Badge loading state:', {
       isLoadingProfileBadges,
       isLoadingBadgeAwards,
       badgeDefinitionsLoading: badgeDefinitions.isLoading,
+      hasProfileBadges,
+      hasBadgeAwards,
+      basicDataLoaded,
       finalLoading: loading
     });
     return loading;
-  }, [isLoadingProfileBadges, isLoadingBadgeAwards, badgeDefinitions.isLoading]);
+  }, [isLoadingProfileBadges, isLoadingBadgeAwards, badgeDefinitions.isLoading, profileBadges, badgeAwards, forceLoadingComplete]);
 
   return {
     userBadges,
