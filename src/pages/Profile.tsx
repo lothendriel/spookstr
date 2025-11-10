@@ -506,7 +506,7 @@ export default function Profile({ pubkey }: ProfileProps) {
                               badges={displayBadges}
                               size="sm"
                               maxBadges={12}
-                              className="grid grid-cols-auto-fit gap-1"
+                              className="grid grid-cols-auto-fit gap-[1px]"
                             />
                           </div>
                         ) : (
