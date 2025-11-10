@@ -2,18 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Award, ExternalLink } from 'lucide-react';
-import { useState, useEffect } from 'react';
-
-// Global image cache to persist across component remounts
-const badgeImageCache = new Map<string, {
-  loaded: boolean;
-  error: boolean;
-}>();
-
-// Cache key generator for badge images
-function getBadgeImageCacheKey(imageUrl: string, badgeDefinition: string, badgeAwardId: string) {
-  return `${badgeDefinition}-${badgeAwardId}-${imageUrl}`;
-}
+import { useState, useEffect, useRef } from 'react';
 
 interface NostrBadgeProps {
   name?: string;
@@ -40,16 +29,17 @@ export function NostrBadge({
 }: NostrBadgeProps) {
   const displayUrl = thumbnailUrl || imageUrl;
 
-  // Use global cache to persist image loading state across component remounts
-  const cacheKey = displayUrl ? getBadgeImageCacheKey(displayUrl, badgeDefinition, badgeAwardId) : '';
-
-  const [imageError, setImageError] = useState(() => {
-    return cacheKey ? badgeImageCache.get(cacheKey)?.error || false : false;
+  // Use ref to persist image loading state across component remounts
+  const imageStateRef = useRef<{
+    loaded: boolean;
+    error: boolean;
+  }>({
+    loaded: false,
+    error: false,
   });
 
-  const [imageLoaded, setImageLoaded] = useState(() => {
-    return cacheKey ? badgeImageCache.get(cacheKey)?.loaded || false : false;
-  });
+  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   // Size configurations
   const sizeConfig = {
@@ -62,31 +52,19 @@ export function NostrBadge({
   const config = sizeConfig[size];
   const fallbackName = name || 'Badge';
 
-  // Update global cache when image state changes
+  // Update ref when image state changes
   useEffect(() => {
-    if (cacheKey) {
-      badgeImageCache.set(cacheKey, {
-        loaded: imageLoaded,
-        error: imageError,
-      });
-    }
-  }, [imageLoaded, imageError, cacheKey]);
+    imageStateRef.current = {
+      loaded: imageLoaded,
+      error: imageError,
+    };
+  }, [imageLoaded, imageError]);
 
-  // Preload image to ensure browser caching
+  // Initialize state from ref on mount (for when component is remounted)
   useEffect(() => {
-    if (displayUrl && !imageLoaded && !imageError) {
-      const img = new Image();
-      img.onload = () => {
-        setImageLoaded(true);
-        setImageError(false);
-      };
-      img.onerror = () => {
-        setImageError(true);
-        setImageLoaded(true);
-      };
-      img.src = displayUrl;
-    }
-  }, [displayUrl, imageLoaded, imageError]);
+    setImageLoaded(imageStateRef.current.loaded);
+    setImageError(imageStateRef.current.error);
+  }, []);
 
   const BadgeImage = () => {
     if (!displayUrl || imageError) {
