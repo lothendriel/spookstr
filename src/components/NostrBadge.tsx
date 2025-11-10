@@ -421,6 +421,7 @@ export function NostrBadge({
     };
 
     const handleImageLoad = () => {
+      console.log('🎯 Badge image onLoad triggered, setting imageLoaded to true:', bestUrl);
       setImageLoaded(true);
       // Update global cache on successful load
       globalImageCache.set(bestUrl, {
@@ -432,17 +433,28 @@ export function NostrBadge({
       console.log('✅ Badge image loaded successfully:', bestUrl);
     };
 
-    console.log('🖼️ Rendering badge image:', bestUrl, { imageLoaded, imageError });
+    const shouldShowImage = imageLoaded || !preloadImages;
+    const shouldShowSkeleton = !imageLoaded && !preloadImages;
+
+    console.log('🖼️ Badge image rendering decision:', {
+      bestUrl,
+      imageLoaded,
+      imageError,
+      preloadImages,
+      shouldShowImage,
+      shouldShowSkeleton,
+      imageClass: imageLoaded ? '' : 'hidden'
+    });
 
     return (
       <>
-        {!imageLoaded && !preloadImages && (
+        {shouldShowSkeleton && (
           <Skeleton className={`${config.className} rounded-full`} />
         )}
         <img
           src={bestUrl}
           alt={fallbackName}
-          className={`${config.className} rounded-full border-2 border-lime-500/30 transition-all duration-200 hover:border-lime-500/50 hover:scale-105 ${imageLoaded ? '' : 'hidden'}`}
+          className={`${config.className} rounded-full border-2 border-lime-500/30 transition-all duration-200 hover:border-lime-500/50 hover:scale-105 ${shouldShowImage ? '' : 'hidden'}`}
           style={{ width: config.width, height: config.height }}
           onLoad={handleImageLoad}
           onError={handleImageError}
