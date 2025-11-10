@@ -44,8 +44,7 @@ export default function Profile({ pubkey }: ProfileProps) {
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
-  const [showUIBadges, setShowUIBadges] = useState(true);
-  const [showNostrBadges, setShowNostrBadges] = useState(true);
+  const [showBadges, setShowBadges] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
 
   // Fetch NIP-58 badges for this user
@@ -302,22 +301,36 @@ export default function Profile({ pubkey }: ProfileProps) {
                 {/* Profile Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-3 mb-1">
-                      <h1 className="text-2xl font-bold text-lime-400 truncate">
-                        {displayName}
-                      </h1>
-                      {metadata?.display_name && metadata.display_name !== metadata.name && (
-                        <span className="text-lime-300/80 text-lg">({metadata.display_name})</span>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-3">
+                        <h1 className="text-2xl font-bold text-lime-400 truncate">
+                          {displayName}
+                        </h1>
+                        {metadata?.display_name && metadata.display_name !== metadata.name && (
+                          <span className="text-lime-300/80 text-lg">({metadata.display_name})</span>
+                        )}
+                        {metadata?.nip05 && (
+                          <span className="text-lime-500">✓</span>
+                        )}
+                        <SmartRelayDiscoveryIndicator
+                          context="profile"
+                          eventsFound={discoveredEvents.length}
+                          hintsUsed={discoveryStats?.hintsUsed || false}
+                          isLoading={isDiscovering || author.isLoading}
+                        />
+                      </div>
+
+                      {/* Simple badge toggle */}
+                      {(uiBadges.length > 0 || userBadges.length > 0) && (
+                        <div className="flex items-center gap-2">
+                          <Award className="h-4 w-4 text-lime-400" />
+                          <Switch
+                            checked={showBadges}
+                            onCheckedChange={setShowBadges}
+                            size="sm"
+                          />
+                        </div>
                       )}
-                      {metadata?.nip05 && (
-                        <span className="text-lime-500">✓</span>
-                      )}
-                      <SmartRelayDiscoveryIndicator
-                        context="profile"
-                        eventsFound={discoveredEvents.length}
-                        hintsUsed={discoveryStats?.hintsUsed || false}
-                        isLoading={isDiscovering || author.isLoading}
-                      />
                     </div>
 
                     {/* Action Buttons */}
@@ -396,66 +409,38 @@ export default function Profile({ pubkey }: ProfileProps) {
                     </div>
                   </div>
 
-                  {/* UI Badges Section (System-generated) */}
-                  {uiBadges.length > 0 && (
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-lime-500/70">Profile Badges:</span>
-                        <Switch
-                          checked={showUIBadges}
-                          onCheckedChange={setShowUIBadges}
-                          size="sm"
-                        />
-                      </div>
-                      {showUIBadges && (
-                        <div className="flex flex-wrap gap-2">
-                          {uiBadges.map((badge) => (
-                            <Badge
-                              key={badge.id}
-                              variant="outline"
-                              className={`${badge.bgColor} ${badge.borderColor} border ${badge.color} text-xs px-2 py-1 h-8 flex items-center gap-1`}
-                            >
-                              <badge.icon className="h-4 w-4" />
-                              {badge.label}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
+                  {/* UI Badges (System-generated) */}
+                  {uiBadges.length > 0 && showBadges && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {uiBadges.map((badge) => (
+                        <Badge
+                          key={badge.id}
+                          variant="outline"
+                          className={`${badge.bgColor} ${badge.borderColor} border ${badge.color} text-xs px-2 py-1 h-8 flex items-center gap-1`}
+                        >
+                          <badge.icon className="h-4 w-4" />
+                          {badge.label}
+                        </Badge>
+                      ))}
                     </div>
                   )}
 
-                  {/* NIP-58 Badges Section (Awarded badges) */}
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="flex items-center gap-2">
-                      <Medal className="h-4 w-4 text-lime-400" />
-                      <span className="text-sm text-lime-500/70">NIP-58 Badges:</span>
-                      <Switch
-                        checked={showNostrBadges}
-                        onCheckedChange={setShowNostrBadges}
-                        size="sm"
-                      />
-                    </div>
+                  {/* NIP-58 Badges (Awarded badges) */}
+                  <div className="mb-3">
                     {isLoadingNostrBadges && (
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 mb-3">
                         <NostrBadgeSkeleton size="sm" />
                         <NostrBadgeSkeleton size="sm" />
                         <NostrBadgeSkeleton size="sm" />
                       </div>
                     )}
-                    {showNostrBadges && !isLoadingNostrBadges && userBadges.length > 0 && (
-                      <div className="flex-1">
-                        <NostrBadgeGrid
-                          badges={userBadges}
-                          size="sm"
-                          maxBadges={8}
-                          className="grid grid-cols-auto-fit gap-2"
-                        />
-                      </div>
-                    )}
-                    {showNostrBadges && !isLoadingNostrBadges && userBadges.length === 0 && (
-                      <span className="text-xs text-lime-500/50 italic">
-                        No NIP-58 badges awarded yet
-                      </span>
+                    {!isLoadingNostrBadges && userBadges.length > 0 && showBadges && (
+                      <NostrBadgeGrid
+                        badges={userBadges}
+                        size="sm"
+                        maxBadges={12}
+                        className="grid grid-cols-auto-fit gap-2"
+                      />
                     )}
                   </div>
 
