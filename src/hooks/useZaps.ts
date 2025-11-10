@@ -649,6 +649,58 @@ export function useZaps(
           try {
             await sendPayment(currentNWCConnection, newInvoice);
 
+            // Create and publish zap receipt (kind 9735) after successful payment
+            console.log(`[useZaps] NWC payment successful, creating zap receipt for ${amount} sats`);
+
+            // Parse the signed zap request from the invoice request
+            const zapRequestMatch = zapUrl.match(/nostr=([^&]+)/);
+            if (zapRequestMatch) {
+              try {
+                const zapRequestJson = decodeURIComponent(zapRequestMatch[1]);
+                const zapRequest = JSON.parse(zapRequestJson);
+
+                console.log(`[useZaps] Creating zap receipt from request:`, {
+                  zapId: zapRequest.id,
+                  targetId: actualTarget.id,
+                  amount: amount
+                });
+
+                // Create zap receipt event
+                const zapReceiptEvent = {
+                  kind: 9735,
+                  content: '',
+                  created_at: Math.floor(Date.now() / 1000),
+                  tags: [
+                    ['p', actualTarget.pubkey],
+                    ['e', actualTarget.id],
+                    ['bolt11', newInvoice],
+                    ['description', zapRequestJson],
+                    ['amount', (amount * 1000).toString()] // amount in millisats
+                  ]
+                };
+
+                // Sign and publish the zap receipt
+                if (user.signer) {
+                  const signedZapReceipt = await user.signer.signEvent(zapReceiptEvent);
+
+                  // Publish to relays using Nostrify
+                  const { nostr } = await import('@nostrify/react');
+                  const { useNostr } = nostr;
+                  const nostrClient = useNostr();
+
+                  try {
+                    await nostrClient.event(signedZapReceipt);
+                    console.log(`[useZaps] Zap receipt published successfully: ${signedZapReceipt.id}`);
+                  } catch (publishError) {
+                    console.error(`[useZaps] Failed to publish zap receipt:`, publishError);
+                    // Continue with UI updates even if receipt publishing fails
+                  }
+                }
+              } catch (parseError) {
+                console.error(`[useZaps] Failed to parse zap request from URL:`, parseError);
+              }
+            }
+
             // Clear states immediately on success
             setIsZapping(false);
             setInvoice(null);
@@ -700,6 +752,58 @@ export function useZaps(
             }
 
             await webLnProvider.sendPayment(newInvoice);
+
+            // Create and publish zap receipt (kind 9735) after successful payment
+            console.log(`[useZaps] WebLN payment successful, creating zap receipt for ${amount} sats`);
+
+            // Parse the signed zap request from the zap URL
+            const zapRequestMatch = zapUrl.match(/nostr=([^&]+)/);
+            if (zapRequestMatch) {
+              try {
+                const zapRequestJson = decodeURIComponent(zapRequestMatch[1]);
+                const zapRequest = JSON.parse(zapRequestJson);
+
+                console.log(`[useZaps] Creating zap receipt from request:`, {
+                  zapId: zapRequest.id,
+                  targetId: actualTarget.id,
+                  amount: amount
+                });
+
+                // Create zap receipt event
+                const zapReceiptEvent = {
+                  kind: 9735,
+                  content: '',
+                  created_at: Math.floor(Date.now() / 1000),
+                  tags: [
+                    ['p', actualTarget.pubkey],
+                    ['e', actualTarget.id],
+                    ['bolt11', newInvoice],
+                    ['description', zapRequestJson],
+                    ['amount', (amount * 1000).toString()] // amount in millisats
+                  ]
+                };
+
+                // Sign and publish the zap receipt
+                if (user.signer) {
+                  const signedZapReceipt = await user.signer.signEvent(zapReceiptEvent);
+
+                  // Publish to relays using Nostrify
+                  const { nostr } = await import('@nostrify/react');
+                  const { useNostr } = nostr;
+                  const nostrClient = useNostr();
+
+                  try {
+                    await nostrClient.event(signedZapReceipt);
+                    console.log(`[useZaps] Zap receipt published successfully: ${signedZapReceipt.id}`);
+                  } catch (publishError) {
+                    console.error(`[useZaps] Failed to publish zap receipt:`, publishError);
+                    // Continue with UI updates even if receipt publishing fails
+                  }
+                }
+              } catch (parseError) {
+                console.error(`[useZaps] Failed to parse zap request from URL:`, parseError);
+              }
+            }
 
             // Clear states immediately on success
             setIsZapping(false);
@@ -767,8 +871,8 @@ export function useZaps(
 
   // Function to pay an existing invoice with WebLN
   const payWithWebLN = useCallback(async (invoiceToPay: string) => {
-    if (!webln) {
-      throw new Error('WebLN not available');
+    if (!webln || !actualTarget || !user) {
+      throw new Error('WebLN not available or missing target/user');
     }
 
     try {
@@ -785,12 +889,50 @@ export function useZaps(
       }
 
       await webLnProvider.sendPayment(invoiceToPay);
+
+      // Create and publish zap receipt (kind 9735) after successful payment
+      console.log(`[useZaps] WebLN QR payment successful, creating zap receipt`);
+
+      // Extract amount from invoice
+      const invoiceSats = nip57.getSatoshisAmountFromBolt11(invoiceToPay);
+      console.log(`[useZaps] Extracted ${invoiceSats} sats from invoice`);
+
+      // Create zap receipt event
+      const zapReceiptEvent = {
+        kind: 9735,
+        content: '',
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['p', actualTarget.pubkey],
+          ['e', actualTarget.id],
+          ['bolt11', invoiceToPay],
+          ['amount', (invoiceSats * 1000).toString()] // amount in millisats
+        ]
+      };
+
+      // Sign and publish zap receipt
+      if (user.signer) {
+        const signedZapReceipt = await user.signer.signEvent(zapReceiptEvent);
+
+        // Publish to relays using Nostrify
+        const { nostr } = await import('@nostrify/react');
+        const { useNostr } = nostr;
+        const nostrClient = useNostr();
+
+        try {
+          await nostrClient.event(signedZapReceipt);
+          console.log(`[useZaps] Zap receipt published successfully: ${signedZapReceipt.id}`);
+        } catch (publishError) {
+          console.error(`[useZaps] Failed to publish zap receipt:`, publishError);
+        }
+      }
+
       return true;
     } catch (error) {
       console.error('WebLN payment failed:', error);
       throw error;
     }
-  }, [webln]);
+  }, [webln, actualTarget, user]);
 
   return {
     zaps,
