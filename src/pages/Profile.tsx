@@ -5,6 +5,8 @@ import { useFollow } from '@/hooks/useFollow';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { useOutboxInfiniteQuery } from '@/hooks/useOutboxQuery';
+import { useProfileDiscovery } from '@/hooks/useContextualRelayDiscovery';
+import { SmartRelayDiscoveryIndicator } from '@/components/RelayDiscoveryIndicator';
 import { getDisplayName } from '@/lib/getDisplayName';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -29,6 +31,13 @@ export default function Profile({ pubkey }: ProfileProps) {
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
+
+  // Use profile discovery for enhanced relay discovery with visual indicators
+  const {
+    events: discoveredEvents,
+    isLoading: isDiscovering,
+    stats: discoveryStats
+  } = useProfileDiscovery(pubkey);
 
   const { isFollowing, follow, unfollow, isPending } = useFollow(pubkey);
 
@@ -209,13 +218,19 @@ export default function Profile({ pubkey }: ProfileProps) {
                 {/* Profile Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-3 mb-1">
                       <h1 className="text-2xl font-bold text-lime-400 truncate">
                         {displayName}
                       </h1>
                       {metadata?.nip05 && (
                         <span className="text-lime-500">✓</span>
                       )}
+                      <SmartRelayDiscoveryIndicator
+                        context="profile"
+                        eventsFound={discoveredEvents.length}
+                        hintsUsed={discoveryStats?.hintsUsed || false}
+                        isLoading={isDiscovering || author.isLoading}
+                      />
                     </div>
 
                     {/* Action Buttons */}
