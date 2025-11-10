@@ -314,59 +314,50 @@ export function NostrBadge({
   }, [displayUrl, preloadImages]);
 
   const BadgeImage = () => {
-    // Try to use thumbnail if main image failed
-    const [currentImageUrl, setCurrentImageUrl] = useState(displayUrl);
-    const [hasTriedFallback, setHasTriedFallback] = useState(false);
+    // Determine the best URL to use based on cache status
+    const getBestUrl = () => {
+      if (!displayUrl) return null;
 
-    // Reset when displayUrl changes
-    useEffect(() => {
-      setCurrentImageUrl(displayUrl);
-      setHasTriedFallback(false);
-    }, [displayUrl]);
+      // Debug: Log cache status for both URLs
+      const mainCache = globalImageCache.get(imageUrl || '');
+      const thumbCache = thumbnailUrl ? globalImageCache.get(thumbnailUrl) : null;
 
-    const handleImageError = () => {
-      console.log('❌ Failed to load badge image:', currentImageUrl);
+      console.log('🔍 Badge URL selection:', {
+        displayUrl,
+        imageUrl,
+        thumbnailUrl,
+        mainCache: mainCache ? { loaded: mainCache.loaded, error: mainCache.error } : 'not cached',
+        thumbCache: thumbCache ? { loaded: thumbCache.loaded, error: thumbCache.error } : 'not cached'
+      });
 
-      // Try thumbnail if main image failed and we haven't tried fallback yet
-      if (!hasTriedFallback && imageUrl && thumbnailUrl && currentImageUrl === imageUrl) {
-        console.log('🔄 Trying thumbnail fallback for:', imageUrl);
-        setCurrentImageUrl(thumbnailUrl);
-        setHasTriedFallback(true);
-        return;
+      // Check if main URL is cached and loaded
+      if (mainCache?.loaded) {
+        console.log('✅ Using main URL (cached loaded):', imageUrl);
+        return imageUrl;
       }
 
-      // If thumbnail also fails or no thumbnail available, show fallback
-      setImageError(true);
-      setImageLoaded(true);
-
-      // Update global cache on error
-      if (currentImageUrl) {
-        const cacheEntry = globalImageCache.get(currentImageUrl);
-        const retryCount = cacheEntry?.retryCount || 0;
-        globalImageCache.set(currentImageUrl, {
-          loaded: false,
-          error: true,
-          timestamp: Date.now(),
-          retryCount: retryCount + 1
-        });
+      // Check if thumbnail URL is cached and loaded
+      if (thumbnailUrl && thumbCache?.loaded) {
+        console.log('✅ Using thumbnail URL (cached loaded):', thumbnailUrl);
+        return thumbnailUrl;
       }
+
+      // If neither is cached as loaded, prefer thumbnail if main failed
+      if (mainCache?.error && thumbnailUrl) {
+        console.log('🔄 Using thumbnail URL (main failed):', thumbnailUrl);
+        return thumbnailUrl;
+      }
+
+      // Otherwise try displayUrl (thumbnail first, then main)
+      const result = displayUrl;
+      console.log('🎯 Using display URL (default):', result);
+      return result;
     };
 
-    const handleImageLoad = () => {
-      setImageLoaded(true);
-      // Update global cache on successful load
-      if (currentImageUrl) {
-        globalImageCache.set(currentImageUrl, {
-          loaded: true,
-          error: false,
-          timestamp: Date.now(),
-          retryCount: 0
-        });
-        console.log('✅ Badge image loaded successfully:', currentImageUrl);
-      }
-    };
+    const bestUrl = getBestUrl();
 
-    if (!currentImageUrl || imageError) {
+    // Check if we should show fallback
+    if (!bestUrl || imageError) {
       return (
         <div className={`${config.className} flex items-center justify-center bg-gradient-to-br from-lime-500/20 to-lime-600/20 rounded-full border border-lime-500/30`}>
           <Award className="h-1/2 w-1/2 text-lime-400" />
@@ -379,13 +370,53 @@ export function NostrBadge({
       return <Skeleton className={`${config.className} rounded-full`} />;
     }
 
+    const handleImageError = (e: any) => {
+      console.log('❌ Failed to load badge image:', bestUrl);
+
+      // Try thumbnail if main image failed
+      if (bestUrl === imageUrl && thumbnailUrl) {
+        console.log('🔄 Trying thumbnail fallback for:', imageUrl);
+        // Trigger a state update to try the thumbnail
+        setImageLoaded(false);
+        return;
+      }
+
+      // If thumbnail also fails or no thumbnail available, show fallback
+      setImageError(true);
+      setImageLoaded(true);
+
+      // Update global cache on error
+      const cacheEntry = globalImageCache.get(bestUrl);
+      const retryCount = cacheEntry?.retryCount || 0;
+      globalImageCache.set(bestUrl, {
+        loaded: false,
+        error: true,
+        timestamp: Date.now(),
+        retryCount: retryCount + 1
+      });
+    };
+
+    const handleImageLoad = () => {
+      setImageLoaded(true);
+      // Update global cache on successful load
+      globalImageCache.set(bestUrl, {
+        loaded: true,
+        error: false,
+        timestamp: Date.now(),
+        retryCount: 0
+      });
+      console.log('✅ Badge image loaded successfully:', bestUrl);
+    };
+
+    console.log('🖼️ Rendering badge image:', bestUrl, { imageLoaded, imageError });
+
     return (
       <>
         {!imageLoaded && !preloadImages && (
           <Skeleton className={`${config.className} rounded-full`} />
         )}
         <img
-          src={currentImageUrl}
+          src={bestUrl}
           alt={fallbackName}
           className={`${config.className} rounded-full border-2 border-lime-500/30 transition-all duration-200 hover:border-lime-500/50 hover:scale-105 ${imageLoaded ? '' : 'hidden'}`}
           style={{ width: config.width, height: config.height }}
