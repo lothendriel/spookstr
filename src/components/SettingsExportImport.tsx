@@ -1,11 +1,13 @@
 import { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Save, Upload, AlertCircle } from 'lucide-react';
+import { Save, Upload, AlertCircle, Copy, ClipboardCopy, Clipboard, Check } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useHiddenUsers } from '@/hooks/useHiddenUsers';
 import { useHiddenHashtags } from '@/hooks/useHiddenHashtags';
 import { usePersonalizedHashtags } from '@/hooks/usePersonalizedHashtags';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 /**
  * Settings backup schema
@@ -27,10 +29,14 @@ export function SettingsExportImport() {
   const { hiddenPubkeys, hideUser, clearHiddenUsers } = useHiddenUsers();
   const { hiddenHashtags, hideHashtag, clearHiddenHashtags } = useHiddenHashtags();
   const { personalizedHashtags, addPersonalizedHashtag, clearPersonalizedHashtags } = usePersonalizedHashtags();
-  
+
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [rawSettingsOpen, setRawSettingsOpen] = useState(false);
+  const [textSettingsOpen, setTextSettingsOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [jsonInput, setJsonInput] = useState('');
 
   /**
    * Create a settings backup file and download it
@@ -50,7 +56,7 @@ export function SettingsExportImport() {
       // Create a JSON file with the settings
       const dataStr = JSON.stringify(backup, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      
+
       // Generate a filename with the current date
       const dateStr = new Date().toISOString().split('T')[0];
       const filename = `spookstr-settings-${dateStr}.json`;
@@ -92,12 +98,12 @@ export function SettingsExportImport() {
     }
 
     const reader = new FileReader();
-    
+
     reader.onload = (e) => {
       try {
         const content = e.target?.result as string;
         const data = JSON.parse(content) as SettingsBackup;
-        
+
         // Validate the backup format
         if (!data.version || !data.settings) {
           throw new Error('Invalid backup format');
@@ -156,9 +162,112 @@ export function SettingsExportImport() {
     };
 
     reader.readAsText(file);
-    
+
     // Reset the file input so the same file can be selected again
     event.target.value = '';
+  };
+
+  /**
+   * Get current settings as JSON string
+   */
+  const getCurrentSettingsJson = (): string => {
+    const backup: SettingsBackup = {
+      version: '1.0.0',
+      timestamp: Date.now(),
+      settings: {
+        hiddenUsers: hiddenPubkeys,
+        hiddenHashtags: hiddenHashtags,
+        personalizedHashtags: personalizedHashtags
+      }
+    };
+    return JSON.stringify(backup, null, 2);
+  };
+
+  /**
+   * Copy settings to clipboard
+   */
+  const handleCopySettings = () => {
+    try {
+      const settingsJson = getCurrentSettingsJson();
+      navigator.clipboard.writeText(settingsJson);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      setSuccess('Settings copied to clipboard');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error('Failed to copy settings:', err);
+      setError('Failed to copy settings to clipboard');
+      setTimeout(() => setError(null), 5000);
+    }
+  };
+
+  /**
+   * Parse and import settings from JSON text
+   */
+  const handleImportFromText = () => {
+    setError(null);
+    setSuccess(null);
+
+    if (!jsonInput.trim()) {
+      setError('Please enter settings JSON');
+      return;
+    }
+
+    try {
+      const data = JSON.parse(jsonInput) as SettingsBackup;
+
+      // Validate the backup format
+      if (!data.version || !data.settings) {
+        throw new Error('Invalid backup format');
+      }
+
+      // Clear existing settings
+      clearHiddenUsers();
+      clearHiddenHashtags();
+      clearPersonalizedHashtags();
+
+      // Import hidden users
+      if (Array.isArray(data.settings.hiddenUsers)) {
+        data.settings.hiddenUsers.forEach(pubkey => {
+          try {
+            hideUser(pubkey);
+          } catch (err) {
+            console.warn(`Failed to import hidden user: ${pubkey}`);
+          }
+        });
+      }
+
+      // Import hidden hashtags
+      if (Array.isArray(data.settings.hiddenHashtags)) {
+        data.settings.hiddenHashtags.forEach(hashtag => {
+          try {
+            hideHashtag(hashtag);
+          } catch (err) {
+            console.warn(`Failed to import hidden hashtag: ${hashtag}`);
+          }
+        });
+      }
+
+      // Import personalized hashtags
+      if (Array.isArray(data.settings.personalizedHashtags)) {
+        data.settings.personalizedHashtags.forEach(hashtag => {
+          try {
+            addPersonalizedHashtag(hashtag);
+          } catch (err) {
+            console.warn(`Failed to import personalized hashtag: ${hashtag}`);
+          }
+        });
+      }
+
+      setSuccess('Settings imported successfully');
+      setTextSettingsOpen(false);
+      setJsonInput('');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error('Failed to import settings:', err);
+      setError('Failed to parse settings JSON. Please check the format.');
+      setTimeout(() => setError(null), 5000);
+    }
   };
 
   return (
@@ -198,7 +307,7 @@ export function SettingsExportImport() {
             className="flex-1 bg-lime-500 hover:bg-lime-600 text-black"
           >
             <Save className="h-4 w-4 mr-2" />
-            Export Settings
+            Export Settings File
           </Button>
           <Button
             onClick={handleImportClick}
@@ -206,15 +315,100 @@ export function SettingsExportImport() {
             variant="outline"
           >
             <Upload className="h-4 w-4 mr-2" />
-            Import Settings
+            Import Settings File
           </Button>
-          <input 
-            type="file" 
+          <input
+            type="file"
             ref={fileInputRef}
             onChange={handleImport}
             accept=".json"
             className="hidden"
           />
+        </div>
+
+        {/* Advanced Import/Export */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Dialog open={rawSettingsOpen} onOpenChange={setRawSettingsOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="flex-1 border-lime-500/30 text-lime-400 hover:bg-lime-500/10"
+              >
+                <ClipboardCopy className="h-4 w-4 mr-2" />
+                Copy Settings as Text
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-black border-lime-500/30 text-lime-400 max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-lime-400">Current Settings</DialogTitle>
+                <DialogDescription className="text-lime-500/70">
+                  Copy this JSON text to save your settings or share between devices
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3">
+                <Textarea
+                  className="font-mono text-xs h-64 bg-black/80 border-lime-500/30"
+                  value={getCurrentSettingsJson()}
+                  readOnly
+                />
+
+                <Button
+                  onClick={handleCopySettings}
+                  className="w-full bg-lime-500 hover:bg-lime-600 text-black"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy to Clipboard
+                    </>
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={textSettingsOpen} onOpenChange={setTextSettingsOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="flex-1 border-lime-500/30 text-lime-400 hover:bg-lime-500/10"
+              >
+                <Clipboard className="h-4 w-4 mr-2" />
+                Paste Settings from Text
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-black border-lime-500/30 text-lime-400 max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-lime-400">Import Settings from Text</DialogTitle>
+                <DialogDescription className="text-lime-500/70">
+                  Paste settings JSON that you've previously copied or received from another device
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3">
+                <Textarea
+                  className="font-mono text-xs h-64 bg-black/80 border-lime-500/30"
+                  value={jsonInput}
+                  onChange={(e) => setJsonInput(e.target.value)}
+                  placeholder="Paste your settings JSON here..."
+                />
+
+                <Button
+                  onClick={handleImportFromText}
+                  className="w-full bg-lime-500 hover:bg-lime-600 text-black"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Import Settings
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="text-sm text-lime-500/70 space-y-2 pt-2">
