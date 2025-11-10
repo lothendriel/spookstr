@@ -1,13 +1,15 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Save, Upload, AlertCircle, Copy, ClipboardCopy, Clipboard, Check } from 'lucide-react';
+import { Save, Upload, AlertCircle, Copy, ClipboardCopy, Clipboard, Check, Search } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useHiddenUsers } from '@/hooks/useHiddenUsers';
 import { useHiddenHashtags } from '@/hooks/useHiddenHashtags';
 import { usePersonalizedHashtags } from '@/hooks/usePersonalizedHashtags';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { useNostr } from '@/hooks/useNostr';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 
 /**
  * Settings backup schema
@@ -36,8 +38,13 @@ export function SettingsExportImport() {
   const [rawSettingsOpen, setRawSettingsOpen] = useState(false);
   const [textSettingsOpen, setTextSettingsOpen] = useState(false);
   const [localStorageViewOpen, setLocalStorageViewOpen] = useState(false);
+  const [nostrSettingsOpen, setNostrSettingsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [jsonInput, setJsonInput] = useState('');
+  const [nostrSettings, setNostrSettings] = useState<any[]>([]);
+  const [nostrSettingsLoading, setNostrSettingsLoading] = useState(false);
+  const { nostr } = useNostr();
+  const { user } = useCurrentUser();
 
   /**
    * Create a settings backup file and download it
@@ -450,6 +457,140 @@ export function SettingsExportImport() {
               </div>
             </DialogContent>
           </Dialog>
+
+            <Dialog open={nostrSettingsOpen} onOpenChange={setNostrSettingsOpen}>
+              <Button
+                onClick={() => {
+                  setNostrSettingsOpen(true);
+                  setNostrSettingsLoading(true);
+                  if (user?.pubkey) {
+                    // Search for NIP-78 settings events
+                    nostr.query([{
+                      kinds: [30078],
+                      authors: [user.pubkey],
+                      "#d": ["spookstr:settings", "spookstr:hidden-users", "spookstr:hidden-hashtags", "spookstr:personalized-hashtags"]
+                    }])
+                    .then(events => {
+                      setNostrSettings(events);
+                      setNostrSettingsLoading(false);
+                    })
+                    .catch(err => {
+                      console.error("Failed to fetch Nostr settings:", err);
+                      setNostrSettingsLoading(false);
+                    });
+                  } else {
+                    setNostrSettingsLoading(false);
+                  }
+                }}
+                variant="link"
+                size="sm"
+                className="text-xs text-lime-500/60 hover:text-lime-400 p-0 h-auto font-normal"
+              >
+                Check for Nostr-stored settings (NIP-78)
+              </Button>
+              <DialogContent className="bg-black border-lime-500/30 text-lime-400 max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle className="text-lime-400">Nostr Settings (NIP-78)</DialogTitle>
+                  <DialogDescription className="text-lime-500/70">
+                    Checking if your settings are stored as Nostr events (kind 30078)
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-3">
+                  {nostrSettingsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-lime-500"></div>
+                    </div>
+                  ) : nostrSettings.length > 0 ? (
+                    <div className="border border-lime-500/20 rounded p-3 bg-black/80 font-mono text-xs space-y-3">
+                      <div className="font-semibold text-lime-400">Found {nostrSettings.length} settings events:</div>
+
+                      {nostrSettings.map(event => (
+                        <div key={event.id} className="border-t border-lime-500/10 pt-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-lime-400">Event ID:</span>
+                            <span className="text-lime-300 truncate">{event.id.slice(0, 8)}...{event.id.slice(-8)}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-lime-400">Created:</span>
+                            <span className="text-lime-300">{new Date(event.created_at * 1000).toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-lime-400">D Tag:</span>
+                            <span className="text-lime-300">{event.tags.find(t => t[0] === 'd')?.[1] || 'N/A'}</span>
+                          </div>
+                          <div className="mt-1">
+                            <div className="text-lime-400">Content:</div>
+                            <div className="text-lime-300 bg-black/40 p-2 rounded overflow-auto max-h-32">
+                              {event.content}
+                            </div>
+                          </div>
+                          <Button
+                            onClick={() => {
+                              // Import settings from this Nostr event
+                              try {
+                                const data = JSON.parse(event.content);
+                                const d = event.tags.find(t => t[0] === 'd')?.[1];
+
+                                if (d === 'spookstr:hidden-users') {
+                                  localStorage.setItem('spookstr:hidden-users', JSON.stringify(data));
+                                  setSuccess('Imported hidden users from Nostr');
+                                } else if (d === 'spookstr:hidden-hashtags') {
+                                  localStorage.setItem('spookstr:hidden-hashtags', JSON.stringify(data));
+                                  setSuccess('Imported hidden hashtags from Nostr');
+                                } else if (d === 'spookstr:personalized-hashtags') {
+                                  localStorage.setItem('spookstr:personalized-hashtags', JSON.stringify(data));
+                                  setSuccess('Imported personalized hashtags from Nostr');
+                                } else if (d === 'spookstr:settings') {
+                                  // Check if this contains all settings
+                                  if (data.hiddenUsers) {
+                                    localStorage.setItem('spookstr:hidden-users', JSON.stringify(data.hiddenUsers));
+                                  }
+                                  if (data.hiddenHashtags) {
+                                    localStorage.setItem('spookstr:hidden-hashtags', JSON.stringify(data.hiddenHashtags));
+                                  }
+                                  if (data.personalizedHashtags) {
+                                    localStorage.setItem('spookstr:personalized-hashtags', JSON.stringify(data.personalizedHashtags));
+                                  }
+                                  setSuccess('Imported all settings from Nostr');
+                                }
+
+                                setTimeout(() => setSuccess(null), 3000);
+                                setNostrSettingsOpen(false);
+                                // Force reload to apply settings
+                                window.location.reload();
+                              } catch (err) {
+                                setError(`Failed to import settings: ${err}`);
+                                setTimeout(() => setError(null), 5000);
+                              }
+                            }}
+                            className="mt-2 w-full bg-lime-500 hover:bg-lime-600 text-black"
+                            size="sm"
+                          >
+                            Import These Settings
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : user?.pubkey ? (
+                    <div className="border border-lime-500/20 rounded p-8 bg-black/80 text-center">
+                      <div className="text-lime-500/70 mb-2">
+                        No NIP-78 settings events found on Nostr.
+                      </div>
+                      <div className="text-xs text-lime-500/50">
+                        Your settings are likely stored only in localStorage or may be in a different format.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border border-lime-500/20 rounded p-8 bg-black/80 text-center">
+                      <div className="text-lime-500/70">
+                        You need to be logged in to check for Nostr-stored settings.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
         </div>
 
         <div className="text-sm text-lime-500/70 space-y-2 pt-2">
@@ -466,7 +607,8 @@ export function SettingsExportImport() {
             Export your settings periodically to ensure you can restore them if needed.
           </p>
 
-          <Dialog open={localStorageViewOpen} onOpenChange={setLocalStorageViewOpen}>
+          <div className="flex gap-2 mt-3 pt-3 border-t border-lime-500/20">
+            <Dialog open={localStorageViewOpen} onOpenChange={setLocalStorageViewOpen}>
             <Button
               onClick={() => setLocalStorageViewOpen(true)}
               variant="link"
@@ -489,21 +631,182 @@ export function SettingsExportImport() {
                     <span className="text-lime-400 font-medium">Key</span>
                     <span className="text-lime-400 font-medium">Value</span>
                   </div>
-                  {Object.keys(localStorage)
-                    .filter(key => key.startsWith('spookstr:'))
-                    .map(key => (
-                      <div key={key} className="flex justify-between border-t border-lime-500/10 pt-2">
-                        <span className="text-lime-500">{key}</span>
-                        <span className="text-lime-300 truncate max-w-[300px]">
-                          {localStorage.getItem(key)?.length || 0} bytes
-                        </span>
-                      </div>
-                    ))
-                  }
+
+                  {/* All localStorage Keys */}
+                  <div className="border-t border-lime-500/20 pt-2 pb-1">
+                    <div className="font-semibold text-lime-400">All localStorage Keys:</div>
+                  </div>
+                  {Object.keys(localStorage).map(key => (
+                    <div key={key} className="flex justify-between border-t border-lime-500/10 pt-2">
+                      <span className="text-lime-500 mr-2">{key}</span>
+                      <span className="text-lime-300 truncate max-w-[300px]">
+                        {localStorage.getItem(key)?.length || 0} bytes
+                      </span>
+                    </div>
+                  ))}
+
+                  {/* Special Hidden Elements Check */}
+                  <div className="border-t border-lime-500/20 pt-2 pb-1 mt-4">
+                    <div className="font-semibold text-lime-400">Direct Content Check:</div>
+                  </div>
+                  <div className="flex flex-col gap-1 border-t border-lime-500/10 pt-2">
+                    <div>
+                      <span className="text-lime-400">Hidden Users:</span>
+                      <span className="text-lime-300 ml-2">
+                        {localStorage.getItem('spookstr:hidden-users') || "Not found in localStorage"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-lime-400">Hidden Hashtags:</span>
+                      <span className="text-lime-300 ml-2">
+                        {localStorage.getItem('spookstr:hidden-hashtags') || "Not found in localStorage"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-lime-400">Personalized Hashtags:</span>
+                      <span className="text-lime-300 ml-2">
+                        {localStorage.getItem('spookstr:personalized-hashtags') || "Not found in localStorage"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </DialogContent>
           </Dialog>
+
+            <Dialog open={nostrSettingsOpen} onOpenChange={setNostrSettingsOpen}>
+              <Button
+                onClick={() => {
+                  setNostrSettingsOpen(true);
+                  setNostrSettingsLoading(true);
+                  if (user?.pubkey) {
+                    // Search for NIP-78 settings events
+                    nostr.query([{
+                      kinds: [30078],
+                      authors: [user.pubkey],
+                      "#d": ["spookstr:settings", "spookstr:hidden-users", "spookstr:hidden-hashtags", "spookstr:personalized-hashtags"]
+                    }])
+                    .then(events => {
+                      setNostrSettings(events);
+                      setNostrSettingsLoading(false);
+                    })
+                    .catch(err => {
+                      console.error("Failed to fetch Nostr settings:", err);
+                      setNostrSettingsLoading(false);
+                    });
+                  } else {
+                    setNostrSettingsLoading(false);
+                  }
+                }}
+                variant="link"
+                size="sm"
+                className="text-xs text-lime-500/60 hover:text-lime-400 p-0 h-auto font-normal"
+              >
+                Check for Nostr-stored settings (NIP-78)
+              </Button>
+              <DialogContent className="bg-black border-lime-500/30 text-lime-400 max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle className="text-lime-400">Nostr Settings (NIP-78)</DialogTitle>
+                  <DialogDescription className="text-lime-500/70">
+                    Checking if your settings are stored as Nostr events (kind 30078)
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-3">
+                  {nostrSettingsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-lime-500"></div>
+                    </div>
+                  ) : nostrSettings.length > 0 ? (
+                    <div className="border border-lime-500/20 rounded p-3 bg-black/80 font-mono text-xs space-y-3">
+                      <div className="font-semibold text-lime-400">Found {nostrSettings.length} settings events:</div>
+
+                      {nostrSettings.map(event => (
+                        <div key={event.id} className="border-t border-lime-500/10 pt-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-lime-400">Event ID:</span>
+                            <span className="text-lime-300 truncate">{event.id.slice(0, 8)}...{event.id.slice(-8)}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-lime-400">Created:</span>
+                            <span className="text-lime-300">{new Date(event.created_at * 1000).toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-lime-400">D Tag:</span>
+                            <span className="text-lime-300">{event.tags.find(t => t[0] === 'd')?.[1] || 'N/A'}</span>
+                          </div>
+                          <div className="mt-1">
+                            <div className="text-lime-400">Content:</div>
+                            <div className="text-lime-300 bg-black/40 p-2 rounded overflow-auto max-h-32">
+                              {event.content}
+                            </div>
+                          </div>
+                          <Button
+                            onClick={() => {
+                              // Import settings from this Nostr event
+                              try {
+                                const data = JSON.parse(event.content);
+                                const d = event.tags.find(t => t[0] === 'd')?.[1];
+
+                                if (d === 'spookstr:hidden-users') {
+                                  localStorage.setItem('spookstr:hidden-users', JSON.stringify(data));
+                                  setSuccess('Imported hidden users from Nostr');
+                                } else if (d === 'spookstr:hidden-hashtags') {
+                                  localStorage.setItem('spookstr:hidden-hashtags', JSON.stringify(data));
+                                  setSuccess('Imported hidden hashtags from Nostr');
+                                } else if (d === 'spookstr:personalized-hashtags') {
+                                  localStorage.setItem('spookstr:personalized-hashtags', JSON.stringify(data));
+                                  setSuccess('Imported personalized hashtags from Nostr');
+                                } else if (d === 'spookstr:settings') {
+                                  // Check if this contains all settings
+                                  if (data.hiddenUsers) {
+                                    localStorage.setItem('spookstr:hidden-users', JSON.stringify(data.hiddenUsers));
+                                  }
+                                  if (data.hiddenHashtags) {
+                                    localStorage.setItem('spookstr:hidden-hashtags', JSON.stringify(data.hiddenHashtags));
+                                  }
+                                  if (data.personalizedHashtags) {
+                                    localStorage.setItem('spookstr:personalized-hashtags', JSON.stringify(data.personalizedHashtags));
+                                  }
+                                  setSuccess('Imported all settings from Nostr');
+                                }
+
+                                setTimeout(() => setSuccess(null), 3000);
+                                setNostrSettingsOpen(false);
+                                // Force reload to apply settings
+                                window.location.reload();
+                              } catch (err) {
+                                setError(`Failed to import settings: ${err}`);
+                                setTimeout(() => setError(null), 5000);
+                              }
+                            }}
+                            className="mt-2 w-full bg-lime-500 hover:bg-lime-600 text-black"
+                            size="sm"
+                          >
+                            Import These Settings
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : user?.pubkey ? (
+                    <div className="border border-lime-500/20 rounded p-8 bg-black/80 text-center">
+                      <div className="text-lime-500/70 mb-2">
+                        No NIP-78 settings events found on Nostr.
+                      </div>
+                      <div className="text-xs text-lime-500/50">
+                        Your settings are likely stored only in localStorage or may be in a different format.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border border-lime-500/20 rounded p-8 bg-black/80 text-center">
+                      <div className="text-lime-500/70">
+                        You need to be logged in to check for Nostr-stored settings.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
         </div>
       </CardContent>
     </Card>
