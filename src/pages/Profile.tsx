@@ -339,16 +339,31 @@ export default function Profile({ pubkey }: ProfileProps) {
           <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm mb-6">
             <CardContent className="p-6">
               {/* Banner */}
-              {metadata?.banner && (
-                <div className="relative -mx-6 -mt-6 mb-6 h-48 overflow-hidden rounded-t-lg">
-                  <img
-                    src={metadata.banner}
-                    alt="Profile banner"
-                    className="w-full h-full object-cover"
+              <div className="relative -mx-6 -mt-6 mb-6 h-48 overflow-hidden rounded-t-lg">
+                {metadata?.banner && (
+                  <>
+                    <img
+                      src={metadata.banner}
+                      alt="Profile banner"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
+                  </>
+                )}
+                {!metadata?.banner && (
+                  <div className="w-full h-full bg-gradient-to-br from-lime-500/10 to-purple-500/10" />
+                )}
+
+                {/* Relay Discovery Indicator inside banner */}
+                <div className="absolute top-4 right-4 z-10">
+                  <SmartRelayDiscoveryIndicator
+                    context="profile"
+                    eventsFound={discoveredEvents.length}
+                    hintsUsed={discoveryStats?.hintsUsed || false}
+                    isLoading={isDiscovering || author.isLoading}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
                 </div>
-              )}
+              </div>
 
               <div className="flex items-start gap-6">
                 {/* Avatar */}
@@ -370,12 +385,6 @@ export default function Profile({ pubkey }: ProfileProps) {
                         {metadata?.nip05 && (
                           <span className="text-lime-500">✓</span>
                         )}
-                        <SmartRelayDiscoveryIndicator
-                          context="profile"
-                          eventsFound={discoveredEvents.length}
-                          hintsUsed={discoveryStats?.hintsUsed || false}
-                          isLoading={isDiscovering || author.isLoading}
-                        />
                       </div>
 
                       {/* NIP-58 badge toggle - only for NIP-58 badges */}
