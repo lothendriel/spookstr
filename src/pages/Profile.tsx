@@ -14,10 +14,21 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { InfiniteScrollLoader, InfiniteScrollSkeleton } from '@/components/ui/InfiniteScrollLoader';
-import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check, MessageSquare } from 'lucide-react';
+import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check, MessageSquare, Edit, Shield, Bot, Award, Star, Crown, Sparkles } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { PostDetailView } from '@/components/PostDetailView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { EditProfileForm } from '@/components/EditProfileForm';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import type { NostrEvent } from '@nostrify/nostrify';
 import { nip19 } from 'nostr-tools';
 
@@ -31,6 +42,8 @@ export default function Profile({ pubkey }: ProfileProps) {
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
+  const [showBadges, setShowBadges] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Use profile discovery for enhanced relay discovery with visual indicators
   const {
@@ -46,6 +59,71 @@ export default function Profile({ pubkey }: ProfileProps) {
 
   const metadata = author.data?.metadata;
   const displayName = getDisplayName(metadata, pubkey);
+
+  // Determine user badges based on metadata
+  const userBadges = useMemo(() => {
+    const badges = [];
+
+    if (metadata?.nip05) {
+      badges.push({
+        id: 'verified',
+        icon: Shield,
+        label: 'Verified',
+        color: 'text-blue-400',
+        bgColor: 'bg-blue-500/10',
+        borderColor: 'border-blue-500/30'
+      });
+    }
+
+    if (metadata?.bot) {
+      badges.push({
+        id: 'bot',
+        icon: Bot,
+        label: 'Bot',
+        color: 'text-purple-400',
+        bgColor: 'bg-purple-500/10',
+        borderColor: 'border-purple-500/30'
+      });
+    }
+
+    if (metadata?.lud16 || metadata?.lud06) {
+      badges.push({
+        id: 'lightning',
+        icon: ZapIcon,
+        label: 'Lightning',
+        color: 'text-yellow-400',
+        bgColor: 'bg-yellow-500/10',
+        borderColor: 'border-yellow-500/30'
+      });
+    }
+
+    // Add special badges based on display name or other criteria
+    if (metadata?.display_name || metadata?.name) {
+      const name = (metadata.display_name || metadata.name || '').toLowerCase();
+      if (name.includes('admin') || name.includes('mod')) {
+        badges.push({
+          id: 'moderator',
+          icon: Crown,
+          label: 'Moderator',
+          color: 'text-orange-400',
+          bgColor: 'bg-orange-500/10',
+          borderColor: 'border-orange-500/30'
+        });
+      }
+    }
+
+    // Early adopter badge (could be based on account creation date)
+    badges.push({
+      id: 'spookstr',
+      icon: Sparkles,
+      label: 'Spookstr',
+      color: 'text-lime-400',
+      bgColor: 'bg-lime-500/10',
+      borderColor: 'border-lime-500/30'
+    });
+
+    return badges;
+  }, [metadata]);
 
   useSeoMeta({
     title: `${displayName} - Spookstr`,
@@ -222,6 +300,9 @@ export default function Profile({ pubkey }: ProfileProps) {
                       <h1 className="text-2xl font-bold text-lime-400 truncate">
                         {displayName}
                       </h1>
+                      {metadata?.display_name && metadata.display_name !== metadata.name && (
+                        <span className="text-lime-300/80 text-lg">({metadata.display_name})</span>
+                      )}
                       {metadata?.nip05 && (
                         <span className="text-lime-500">✓</span>
                       )}
@@ -235,6 +316,30 @@ export default function Profile({ pubkey }: ProfileProps) {
 
                     {/* Action Buttons */}
                     <div className="flex items-center gap-2 ml-4">
+                      {isOwnProfile && (
+                        <Dialog open={isEditing} onOpenChange={setIsEditing}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="border-lime-500/50 text-lime-400 hover:bg-lime-500/10"
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>Edit Profile</DialogTitle>
+                              <DialogDescription>
+                                Update your profile information. All fields are optional - only fill in what you want to share.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <EditProfileForm onSuccess={() => setIsEditing(false)} />
+                          </DialogContent>
+                        </Dialog>
+                      )}
+
                       {!isOwnProfile && user && (
                         <Button
                           onClick={handleFollowToggle}
@@ -285,33 +390,102 @@ export default function Profile({ pubkey }: ProfileProps) {
                     </div>
                   </div>
 
+                  {/* Badges Section */}
+                  {userBadges.length > 0 && (
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-lime-500/70">Badges:</span>
+                        <Switch
+                          checked={showBadges}
+                          onCheckedChange={setShowBadges}
+                          size="sm"
+                        />
+                      </div>
+                      {showBadges && (
+                        <div className="flex flex-wrap gap-2">
+                          {userBadges.map((badge) => (
+                            <Badge
+                              key={badge.id}
+                              variant="outline"
+                              className={`${badge.bgColor} ${badge.borderColor} border ${badge.color} text-xs px-2 py-1 h-8 flex items-center gap-1`}
+                            >
+                              <badge.icon className="h-4 w-4" />
+                              {badge.label}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* NIP-05 Identifier */}
                   {metadata?.nip05 && (
-                    <p className="text-sm text-lime-500/70 mb-2">{metadata.nip05}</p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Shield className="h-4 w-4 text-blue-400" />
+                      <p className="text-sm text-lime-500/70">{metadata.nip05}</p>
+                    </div>
                   )}
 
+                  {/* About/Bio */}
                   {metadata?.about && (
-                    <p className="text-lime-100 mb-4 whitespace-pre-wrap break-words">{metadata.about}</p>
+                    <div className="mb-4">
+                      <p className="text-lime-100 whitespace-pre-wrap break-words">{metadata.about}</p>
+                    </div>
                   )}
 
-                  {/* Links */}
-                  <div className="flex flex-wrap gap-3">
+                  {/* Comprehensive Metadata Display */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    {/* Website */}
                     {metadata?.website && (
-                      <a
-                        href={metadata.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-lime-400 hover:text-lime-300 flex items-center gap-1"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Website
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <ExternalLink className="h-4 w-4 text-lime-400" />
+                        <a
+                          href={metadata.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-lime-400 hover:text-lime-300 truncate"
+                        >
+                          {metadata.website}
+                        </a>
+                      </div>
                     )}
-                    {(metadata?.lud16 || metadata?.lud06) && (
-                      <span className="text-sm text-lime-500/70 flex items-center gap-1">
-                        <ZapIcon className="h-3 w-3" />
-                        {metadata?.lud16 || metadata?.lud06}
-                      </span>
+
+                    {/* Lightning Addresses */}
+                    {metadata?.lud16 && (
+                      <div className="flex items-center gap-2">
+                        <ZapIcon className="h-4 w-4 text-yellow-400" />
+                        <span className="text-sm text-lime-500/70">{metadata.lud16}</span>
+                      </div>
                     )}
+
+                    {metadata?.lud06 && !metadata?.lud16 && (
+                      <div className="flex items-center gap-2">
+                        <ZapIcon className="h-4 w-4 text-yellow-400" />
+                        <span className="text-sm text-lime-500/70">{metadata.lud06}</span>
+                      </div>
+                    )}
+
+                    {/* Bot Status */}
+                    {metadata?.bot && (
+                      <div className="flex items-center gap-2">
+                        <Bot className="h-4 w-4 text-purple-400" />
+                        <span className="text-sm text-purple-400">Bot Account</span>
+                      </div>
+                    )}
+
+                    {/* Display Name (if different from name) */}
+                    {metadata?.display_name && metadata.display_name !== metadata.name && (
+                      <div className="flex items-center gap-2">
+                        <Star className="h-4 w-4 text-orange-400" />
+                        <span className="text-sm text-orange-400">Display: {metadata.display_name}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Public Key */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-lime-500/50">Public Key:</span>
+                    <span className="text-xs text-lime-500/70 font-mono">{npub}</span>
                   </div>
                 </div>
               </div>

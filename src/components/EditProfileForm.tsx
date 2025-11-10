@@ -17,12 +17,17 @@ import {
 import { Input } from '@/components/ui/input';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Upload } from 'lucide-react';
+import { Loader2, Upload, AlertTriangle } from 'lucide-react';
 import { NSchema as n, type NostrMetadata } from '@nostrify/nostrify';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUploadFile } from '@/hooks/useUploadFile';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
-export const EditProfileForm: React.FC = () => {
+interface EditProfileFormProps {
+  onSuccess?: () => void;
+}
+
+export const EditProfileForm: React.FC<EditProfileFormProps> = ({ onSuccess }) => {
   const queryClient = useQueryClient();
 
   const { user, metadata } = useCurrentUser();
@@ -35,11 +40,14 @@ export const EditProfileForm: React.FC = () => {
     resolver: zodResolver(n.metadata()),
     defaultValues: {
       name: '',
+      display_name: '',
       about: '',
       picture: '',
       banner: '',
       website: '',
       nip05: '',
+      lud16: '',
+      lud06: '',
       bot: false,
     },
   });
@@ -49,11 +57,14 @@ export const EditProfileForm: React.FC = () => {
     if (metadata) {
       form.reset({
         name: metadata.name || '',
+        display_name: metadata.display_name || '',
         about: metadata.about || '',
         picture: metadata.picture || '',
         banner: metadata.banner || '',
         website: metadata.website || '',
         nip05: metadata.nip05 || '',
+        lud16: metadata.lud16 || '',
+        lud06: metadata.lud06 || '',
         bot: metadata.bot || false,
       });
     }
@@ -90,21 +101,122 @@ export const EditProfileForm: React.FC = () => {
     }
 
     try {
-      // Combine existing metadata with new values
+      // Combine existing metadata with new values, preserving existing data
       const data = { ...metadata, ...values };
 
-      // Clean up empty values
+      // Validate URLs carefully
+      const urlFields = ['picture', 'banner', 'website'];
+      for (const field of urlFields) {
+        if (data[field] && data[field] !== '') {
+          try {
+            // Basic URL validation
+            new URL(data[field]);
+          } catch {
+            // If URL is invalid, revert to existing value or remove if no existing value
+            if (metadata && metadata[field as keyof NostrMetadata]) {
+              data[field] = metadata[field as keyof NostrMetadata] as string;
+              toast({
+                title: 'Warning',
+                description: `Invalid ${field} URL. Keeping previous value.`,
+                variant: 'default',
+              });
+            } else {
+              delete data[field];
+              toast({
+                title: 'Warning',
+                description: `Invalid ${field} URL. Field removed.`,
+                variant: 'default',
+              });
+            }
+          }
+        }
+      }
+
+      // Validate NIP-05 format (basic check)
+      if (data.nip05 && data.nip05 !== '') {
+        if (!data.nip05.includes('@') && !data.nip05.includes('_')) {
+          // Invalid NIP-05 format, revert or remove
+          if (metadata && metadata.nip05) {
+            data.nip05 = metadata.nip05;
+            toast({
+              title: 'Warning',
+              description: 'Invalid NIP-05 format. Keeping previous value.',
+              variant: 'default',
+            });
+          } else {
+            delete data.nip05;
+            toast({
+              title: 'Warning',
+              description: 'Invalid NIP-05 format. Field removed.',
+              variant: 'default',
+            });
+          }
+        }
+      }
+
+      // Validate Lightning addresses
+      const lightningFields = ['lud16', 'lud06'];
+      for (const field of lightningFields) {
+        if (data[field] && data[field] !== '') {
+          if (!data[field].includes('@') && !data[field].startsWith('lnurl')) {
+            // Invalid Lightning address format
+            if (metadata && metadata[field as keyof NostrMetadata]) {
+              data[field] = metadata[field as keyof NostrMetadata] as string;
+              toast({
+                title: 'Warning',
+                description: `Invalid ${field} format. Keeping previous value.`,
+                variant: 'default',
+              });
+            } else {
+              delete data[field];
+              toast({
+                title: 'Warning',
+                description: `Invalid ${field} format. Field removed.`,
+                variant: 'default',
+              });
+            }
+          }
+        }
+      }
+
+      // Clean up empty values (undefined, empty string, null)
       for (const key in data) {
-        if (data[key] === '') {
+        if (data[key] === '' || data[key] === null || data[key] === undefined) {
           delete data[key];
         }
+      }
+
+      // Ensure we have at least some basic data
+      if (Object.keys(data).length === 0) {
+        toast({
+          title: 'Error',
+          description: 'Profile cannot be completely empty. Please provide at least some information.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Validate JSON serialization
+      let content;
+      try {
+        content = JSON.stringify(data);
+        // Test parse to ensure valid JSON
+        JSON.parse(content);
+      } catch (jsonError) {
+        console.error('JSON serialization error:', jsonError);
+        toast({
+          title: 'Error',
+          description: 'Failed to serialize profile data. Please check your input.',
+          variant: 'destructive',
+        });
+        return;
       }
 
       // Publish the metadata event (kind 0)
       await publishEvent({
         event: {
           kind: 0,
-          content: JSON.stringify(data),
+          content: content,
         }
       });
 
@@ -114,8 +226,13 @@ export const EditProfileForm: React.FC = () => {
 
       toast({
         title: 'Success',
-        description: 'Your profile has been updated',
+        description: 'Your profile has been updated safely',
       });
+
+      // Call onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       console.error('Failed to update profile:', error);
       toast({
@@ -129,6 +246,15 @@ export const EditProfileForm: React.FC = () => {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Safety Warning */}
+        <Alert className="border-yellow-500/30 bg-yellow-500/5">
+          <AlertTriangle className="h-4 w-4 text-yellow-400" />
+          <AlertDescription className="text-yellow-400/90 text-sm">
+            <strong>Safety First:</strong> All fields are validated automatically.
+            Invalid URLs, NIP-05 identifiers, or Lightning addresses will be reverted to your previous values
+            or removed to prevent breaking your profile. You can safely experiment!
+          </AlertDescription>
+        </Alert>
         <FormField
           control={form.control}
           name="name"
@@ -139,7 +265,24 @@ export const EditProfileForm: React.FC = () => {
                 <Input placeholder="Your name" {...field} />
               </FormControl>
               <FormDescription>
-                This is your display name that will be displayed to others.
+                This is your primary name that will be displayed to others.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="display_name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Display Name</FormLabel>
+              <FormControl>
+                <Input placeholder="Alternative display name" {...field} />
+              </FormControl>
+              <FormDescription>
+                An alternative, bigger name with richer characters. Your main name will always be shown regardless.
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -228,6 +371,42 @@ export const EditProfileForm: React.FC = () => {
                 </FormControl>
                 <FormDescription>
                   Your verified Nostr identifier.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="lud16"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Lightning Address (LUD-16)</FormLabel>
+                <FormControl>
+                  <Input placeholder="name@domain.com" {...field} />
+                </FormControl>
+                <FormDescription>
+                  Your Lightning Network address for receiving zaps (preferred format).
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="lud06"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Lightning Address (LUD-06)</FormLabel>
+                <FormControl>
+                  <Input placeholder="lnurl..." {...field} />
+                </FormControl>
+                <FormDescription>
+                  Alternative Lightning Network address (LNURL format).
                 </FormDescription>
                 <FormMessage />
               </FormItem>
