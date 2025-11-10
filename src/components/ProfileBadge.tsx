@@ -1,12 +1,12 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Award } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 // URL validation utility
 const isValidImageUrl = (url: string): boolean => {
   if (!url || typeof url !== 'string') return false;
-  
+
   try {
     const urlObj = new URL(url);
     // Check if it's a valid HTTP/HTTPS URL
@@ -18,7 +18,7 @@ const isValidImageUrl = (url: string): boolean => {
 
 // Image loading utility with retry and fallback
 const loadImageWithFallback = async (
-  urls: string[], 
+  urls: string[],
   retries = 2,
   timeout = 5000
 ): Promise<{ success: boolean; url?: string; error?: string }> => {
@@ -81,9 +81,9 @@ const loadImageWithFallback = async (
     }
   }
 
-  return { 
-    success: false, 
-    error: `All URLs failed after ${retries + 1} attempts` 
+  return {
+    success: false,
+    error: `All URLs failed after ${retries + 1} attempts`
   };
 };
 
@@ -118,11 +118,11 @@ export function ProfileBadge({
   // Collect all valid URLs in order of preference
   const getAllValidUrls = () => {
     const urls: string[] = [];
-    
+
     if (thumbnailUrl && isValidImageUrl(thumbnailUrl)) {
       urls.push(thumbnailUrl);
     }
-    
+
     if (imageUrl && isValidImageUrl(imageUrl)) {
       urls.push(imageUrl);
     }
@@ -133,7 +133,7 @@ export function ProfileBadge({
   // Load image with fallback logic
   useEffect(() => {
     const urls = getAllValidUrls();
-    
+
     if (urls.length === 0) {
       console.log('❌ No valid image URLs for badge:', badgeDefinition);
       setImageError(true);
@@ -143,10 +143,10 @@ export function ProfileBadge({
 
     const loadImage = async () => {
       setIsLoading(true);
-      
+
       try {
         const result = await loadImageWithFallback(urls);
-        
+
         if (result.success && result.url) {
           setCurrentImageUrl(result.url);
           setImageLoaded(true);
@@ -169,8 +169,21 @@ export function ProfileBadge({
   }, [imageUrl, thumbnailUrl, badgeDefinition]);
 
   const BadgeImage = () => {
+    // Debug: Log current rendering state
+    console.log('🖼️ BadgeImage rendering:', {
+      hasValidUrls: getAllValidUrls().length > 0,
+      imageError,
+      isLoading,
+      imageLoaded,
+      currentImageUrl: currentImageUrl?.substring(0, 50) + '...',
+      shouldShowFallback: getAllValidUrls().length === 0 || imageError,
+      shouldShowSkeleton: isLoading || !imageLoaded,
+      shouldShowImage: !isLoading && imageLoaded && !imageError
+    });
+
     // Show fallback if no valid URLs or all failed
     if (getAllValidUrls().length === 0 || imageError) {
+      console.log('🎨 Showing fallback badge');
       return (
         <div className="w-8 h-8 flex items-center justify-center bg-gradient-to-br from-lime-500/20 to-lime-600/20 rounded-full border border-lime-500/30 flex-shrink-0">
           <Award className="w-4 h-4 text-lime-400 flex-shrink-0" />
@@ -180,21 +193,63 @@ export function ProfileBadge({
 
     // Show skeleton while loading
     if (isLoading || !imageLoaded) {
+      console.log('⏳ Showing skeleton');
       return <Skeleton className="w-8 h-8 rounded-full flex-shrink-0" />;
     }
 
-    // Show the actual image
+    // Show actual image - simplified CSS to avoid conflicts
+    console.log('✅ Showing image:', currentImageUrl?.substring(0, 50) + '...');
+
+    // Create a ref to inspect the image element
+    const imgRef = useRef<HTMLImageElement>(null);
+
+    // Log image element properties after render
+    useEffect(() => {
+      if (imgRef.current) {
+        const img = imgRef.current;
+        console.log('🔍 Image element inspection:', {
+          src: img.src?.substring(0, 50) + '...',
+          complete: img.complete,
+          naturalWidth: img.naturalWidth,
+          naturalHeight: img.naturalHeight,
+          offsetWidth: img.offsetWidth,
+          offsetHeight: img.offsetHeight,
+          clientWidth: img.clientWidth,
+          clientHeight: img.clientHeight,
+          computedStyle: window.getComputedStyle(img),
+          parentStyle: window.getComputedStyle(img.parentElement!),
+          isVisible: img.offsetParent !== null,
+          hasVisibility: window.getComputedStyle(img).visibility !== 'hidden',
+          hasDisplay: window.getComputedStyle(img).display !== 'none',
+          hasOpacity: parseFloat(window.getComputedStyle(img).opacity) > 0,
+        });
+      }
+    });
+
     return (
       <img
+        ref={imgRef}
         src={currentImageUrl || ''}
         alt={fallbackName}
-        className="w-8 h-8 rounded-full border-2 border-lime-500/30 transition-all duration-200 hover:border-lime-500/50 hover:scale-105 object-cover flex-shrink-0"
+        // Simplified CSS classes to avoid conflicts
+        className="w-8 h-8 rounded-full border-2 border-lime-500/30 hover:border-lime-500/50"
+        style={{
+          // Force display with inline styles to override any CSS conflicts
+          display: 'block',
+          visibility: 'visible',
+          objectFit: 'cover',
+          width: '32px',
+          height: '32px',
+          minWidth: '32px',
+          minHeight: '32px',
+        }}
         onLoad={() => {
+          console.log('✅ Image onLoad fired for:', currentImageUrl?.substring(0, 50) + '...');
           setImageLoaded(true);
           setImageError(false);
         }}
         onError={(e) => {
-          console.log('❌ Final image load failed:', currentImageUrl);
+          console.log('❌ Final image onError fired for:', currentImageUrl, e);
           setImageError(true);
           setImageLoaded(false);
         }}
@@ -211,7 +266,10 @@ export function ProfileBadge({
     </div>
   );
 
-  if (!showTooltip) {
+  // Test: Temporarily disable tooltip to see if it's causing display issues
+  const showTooltipForDebug = false; // Set to true to re-enable tooltip
+
+  if (!showTooltip || !showTooltipForDebug) {
     return <BadgeContent />;
   }
 
