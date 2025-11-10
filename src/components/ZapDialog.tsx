@@ -33,6 +33,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Event } from 'nostr-tools';
+import { setCachedInteractions } from '@/lib/interactionCache';
 import QRCode from 'qrcode';
 import type { WebLNProvider } from "@webbtc/webln-types";
 
@@ -247,7 +248,24 @@ export const ZapDialog = memo(({ target, children, className }: ZapDialogProps) 
   const { toast } = useToast();
   const { webln, activeNWC } = useWallet();
   const queryClient = useQueryClient();
-  const { zap, isZapping, invoice, setInvoice, payWithWebLN } = useZaps(target, webln, activeNWC, () => setOpen(false));
+  // Success callback for all zap methods (WebLN and QR code)
+  const handleZapSuccess = useCallback(() => {
+    setOpen(false);
+
+    // Update user interaction cache to record that they zapped this post
+    if (user && target.id && target.id !== 'developer-tip') {
+      setCachedInteractions(user.pubkey, target.id, { zapped: true });
+      console.log(`[ZapDialog] Zap cached for user ${user.pubkey.slice(0, 8)} on post ${target.id.slice(0, 8)}`);
+
+      // Also update the query cache for user interactions
+      queryClient.setQueryData(['user-interactions', user.pubkey, target.id], (oldData: any) => {
+        const currentData = oldData || { liked: false, reposted: false, zapped: false };
+        return { ...currentData, zapped: true, timestamp: Date.now() };
+      });
+    }
+  }, [setOpen, user, target.id, queryClient]);
+
+  const { zap, isZapping, invoice, setInvoice, payWithWebLN } = useZaps(target, webln, activeNWC, handleZapSuccess);
   const [amount, setAmount] = useState<number | string>(100);
   const [comment, setComment] = useState<string>('');
   const [copied, setCopied] = useState(false);
@@ -319,7 +337,7 @@ export const ZapDialog = memo(({ target, children, className }: ZapDialogProps) 
   }, [invoice]);
 
   const handleWebLNPayment = useCallback(async () => {
-    if (!invoice) {
+    if (!invoice || !user) {
       return;
     }
 
@@ -347,6 +365,18 @@ export const ZapDialog = memo(({ target, children, className }: ZapDialogProps) 
         }
         return { ...oldData, zaps: oldData.zaps + 1 };
       });
+
+      // Update user interaction cache to record that they zapped this post
+      if (target.id && target.id !== 'developer-tip') {
+        setCachedInteractions(user.pubkey, target.id, { zapped: true });
+        console.log(`[ZapDialog] Zap cached for user ${user.pubkey.slice(0, 8)} on post ${target.id.slice(0, 8)}`);
+
+        // Also update the query cache for user interactions
+        queryClient.setQueryData(['user-interactions', user.pubkey, target.id], (oldData: any) => {
+          const currentData = oldData || { liked: false, reposted: false, zapped: false };
+          return { ...currentData, zapped: true, timestamp: Date.now() };
+        });
+      }
     } catch (error) {
       console.error('WebLN payment failed:', error);
       setIsPaying(false);
@@ -356,7 +386,7 @@ export const ZapDialog = memo(({ target, children, className }: ZapDialogProps) 
         variant: 'destructive',
       });
     }
-  }, [invoice, payWithWebLN, toast, queryClient, setOpen, target.id]);
+  }, [invoice, payWithWebLN, toast, queryClient, setOpen, target.id, user]);
 
   useEffect(() => {
     if (open) {

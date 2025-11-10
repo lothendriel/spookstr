@@ -41,6 +41,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/useToast';
 import { useBatchPrefetchQuotedEvents } from '@/hooks/useQuotedEvent';
+import {
+  getCachedInteractions,
+  setCachedInteractions
+} from '@/lib/interactionCache';
 
 interface ParanormalPostProps {
   event: NostrEvent;
@@ -153,14 +157,14 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
     queryFn: async () => {
       if (!user) return { liked: false, reposted: false, zapped: false };
 
-      // Check cache for existing interactions first
-      const cacheKey = `user-interaction-${user.pubkey}-${interactionEventId}`;
-      const cached = localStorage.getItem(cacheKey);
+      // Check cache for existing interactions first using the utility
+      const cached = getCachedInteractions(user.pubkey, interactionEventId);
       if (cached) {
-        return JSON.parse(cached);
+        console.log(`[ParanormalPost] Using cached interactions for ${interactionEventId.slice(0, 8)}:`, cached);
+        return cached;
       }
 
-      // Query for existing interactions
+      // Query for existing interactions if not in cache
       const { nostr } = await import('@nostrify/react');
       const { useNostr } = nostr;
       const nostrClient = useNostr();
@@ -178,10 +182,12 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
         const reposted = events.some(e => e.kind === 6);
         const zapped = events.some(e => e.kind === 9735);
 
-        const result = { liked, reposted, zapped };
+        const result = { liked, reposted, zapped, timestamp: Date.now() };
 
-        // Cache the result for 5 minutes
-        localStorage.setItem(cacheKey, JSON.stringify(result));
+        // Cache the result using the utility
+        setCachedInteractions(user.pubkey, interactionEventId, result);
+        console.log(`[ParanormalPost] Cached new interactions for ${interactionEventId.slice(0, 8)}:`, result);
+
         return result;
       } catch (error) {
         console.warn('Failed to fetch user interactions:', error);
@@ -289,13 +295,18 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
       onSuccess: () => {
         setIsLiking(false);
 
-        // Update local cache
-        const cacheKey = `user-interaction-${user.pubkey}-${interactionEventId}`;
-        const updatedInteractions = { ...userInteractions, liked: true };
-        localStorage.setItem(cacheKey, JSON.stringify(updatedInteractions));
+        // Update cache using the utility
+        const updatedInteractions = {
+          ...userInteractions,
+          liked: true,
+          timestamp: Date.now()
+        };
+        setCachedInteractions(user.pubkey, interactionEventId, updatedInteractions);
 
         // Update query cache
         queryClient.setQueryData(['user-interactions', user.pubkey, interactionEventId], updatedInteractions);
+
+        console.log(`[ParanormalPost] Like successful, cached for ${interactionEventId.slice(0, 8)}`);
 
         toast({
           title: "Liked!",
@@ -346,13 +357,18 @@ export function ParanormalPost({ event, onClick, showActions = true }: Paranorma
       onSuccess: () => {
         setIsReposting(false);
 
-        // Update local cache
-        const cacheKey = `user-interaction-${user.pubkey}-${interactionEventId}`;
-        const updatedInteractions = { ...userInteractions, reposted: true };
-        localStorage.setItem(cacheKey, JSON.stringify(updatedInteractions));
+        // Update cache using the utility
+        const updatedInteractions = {
+          ...userInteractions,
+          reposted: true,
+          timestamp: Date.now()
+        };
+        setCachedInteractions(user.pubkey, interactionEventId, updatedInteractions);
 
         // Update query cache
         queryClient.setQueryData(['user-interactions', user.pubkey, interactionEventId], updatedInteractions);
+
+        console.log(`[ParanormalPost] Repost successful, cached for ${interactionEventId.slice(0, 8)}`);
 
         if (spookstrOnly) {
           toast({
