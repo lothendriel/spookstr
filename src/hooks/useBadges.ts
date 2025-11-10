@@ -177,6 +177,36 @@ export function useUserBadges(pubkey: string) {
   console.log('🎪 useUserBadges called with pubkey:', pubkey?.slice(0, 8) + '...');
   const { nostr } = useNostr();
 
+  // Image preloader utility for badge images
+  const preloadBadgeImages = useCallback(async (definitions: BadgeDefinition[]) => {
+    const imageUrls = new Set<string>();
+
+    // Collect all image URLs
+    definitions.forEach(def => {
+      if (def.image) imageUrls.add(def.image);
+      if (def.thumbs) {
+        def.thumbs.forEach(thumb => imageUrls.add(thumb));
+      }
+    });
+
+    // Preload images in parallel
+    const preloadPromises = Array.from(imageUrls).filter(Boolean).map(url => {
+      return new Promise<void>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve();
+        img.onerror = () => resolve(); // Don't fail on error, just continue
+        img.src = url;
+      });
+    });
+
+    try {
+      await Promise.all(preloadPromises);
+      console.log('✅ Preloaded', imageUrls.size, 'badge images');
+    } catch (error) {
+      console.log('⚠️ Some badge images failed to preload:', error);
+    }
+  }, []);
+
   // Fetch profile badges (kind 30008 with d=profile_badges)
   const {
     data: profileBadges = [],
@@ -296,6 +326,12 @@ export function useUserBadges(pubkey: string) {
         // Wait for all definitions to be fetched
         const results = await Promise.all(definitionPromises);
         definitions.push(...results);
+
+        // Preload badge images after definitions are fetched
+        if (definitions.length > 0) {
+          // Don't wait for preloading to complete, just trigger it in background
+          preloadBadgeImages(definitions).catch(console.error);
+        }
       } catch (error) {
         console.error('❌ Error fetching badge definitions:', error);
       }

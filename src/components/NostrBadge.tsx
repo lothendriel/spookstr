@@ -2,7 +2,57 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Award, ExternalLink } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+
+// Global image cache to prevent redundant loading
+const globalImageCache = new Map<string, {
+  loaded: boolean;
+  error: boolean;
+  timestamp: number;
+}>();
+
+// Image preloader utility
+const preloadImage = (src: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (globalImageCache.has(src)) {
+      const cached = globalImageCache.get(src)!;
+      if (cached.loaded) {
+        resolve();
+        return;
+      }
+      if (cached.error) {
+        reject(new Error('Image failed to load (from cache)'));
+        return;
+      }
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      globalImageCache.set(src, { loaded: true, error: false, timestamp: Date.now() });
+      resolve();
+    };
+    img.onerror = () => {
+      globalImageCache.set(src, { loaded: false, error: true, timestamp: Date.now() });
+      reject(new Error('Image failed to load'));
+    };
+    img.src = src;
+  });
+};
+
+// Cleanup old cache entries (older than 1 hour)
+const cleanupImageCache = () => {
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  for (const [key, value] of globalImageCache.entries()) {
+    if (value.timestamp < oneHourAgo) {
+      globalImageCache.delete(key);
+    }
+  }
+};
+
+// Run cleanup every 30 minutes
+if (typeof window !== 'undefined') {
+  setInterval(cleanupImageCache, 30 * 60 * 1000);
+}
 
 interface NostrBadgeProps {
   name?: string;
@@ -14,6 +64,7 @@ interface NostrBadgeProps {
   size?: 'xs' | 'sm' | 'md' | 'lg';
   showTooltip?: boolean;
   className?: string;
+  preloadImages?: boolean; // New prop to control preloading
 }
 
 export function NostrBadge({
@@ -26,6 +77,7 @@ export function NostrBadge({
   size = 'md',
   showTooltip = true,
   className = '',
+  preloadImages = true, // Default to true for immediate loading
 }: NostrBadgeProps) {
   const displayUrl = thumbnailUrl || imageUrl;
 
@@ -40,6 +92,7 @@ export function NostrBadge({
 
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [isPreloading, setIsPreloading] = useState(false);
 
   // Size configurations
   const sizeConfig = {
@@ -51,6 +104,21 @@ export function NostrBadge({
 
   const config = sizeConfig[size];
   const fallbackName = name || 'Badge';
+
+  // Check global cache on mount
+  useEffect(() => {
+    if (displayUrl && globalImageCache.has(displayUrl)) {
+      const cached = globalImageCache.get(displayUrl)!;
+      setImageLoaded(cached.loaded);
+      setImageError(cached.error);
+
+      // Update ref with cached state
+      imageStateRef.current = {
+        loaded: cached.loaded,
+        error: cached.error,
+      };
+    }
+  }, [displayUrl]);
 
   // Update ref when image state changes
   useEffect(() => {
@@ -66,6 +134,36 @@ export function NostrBadge({
     setImageError(imageStateRef.current.error);
   }, []);
 
+  // Preload image immediately if enabled
+  useEffect(() => {
+    if (!displayUrl || !preloadImages) return;
+
+    // Check if already cached
+    if (globalImageCache.has(displayUrl)) {
+      const cached = globalImageCache.get(displayUrl)!;
+      setImageLoaded(cached.loaded);
+      setImageError(cached.error);
+      return;
+    }
+
+    const preloadImageAsync = async () => {
+      setIsPreloading(true);
+      try {
+        await preloadImage(displayUrl);
+        setImageLoaded(true);
+        setImageError(false);
+      } catch (error) {
+        console.log('❌ Failed to preload badge image:', displayUrl, error);
+        setImageError(true);
+        setImageLoaded(true); // Mark as "loaded" even with error to show fallback
+      } finally {
+        setIsPreloading(false);
+      }
+    };
+
+    preloadImageAsync();
+  }, [displayUrl, preloadImages]);
+
   const BadgeImage = () => {
     if (!displayUrl || imageError) {
       return (
@@ -75,9 +173,14 @@ export function NostrBadge({
       );
     }
 
+    // Show skeleton while preloading or loading
+    if (!imageLoaded && (isPreloading || preloadImages)) {
+      return <Skeleton className={`${config.className} rounded-full`} />;
+    }
+
     return (
       <>
-        {!imageLoaded && (
+        {!imageLoaded && !preloadImages && (
           <Skeleton className={`${config.className} rounded-full`} />
         )}
         <img
@@ -85,15 +188,28 @@ export function NostrBadge({
           alt={fallbackName}
           className={`${config.className} rounded-full border-2 border-lime-500/30 transition-all duration-200 hover:border-lime-500/50 hover:scale-105 ${imageLoaded ? '' : 'hidden'}`}
           style={{ width: config.width, height: config.height }}
-          onLoad={() => setImageLoaded(true)}
+          onLoad={() => {
+            setImageLoaded(true);
+            // Update global cache on successful load
+            if (displayUrl) {
+              globalImageCache.set(displayUrl, { loaded: true, error: false, timestamp: Date.now() });
+            }
+          }}
           onError={() => {
             console.log('❌ Failed to load badge image:', displayUrl);
             setImageError(true);
             setImageLoaded(true);
+            // Update global cache on error
+            if (displayUrl) {
+              globalImageCache.set(displayUrl, { loaded: false, error: true, timestamp: Date.now() });
+            }
           }}
-          loading="lazy"
+          // Remove lazy loading - load immediately
+          loading="eager"
           // Add cache busting prevention for consistent caching
           crossOrigin="anonymous"
+          // Add fetch priority for better loading
+          fetchPriority="high"
         />
       </>
     );
@@ -219,6 +335,7 @@ export function NostrBadgeGrid({
           badgeAwardId={badge.profileBadge.badgeAward}
           size={size}
           showTooltip={true}
+          preloadImages={true} // Enable immediate image loading
         />
       ))}
       {badges.length > maxBadges && (
