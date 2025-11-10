@@ -177,7 +177,7 @@ export function useUserBadges(pubkey: string) {
   console.log('🎪 useUserBadges called with pubkey:', pubkey?.slice(0, 8) + '...');
   const { nostr } = useNostr();
 
-  // Image preloader utility for badge images
+  // Image preloader utility for badge images with staggered loading and better error handling
   const preloadBadgeImages = useCallback(async (definitions: BadgeDefinition[]) => {
     const imageUrls = new Set<string>();
 
@@ -189,21 +189,71 @@ export function useUserBadges(pubkey: string) {
       }
     });
 
-    // Preload images in parallel
-    const preloadPromises = Array.from(imageUrls).filter(Boolean).map(url => {
-      return new Promise<void>((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve();
-        img.onerror = () => resolve(); // Don't fail on error, just continue
-        img.src = url;
-      });
-    });
+    const urls = Array.from(imageUrls).filter(Boolean);
+    if (urls.length === 0) return;
+
+    console.log('🎨 Starting to preload', urls.length, 'badge images...');
+
+    // Stagger image loading to avoid overwhelming the browser/network
+    const staggeredLoad = async (urls: string[], delay = 200) => {
+      const results = await Promise.allSettled(
+        urls.map(async (url, index) => {
+          // Add small delay between each image load
+          if (index > 0) {
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+
+          return new Promise<void>((resolve, reject) => {
+            const img = new Image();
+            let timeoutId: NodeJS.Timeout;
+
+            const cleanup = () => {
+              if (timeoutId) clearTimeout(timeoutId);
+              img.onload = null;
+              img.onerror = null;
+            };
+
+            const onSuccess = () => {
+              cleanup();
+              console.log('✅ Badge image loaded:', url);
+              resolve();
+            };
+
+            const onError = (error: any) => {
+              cleanup();
+              console.log('❌ Badge image failed:', url, error?.message || 'Unknown error');
+              // Don't reject - we want to continue with other images
+              resolve();
+            };
+
+            const onTimeout = () => {
+              cleanup();
+              console.log('⏰ Badge image timeout:', url);
+              // Don't reject - we want to continue with other images
+              resolve();
+            };
+
+            img.onload = onSuccess;
+            img.onerror = onError;
+            timeoutId = setTimeout(onTimeout, 10000); // 10 second timeout per image
+
+            // Set proper attributes for caching
+            img.crossOrigin = 'anonymous';
+            img.src = url;
+          });
+        })
+      );
+
+      const successful = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.filter(r => r.status === 'rejected').length;
+
+      console.log(`📊 Badge image preloading complete: ${successful}/${urls.length} successful, ${failed} failed`);
+    };
 
     try {
-      await Promise.all(preloadPromises);
-      console.log('✅ Preloaded', imageUrls.size, 'badge images');
+      await staggeredLoad(urls, 150); // 150ms delay between images
     } catch (error) {
-      console.log('⚠️ Some badge images failed to preload:', error);
+      console.log('⚠️ Badge image preloading encountered an error:', error);
     }
   }, []);
 

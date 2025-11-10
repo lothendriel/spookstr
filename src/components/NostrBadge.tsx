@@ -11,8 +11,8 @@ const globalImageCache = new Map<string, {
   timestamp: number;
 }>();
 
-// Image preloader utility
-const preloadImage = (src: string): Promise<void> => {
+// Image preloader utility with better error handling and timeout
+const preloadImage = (src: string, timeout = 8000): Promise<void> => {
   return new Promise((resolve, reject) => {
     if (globalImageCache.has(src)) {
       const cached = globalImageCache.get(src)!;
@@ -27,14 +27,41 @@ const preloadImage = (src: string): Promise<void> => {
     }
 
     const img = new Image();
-    img.onload = () => {
+    let timeoutId: NodeJS.Timeout;
+
+    const cleanup = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      img.onload = null;
+      img.onerror = null;
+    };
+
+    const onSuccess = () => {
+      cleanup();
       globalImageCache.set(src, { loaded: true, error: false, timestamp: Date.now() });
+      console.log('✅ Badge image loaded:', src);
       resolve();
     };
-    img.onerror = () => {
+
+    const onError = (error: any) => {
+      cleanup();
       globalImageCache.set(src, { loaded: false, error: true, timestamp: Date.now() });
+      console.log('❌ Badge image failed to load:', src, error?.message || 'Unknown error');
       reject(new Error('Image failed to load'));
     };
+
+    const onTimeout = () => {
+      cleanup();
+      globalImageCache.set(src, { loaded: false, error: true, timestamp: Date.now() });
+      console.log('⏰ Badge image timeout:', src);
+      reject(new Error('Image loading timeout'));
+    };
+
+    img.onload = onSuccess;
+    img.onerror = onError;
+    timeoutId = setTimeout(onTimeout, timeout);
+
+    // Set crossOrigin for proper caching
+    img.crossOrigin = 'anonymous';
     img.src = src;
   });
 };
@@ -134,7 +161,7 @@ export function NostrBadge({
     setImageError(imageStateRef.current.error);
   }, []);
 
-  // Preload image immediately if enabled
+  // Preload image immediately if enabled with retry logic
   useEffect(() => {
     if (!displayUrl || !preloadImages) return;
 
@@ -143,25 +170,40 @@ export function NostrBadge({
       const cached = globalImageCache.get(displayUrl)!;
       setImageLoaded(cached.loaded);
       setImageError(cached.error);
+      console.log('📋 Using cached state for badge image:', displayUrl, { loaded: cached.loaded, error: cached.error });
       return;
     }
 
-    const preloadImageAsync = async () => {
+    const preloadImageWithRetry = async (retries = 2) => {
       setIsPreloading(true);
-      try {
-        await preloadImage(displayUrl);
-        setImageLoaded(true);
-        setImageError(false);
-      } catch (error) {
-        console.log('❌ Failed to preload badge image:', displayUrl, error);
-        setImageError(true);
-        setImageLoaded(true); // Mark as "loaded" even with error to show fallback
-      } finally {
-        setIsPreloading(false);
+
+      for (let attempt = 1; attempt <= retries + 1; attempt++) {
+        try {
+          console.log(`🎨 Attempt ${attempt}/${retries + 1} to preload badge image:`, displayUrl);
+          await preloadImage(displayUrl);
+          setImageLoaded(true);
+          setImageError(false);
+          console.log('✅ Badge image preloaded successfully:', displayUrl);
+          return; // Success - exit the retry loop
+        } catch (error) {
+          console.log(`❌ Attempt ${attempt} failed for badge image:`, displayUrl, error?.message || 'Unknown error');
+
+          if (attempt === retries + 1) {
+            // Last attempt failed
+            setImageError(true);
+            setImageLoaded(true); // Mark as "loaded" even with error to show fallback
+            console.log('💀 All retry attempts failed for badge image:', displayUrl);
+          } else {
+            // Wait before retry
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+          }
+        }
       }
+
+      setIsPreloading(false);
     };
 
-    preloadImageAsync();
+    preloadImageWithRetry();
   }, [displayUrl, preloadImages]);
 
   const BadgeImage = () => {
