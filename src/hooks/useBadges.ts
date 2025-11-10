@@ -64,7 +64,7 @@ export function useBadgeAwards(pubkey: string) {
   const { nostr } = useNostr();
 
   return useQuery({
-    queryKey: ['badge-awards', pubkey],
+    queryKey: ['badge-awards', pubkey, 'kind-8'],
     queryFn: async ({ signal }) => {
       console.log('🎯 Fetching badge awards for:', pubkey);
 
@@ -86,9 +86,12 @@ export function useBadgeAwards(pubkey: string) {
       return awards;
     },
     enabled: !!pubkey,
-    staleTime: 300000, // 5 minutes
-    gcTime: 300000,
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+    gcTime: 24 * 60 * 60 * 1000, // Keep in cache for 24 hours
     retry: 2,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
 
@@ -99,7 +102,7 @@ export function useProfileBadges(pubkey: string) {
   const { nostr } = useNostr();
 
   return useQuery({
-    queryKey: ['profile-badges', pubkey],
+    queryKey: ['profile-badges', pubkey, 'profile_badges'],
     queryFn: async ({ signal }) => {
       console.log('🔍 Fetching profile badges for:', pubkey);
 
@@ -158,9 +161,12 @@ export function useProfileBadges(pubkey: string) {
       return profileBadges;
     },
     enabled: !!pubkey,
-    staleTime: 300000, // 5 minutes
-    gcTime: 300000, // Keep in cache for 5 minutes
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours
+    gcTime: 24 * 60 * 60 * 1000, // Keep in cache for 24 hours
     retry: 2,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 }
 
@@ -197,7 +203,7 @@ export function useUserBadges(pubkey: string) {
 
   // Fetch badge definitions for each profile badge (kind 30009)
   const badgeDefinitions = useQuery({
-    queryKey: ['badge-definitions', profileBadges],
+    queryKey: ['badge-definitions', profileBadges.map(b => b.badgeDefinition)],
     queryFn: async ({ signal }) => {
       const definitions: BadgeDefinition[] = [];
 
@@ -298,8 +304,12 @@ export function useUserBadges(pubkey: string) {
       return definitions;
     },
     enabled: profileBadges.length > 0,
-    staleTime: 300000, // 5 minutes
-    retry: 2
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours - cache for much longer
+    gcTime: 24 * 60 * 60 * 1000, // Keep in cache for 24 hours
+    retry: 2,
+    refetchOnMount: false, // Don't refetch on mount if we have cached data
+    refetchOnWindowFocus: false, // Don't refetch when window gains focus
+    refetchOnReconnect: false, // Don't refetch when reconnecting
   });
 
   // Combine profile badges with their definitions and awards
