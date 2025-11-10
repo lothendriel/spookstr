@@ -7,7 +7,7 @@ import { nip19 } from 'nostr-tools';
  * Users can hide posts from certain npubs and re-show them later
  */
 export function useHiddenUsers() {
-  const [hiddenPubkeys, setHiddenPubkeys, refreshHiddenUsers] = useLocalStorage<string[]>('spookstr:hidden-users', []);
+  const [hiddenPubkeys, setHiddenPubkeys] = useLocalStorage<string[]>('spookstr:hidden-users', []);
 
   /**
    * Check if a user is hidden
@@ -108,6 +108,5 @@ export function useHiddenUsers() {
     showUser,
     toggleUserVisibility,
     clearHiddenUsers,
-    refreshHiddenUsers,
   };
 }

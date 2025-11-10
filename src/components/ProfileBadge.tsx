@@ -16,155 +16,68 @@ const isValidImageUrl = (url: string): boolean => {
   }
 };
 
-// Advanced CORS proxy that mimics badges.page approach
-const getProxiedUrl = (originalUrl: string): string => {
-  // Don't proxy URLs that are already working
-  const workingDomains = [
-    'assets-global.website-files.com',
-    'image.nostr.build',
-    'i.nostr.build'
-  ];
-
-  try {
-    const urlObj = new URL(originalUrl);
-
-    // Don't proxy domains that are already working
-    if (workingDomains.some(domain => urlObj.hostname.includes(domain))) {
-      return originalUrl;
-    }
-
-    // Domains that need proxy - same as badges.page likely handles
-    const corsProblemDomains = [
-      'nostr.build',
-      'satellite.earth',
-      'primal.net',
-      'storage.googleapis.com',
-      'pngtree.com',
-      'happytavern.co'
-    ];
-
-    if (corsProblemDomains.some(domain => urlObj.hostname.includes(domain))) {
-      // Multiple proxy strategies like badges.page might use
-      const proxyStrategies = [
-        // Weserv proxy - very reliable, used by many image services
-        `https://images.weserv.nl/?url=${encodeURIComponent(originalUrl)}&w=64&h=64&fit=cover&output=webp`,
-        // AllOrigins proxy - good fallback
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(originalUrl)}`,
-        // Try different image transformation services
-        `https://images.weserv.nl/?url=${encodeURIComponent(originalUrl)}&w=32&h=32&fit=cover&output=png`,
-        // Last resort - different proxy service
-        `https://cors-anywhere.herokuapp.com/${originalUrl}`,
-      ];
-
-      // Return first proxy strategy (most reliable)
-      return proxyStrategies[0];
-    }
-  } catch {
-    // If URL parsing fails, return original
-  }
-
-  return originalUrl;
-};
-
-// Test if a URL loads successfully (for debugging)
-const testImageUrl = async (url: string): Promise<boolean> => {
-  try {
-    const response = await fetch(url, {
-      method: 'HEAD',
-      mode: 'no-cors',
-      cache: 'no-cache'
-    });
-    return true;
-  } catch {
-    return false;
-  }
-};
-
 // Image loading utility with retry and fallback
 const loadImageWithFallback = async (
   urls: string[],
-  retries = 3,
-  timeout = 8000
+  retries = 2,
+  timeout = 5000
 ): Promise<{ success: boolean; url?: string; error?: string }> => {
   for (let attempt = 1; attempt <= retries + 1; attempt++) {
-    for (const originalUrl of urls) {
-      if (!isValidImageUrl(originalUrl)) {
-        console.log('❌ Invalid image URL:', originalUrl);
+    for (const url of urls) {
+      if (!isValidImageUrl(url)) {
+        console.log('❌ Invalid image URL:', url);
         continue;
       }
 
-      // Try multiple strategies for each URL, similar to how badges.page works
-      const urlStrategies = [
-        originalUrl,                                    // 1. Try original URL first
-        getProxiedUrl(originalUrl),                     // 2. Try Weserv proxy (like badges.page)
-        originalUrl.replace('https://', 'http://'),      // 3. Try HTTP instead of HTTPS
-        // Additional proxy strategies for problematic domains
-        ...(originalUrl.includes('nostr.build') || originalUrl.includes('satellite.earth')) ? [
-          `https://images.weserv.nl/?url=${encodeURIComponent(originalUrl)}&w=64&h=64&fit=cover&output=webp`,
-          `https://api.allorigins.win/raw?url=${encodeURIComponent(originalUrl)}`,
-        ] : [],
-      ].filter((url, index, array) => array.indexOf(url) === index); // Remove duplicates
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const img = new Image();
+          let timeoutId: NodeJS.Timeout;
 
-      for (const url of urlStrategies) {
-        try {
-          await new Promise<void>((resolve, reject) => {
-            const img = new Image();
-            let timeoutId: NodeJS.Timeout;
+          const cleanup = () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            img.onload = null;
+            img.onerror = null;
+          };
 
-            const cleanup = () => {
-              if (timeoutId) clearTimeout(timeoutId);
-              img.onload = null;
-              img.onerror = null;
-            };
+          const onSuccess = () => {
+            cleanup();
+            console.log('✅ Badge image loaded successfully:', url);
+            resolve();
+          };
 
-            const onSuccess = () => {
-              cleanup();
-              console.log('✅ Badge image loaded successfully:', url);
-              resolve();
-            };
+          const onError = (error: any) => {
+            cleanup();
+            console.log(`❌ Attempt ${attempt}/${retries + 1} failed for ${url}:`, error?.message || 'Unknown error');
+            reject(new Error(`Failed to load ${url}`));
+          };
 
-            const onError = (error: any) => {
-              cleanup();
-              console.log(`❌ Attempt ${attempt}/${retries + 1} failed for ${url}:`, error?.message || 'Unknown error');
-              reject(new Error(`Failed to load ${url}`));
-            };
+          const onTimeout = () => {
+            cleanup();
+            console.log(`⏰ Attempt ${attempt}/${retries + 1} timeout for ${url}`);
+            reject(new Error(`Timeout loading ${url}`));
+          };
 
-            const onTimeout = () => {
-              cleanup();
-              console.log(`⏰ Attempt ${attempt}/${retries + 1} timeout for ${url}`);
-              reject(new Error(`Timeout loading ${url}`));
-            };
+          img.onload = onSuccess;
+          img.onerror = onError;
+          timeoutId = setTimeout(onTimeout, timeout);
 
-            img.onload = onSuccess;
-            img.onerror = onError;
-            timeoutId = setTimeout(onTimeout, timeout);
+          // Try with and without crossOrigin
+          img.crossOrigin = 'anonymous';
+          img.src = url;
+        });
 
-            // Smart crossOrigin strategy - match badges.page behavior
-            if (url.includes('weserv.nl') || url.includes('allorigins.win')) {
-              // Proxy services need crossOrigin
-              img.crossOrigin = 'anonymous';
-            } else if (url.includes('nostr.build') || url.includes('satellite.earth')) {
-              // Try without crossOrigin first for these problematic domains
-              img.crossOrigin = '';
-            } else {
-              // For other URLs, try without crossOrigin
-              img.crossOrigin = '';
-            }
-
-            img.src = url;
-          });
-
-          // If we get here, the image loaded successfully
-          return { success: true, url };
-        } catch (error) {
-          console.log(`⚠️ ${url} failed, trying next strategy...`);
-        }
+        // If we get here, the image loaded successfully
+        return { success: true, url };
+      } catch (error) {
+        // Continue to next URL or retry
+        console.log(`⚠️ ${url} failed, trying next option...`);
       }
     }
 
     // Wait before retry (exponential backoff)
     if (attempt < retries + 1) {
-      await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
+      await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
     }
   }
 
@@ -232,49 +145,19 @@ export function ProfileBadge({
       setIsLoading(true);
 
       try {
-        console.log('🔄 Loading badge image with enhanced strategies:', {
-          originalUrls: urls,
-          badgeDefinition,
-          willTryProxies: urls.some(url => {
-            try {
-              const urlObj = new URL(url);
-              return ['nostr.build', 'satellite.earth', 'primal.net', 'storage.googleapis.com', 'pngtree.com', 'happytavern.co']
-                .some(domain => urlObj.hostname.includes(domain));
-            } catch {
-              return false;
-            }
-          })
-        });
-
         const result = await loadImageWithFallback(urls);
 
         if (result.success && result.url) {
-          console.log('✅ Badge image loading succeeded:', {
-            url: result.url,
-            isProxied: result.url !== urls[0] && result.url !== urls[1],
-            badgeDefinition,
-            proxyUsed: result.url.includes('weserv.nl') || result.url.includes('allorigins.win')
-          });
           setCurrentImageUrl(result.url);
           setImageLoaded(true);
           setImageError(false);
         } else {
-          console.log('❌ All image URLs failed for badge:', {
-            badgeDefinition,
-            attemptedUrls: urls,
-            error: result.error,
-            willShowFallback: true,
-            proxyAttempted: urls.some(url => url.includes('weserv.nl') || url.includes('allorigins.win'))
-          });
+          console.log('❌ All image URLs failed for badge:', badgeDefinition, result.error);
           setImageError(true);
           setImageLoaded(false);
         }
       } catch (error) {
-        console.log('❌ Error loading badge images:', {
-          badgeDefinition,
-          error: error instanceof Error ? error.message : error,
-          willShowFallback: true
-        });
+        console.log('❌ Error loading badge images:', error);
         setImageError(true);
         setImageLoaded(false);
       } finally {
@@ -301,61 +184,9 @@ export function ProfileBadge({
     // Show fallback if no valid URLs or all failed
     if (getAllValidUrls().length === 0 || imageError) {
       console.log('🎨 Showing fallback badge');
-
-      // Try to generate a badge from name or use a default
-      const badgeName = name || fallbackName;
-      const badgeInitial = badgeName.charAt(0).toUpperCase();
-
       return (
-        <div
-          className="w-8 h-8 flex items-center justify-center bg-gradient-to-br from-lime-500/20 to-lime-600/20 rounded-full border border-lime-500/30 flex-shrink-0 cursor-help group"
-          onClick={() => {
-            // Allow users to retry loading by clicking the fallback
-            console.log('🔄 User requested retry for badge:', badgeDefinition);
-            setImageError(false);
-            setImageLoaded(false);
-            setIsLoading(true);
-
-            // Trigger a retry after a short delay
-            setTimeout(() => {
-              const urls = getAllValidUrls();
-              if (urls.length > 0) {
-                loadImageWithFallback(urls).then(result => {
-                  if (result.success && result.url) {
-                    setCurrentImageUrl(result.url);
-                    setImageLoaded(true);
-                    setImageError(false);
-                  } else {
-                    setImageError(true);
-                    setImageLoaded(false);
-                  }
-                }).catch(() => {
-                  setImageError(true);
-                  setImageLoaded(false);
-                }).finally(() => {
-                  setIsLoading(false);
-                });
-              } else {
-                setIsLoading(false);
-                setImageError(true);
-              }
-            }, 100);
-          }}
-          title={`Badge: ${badgeName}\nClick to retry loading image\nCORS issue detected`}
-        >
-          {badgeInitial && (
-            <span className="text-lime-400 font-bold text-xs group-hover:scale-110 transition-transform">
-              {badgeInitial}
-            </span>
-          )}
-          {!badgeInitial && (
-            <Award className="w-4 h-4 text-lime-400 flex-shrink-0 group-hover:scale-110 transition-transform" />
-          )}
-          {imageError && (
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full flex items-center justify-center">
-              <div className="w-1 h-1 bg-white rounded-full"></div>
-            </div>
-          )}
+        <div className="w-8 h-8 flex items-center justify-center bg-gradient-to-br from-lime-500/20 to-lime-600/20 rounded-full border border-lime-500/30 flex-shrink-0">
+          <Award className="w-4 h-4 text-lime-400 flex-shrink-0" />
         </div>
       );
     }
@@ -400,10 +231,10 @@ export function ProfileBadge({
         ref={imgRef}
         src={currentImageUrl || ''}
         alt={fallbackName}
-        // Enhanced CSS classes for better display
-        className="w-8 h-8 rounded-full border-2 border-lime-500/30 hover:border-lime-500/50 object-cover"
+        // Simplified CSS classes to avoid conflicts
+        className="w-8 h-8 rounded-full border-2 border-lime-500/30 hover:border-lime-500/50"
         style={{
-          // Force display with inline styles to override any CSS conflicts - like badges.page
+          // Force display with inline styles to override any CSS conflicts
           display: 'block',
           visibility: 'visible',
           objectFit: 'cover',
@@ -411,9 +242,6 @@ export function ProfileBadge({
           height: '32px',
           minWidth: '32px',
           minHeight: '32px',
-          // Add some additional styles that might help with CORS issues
-          imageRendering: 'auto',
-          backgroundColor: 'transparent',
         }}
         onLoad={() => {
           console.log('✅ Image onLoad fired for:', currentImageUrl?.substring(0, 50) + '...');
@@ -422,16 +250,12 @@ export function ProfileBadge({
         }}
         onError={(e) => {
           console.log('❌ Final image onError fired for:', currentImageUrl, e);
-          // Try to reload with different strategy if error occurs
           setImageError(true);
           setImageLoaded(false);
         }}
         loading="eager"
-        crossOrigin=""  // Try without crossOrigin first for better compatibility
+        crossOrigin="anonymous"
         fetchPriority="high"
-        // Add additional attributes that might help with loading
-        decoding="async"
-        importance="high"
       />
     );
   };

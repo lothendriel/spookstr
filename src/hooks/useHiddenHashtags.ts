@@ -6,7 +6,7 @@ import { useCallback } from 'react';
  * Users can hide posts containing certain hashtags and re-show them later
  */
 export function useHiddenHashtags() {
-  const [hiddenHashtags, setHiddenHashtags, refreshHiddenHashtags] = useLocalStorage<string[]>('spookstr:hidden-hashtags', []);
+  const [hiddenHashtags, setHiddenHashtags] = useLocalStorage<string[]>('spookstr:hidden-hashtags', []);
 
   /**
    * Check if a hashtag is hidden
@@ -25,8 +25,8 @@ export function useHiddenHashtags() {
     const noteTags = tags
       .filter(([tagName]) => tagName === 't')
       .map(([, tagValue]) => tagValue?.toLowerCase());
-
-    return noteTags.some(tag =>
+    
+    return noteTags.some(tag => 
       hiddenHashtags.some(h => h.toLowerCase() === tag)
     );
   }, [hiddenHashtags]);
@@ -37,7 +37,7 @@ export function useHiddenHashtags() {
   const hideHashtag = useCallback((hashtag: string) => {
     // Normalize hashtag (remove # prefix, trim whitespace)
     const normalized = hashtag.replace(/^#/, '').trim();
-
+    
     if (!normalized) {
       throw new Error('Hashtag cannot be empty');
     }
@@ -85,6 +85,5 @@ export function useHiddenHashtags() {
     showHashtag,
     toggleHashtagVisibility,
     clearHiddenHashtags,
-    refreshHiddenHashtags,
   };
 }

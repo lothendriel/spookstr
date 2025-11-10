@@ -6,7 +6,7 @@ import { useCallback } from 'react';
  * Users can add hashtags they're interested in to see more relevant content
  */
 export function usePersonalizedHashtags() {
-  const [personalizedHashtags, setPersonalizedHashtags, refreshPersonalizedHashtags] = useLocalStorage<string[]>('spookstr:personalized-hashtags', []);
+  const [personalizedHashtags, setPersonalizedHashtags] = useLocalStorage<string[]>('spookstr:personalized-hashtags', []);
 
   /**
    * Check if a hashtag is in the personalized list
@@ -25,8 +25,8 @@ export function usePersonalizedHashtags() {
     const noteTags = tags
       .filter(([tagName]) => tagName === 't')
       .map(([, tagValue]) => tagValue?.toLowerCase());
-
-    return noteTags.some(tag =>
+    
+    return noteTags.some(tag => 
       personalizedHashtags.some(h => h.toLowerCase() === tag)
     );
   }, [personalizedHashtags]);
@@ -37,7 +37,7 @@ export function usePersonalizedHashtags() {
   const addPersonalizedHashtag = useCallback((hashtag: string) => {
     // Normalize hashtag (remove # prefix, trim whitespace)
     const normalized = hashtag.replace(/^#/, '').trim();
-
+    
     if (!normalized) {
       throw new Error('Hashtag cannot be empty');
     }
@@ -85,6 +85,5 @@ export function usePersonalizedHashtags() {
     removePersonalizedHashtag,
     togglePersonalizedHashtag,
     clearPersonalizedHashtags,
-    refreshPersonalizedHashtags,
   };
 }
