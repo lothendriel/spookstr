@@ -51,14 +51,6 @@ export default function Profile({ pubkey }: ProfileProps) {
   // Fetch NIP-58 badges for this user
   const { userBadges, isLoading: isLoadingNostrBadges } = useUserBadges(pubkey);
 
-  // Debug: Always log badge state
-  console.log('🎯 Badge debug:', {
-    userBadges: userBadges?.length || 0,
-    isLoadingNostrBadges,
-    pubkey: pubkey.slice(0, 8) + '...',
-    displayBadges: displayBadges.length
-  });
-
   // Force loading to false for testing
   const forceNotLoading = true; // Set to true to test badge display
 
@@ -112,6 +104,14 @@ export default function Profile({ pubkey }: ProfileProps) {
   // For now, always show demo badges to test the display system
   // Later we can switch this to: const displayBadges = (userBadges && userBadges.length > 0) ? userBadges : demoBadges;
   const displayBadges = demoBadges;
+
+  // Debug: Always log badge state
+  console.log('🎯 Badge debug:', {
+    userBadges: userBadges?.length || 0,
+    isLoadingNostrBadges,
+    pubkey: pubkey.slice(0, 8) + '...',
+    displayBadges: displayBadges.length
+  });
 
   // Use profile discovery for enhanced relay discovery with visual indicators
   const {
