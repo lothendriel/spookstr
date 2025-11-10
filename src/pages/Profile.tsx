@@ -51,8 +51,8 @@ export default function Profile({ pubkey }: ProfileProps) {
   // Fetch NIP-58 badges for this user
   const { userBadges, isLoading: isLoadingNostrBadges } = useUserBadges(pubkey);
 
-  // Force loading to false for testing
-  const forceNotLoading = true; // Set to true to test badge display
+  // Allow proper loading state to work
+  const forceNotLoading = false;
 
   // Demo badges for testing and fallback
   const demoBadges = useMemo(() => {
@@ -101,9 +101,8 @@ export default function Profile({ pubkey }: ProfileProps) {
     ];
   }, [pubkey]);
 
-  // For now, always show demo badges to test the display system
-  // Later we can switch this to: const displayBadges = (userBadges && userBadges.length > 0) ? userBadges : demoBadges;
-  const displayBadges = demoBadges;
+  // Use actual Nostr NIP-58 badges if available, fall back to demo badges only if needed
+  const displayBadges = (userBadges && userBadges.length > 0) ? userBadges : demoBadges;
 
   // Debug: Always log badge state
   console.log('🎯 Badge debug:', {
@@ -490,25 +489,40 @@ export default function Profile({ pubkey }: ProfileProps) {
 
                   {/* NIP-58 Badges (Awarded badges) */}
                   <div className="mb-3">
-                    {(isLoadingNostrBadges && !forceNotLoading) ? (
-                      <div className="flex gap-2 mb-3">
-                        <NostrBadgeSkeleton size="sm" />
-                        <NostrBadgeSkeleton size="sm" />
-                        <NostrBadgeSkeleton size="sm" />
-                        <span className="text-xs text-lime-500/50">Loading NIP-58 badges...</span>
-                      </div>
-                    ) : displayBadges.length > 0 && showBadges ? (
-                      <NostrBadgeGrid
-                        badges={displayBadges}
-                        size="sm"
-                        maxBadges={12}
-                        className="grid grid-cols-auto-fit gap-2"
-                      />
-                    ) : showBadges ? (
-                      <div className="text-xs text-lime-500/50 italic">
-                        No NIP-58 badges found
-                      </div>
-                    ) : null}
+                    {showBadges && (
+                      <>
+                        {(isLoadingNostrBadges && !forceNotLoading) ? (
+                          <div className="flex gap-2 mb-3">
+                            <NostrBadgeSkeleton size="sm" />
+                            <NostrBadgeSkeleton size="sm" />
+                            <NostrBadgeSkeleton size="sm" />
+                            <span className="text-xs text-lime-500/50">Loading NIP-58 badges...</span>
+                          </div>
+                        ) : displayBadges.length > 0 ? (
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Award className="h-4 w-4 text-lime-400" />
+                              <h4 className="text-sm font-medium text-lime-400">NIP-58 Badges</h4>
+                              {displayBadges === demoBadges && (
+                                <span className="text-xs text-lime-500/50 italic">
+                                  (Using demo badges - no NIP-58 badges found)
+                                </span>
+                              )}
+                            </div>
+                            <NostrBadgeGrid
+                              badges={displayBadges}
+                              size="sm"
+                              maxBadges={12}
+                              className="grid grid-cols-auto-fit gap-2"
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-xs text-lime-500/50 italic">
+                            No NIP-58 badges found
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
 
                   {/* NIP-05 Identifier */}

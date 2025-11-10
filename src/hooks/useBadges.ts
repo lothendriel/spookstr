@@ -170,10 +170,32 @@ export function useProfileBadges(pubkey: string) {
 export function useUserBadges(pubkey: string) {
   console.log('🎪 useUserBadges called with pubkey:', pubkey?.slice(0, 8) + '...');
   const { nostr } = useNostr();
-  const { data: profileBadges = [], isLoading: isLoadingProfileBadges } = useProfileBadges(pubkey);
-  const { data: badgeAwards = [], isLoading: isLoadingBadgeAwards } = useBadgeAwards(pubkey);
 
-  // Fetch badge definitions for each profile badge
+  // Fetch profile badges (kind 30008 with d=profile_badges)
+  const {
+    data: profileBadges = [],
+    isLoading: isLoadingProfileBadges,
+    error: profileBadgesError
+  } = useProfileBadges(pubkey);
+
+  // Log any errors with profile badges
+  if (profileBadgesError) {
+    console.error('❌ Error fetching profile badges:', profileBadgesError);
+  }
+
+  // Fetch badge awards (kind 8 with p tag)
+  const {
+    data: badgeAwards = [],
+    isLoading: isLoadingBadgeAwards,
+    error: badgeAwardsError
+  } = useBadgeAwards(pubkey);
+
+  // Log any errors with badge awards
+  if (badgeAwardsError) {
+    console.error('❌ Error fetching badge awards:', badgeAwardsError);
+  }
+
+  // Fetch badge definitions for each profile badge (kind 30009)
   const badgeDefinitions = useQuery({
     queryKey: ['badge-definitions', profileBadges],
     queryFn: async ({ signal }) => {
@@ -181,68 +203,95 @@ export function useUserBadges(pubkey: string) {
 
       console.log('🔍 Fetching badge definitions for:', profileBadges.length, 'profile badges');
 
-      for (const profileBadge of profileBadges) {
-        console.log('🏷️ Processing profile badge:', profileBadge);
+      // Use a longer timeout for badge definitions
+      const timeoutSignal = AbortSignal.timeout(15000); // 15 seconds timeout
+      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
 
-        const [kind, pubkey, identifier] = profileBadge.badgeDefinition.split(':');
-        console.log('📝 Parsed parts:', { kind, pubkey, identifier });
-
-        if (kind === '30009' && pubkey && identifier) {
-          const filter = { kinds: [30009], authors: [pubkey], '#d': [identifier] };
-          console.log('🔎 Querying for badge definition:', filter);
+      // Process badges in parallel with Promise.all for better performance
+      try {
+        const definitionPromises = profileBadges.map(async (profileBadge) => {
+          console.log('🏷️ Processing profile badge:', profileBadge);
 
           try {
-            const events = await nostr.query([filter], { signal });
-            console.log('📋 Found badge definition events:', events.length);
+            // Handle different formats of badge definition strings
+            let kind, badgePubkey, identifier;
 
-            if (events.length > 0) {
-              const event = events[0];
-              const definition = {
-                identifier,
-                name: event.tags.find(([name]) => name === 'name')?.[1] || identifier,
-                description: event.tags.find(([name]) => name === 'description')?.[1] || '',
-                image: event.tags.find(([name]) => name === 'image')?.[1],
-                thumbs: event.tags.filter(([name]) => name === 'thumb').map(([_, url]) => url),
-                pubkey: event.pubkey,
-              };
-              console.log('✅ Badge definition:', definition);
-              definitions.push(definition);
+            if (profileBadge.badgeDefinition.includes(':')) {
+              [kind, badgePubkey, identifier] = profileBadge.badgeDefinition.split(':');
             } else {
-              console.log('❌ No badge definition found for:', profileBadge.badgeDefinition);
-              // Create a fallback definition
-              definitions.push({
-                identifier,
-                name: identifier,
-                description: '',
+              // If no proper format, use fallback
+              return {
+                identifier: profileBadge.badgeDefinition,
+                name: profileBadge.badgeDefinition,
+                description: 'Badge definition format error',
                 image: '',
                 thumbs: [],
-                pubkey
-              });
+                pubkey: 'unknown'
+              };
+            }
+
+            console.log('📝 Parsed parts:', { kind, pubkey: badgePubkey, identifier });
+
+            if (kind === '30009' && badgePubkey && identifier) {
+              const filter = { kinds: [30009], authors: [badgePubkey], '#d': [identifier] };
+              console.log('🔎 Querying for badge definition:', filter);
+
+              const events = await nostr.query([filter], { signal: combinedSignal });
+              console.log('📋 Found badge definition events:', events.length);
+
+              if (events.length > 0) {
+                const event = events[0];
+                const definition = {
+                  identifier,
+                  name: event.tags.find(([name]) => name === 'name')?.[1] || identifier,
+                  description: event.tags.find(([name]) => name === 'description')?.[1] || '',
+                  image: event.tags.find(([name]) => name === 'image')?.[1],
+                  thumbs: event.tags.filter(([name]) => name === 'thumb').map(([_, url]) => url),
+                  pubkey: badgePubkey,
+                };
+                console.log('✅ Badge definition:', definition);
+                return definition;
+              } else {
+                console.log('❌ No badge definition found for:', profileBadge.badgeDefinition);
+                // Create a fallback definition
+                return {
+                  identifier,
+                  name: identifier,
+                  description: 'Badge definition not found',
+                  image: '',
+                  thumbs: [],
+                  pubkey: badgePubkey
+                };
+              }
+            } else {
+              console.log('❌ Invalid badge definition format:', profileBadge.badgeDefinition);
+              return {
+                identifier: profileBadge.badgeDefinition,
+                name: profileBadge.badgeDefinition.split(':').pop() || 'Unknown Badge',
+                description: 'Invalid badge format',
+                image: '',
+                thumbs: [],
+                pubkey: badgePubkey || 'unknown'
+              };
             }
           } catch (error) {
-            console.log('❌ Error fetching badge definition:', error);
-            // Create a fallback definition
-            definitions.push({
-              identifier,
-              name: identifier,
-              description: '',
+            console.log('❌ Error processing badge:', profileBadge.badgeDefinition, error);
+            return {
+              identifier: profileBadge.badgeDefinition,
+              name: profileBadge.badgeDefinition.split(':').pop() || 'Error Badge',
+              description: 'Error fetching badge definition',
               image: '',
               thumbs: [],
-              pubkey
-            });
+              pubkey: 'unknown'
+            };
           }
-        } else {
-          console.log('❌ Invalid badge definition format:', profileBadge.badgeDefinition);
-          // Create a fallback for invalid format
-          definitions.push({
-            identifier: profileBadge.badgeDefinition,
-            name: profileBadge.badgeDefinition,
-            description: '',
-            image: '',
-            thumbs: [],
-            pubkey: pubkey || 'unknown'
-          });
-        }
+        });
+
+        // Wait for all definitions to be fetched
+        const results = await Promise.all(definitionPromises);
+        definitions.push(...results);
+      } catch (error) {
+        console.error('❌ Error fetching badge definitions:', error);
       }
 
       console.log('🎯 Final definitions array:', definitions);
@@ -250,6 +299,7 @@ export function useUserBadges(pubkey: string) {
     },
     enabled: profileBadges.length > 0,
     staleTime: 300000, // 5 minutes
+    retry: 2
   });
 
   // Combine profile badges with their definitions and awards
