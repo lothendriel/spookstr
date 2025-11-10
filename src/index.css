@@ -455,3 +455,14 @@
 .disabled\:cursor-not-allowed:disabled {
   cursor: not-allowed;
 }
+
+/* Grid utilities for badge layouts */
+@layer utilities {
+  .grid-cols-auto-fit {
+    grid-template-columns: repeat(auto-fit, minmax(3rem, 1fr));
+  }
+
+  .grid-cols-auto-fit-lg {
+    grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr));
+  }
+}

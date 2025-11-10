@@ -1,0 +1,207 @@
+import { useNostr } from '@/hooks/useNostr';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import { nip19 } from 'nostr-tools';
+import type { NostrEvent } from '@nostrify/nostrify';
+
+interface BadgeDefinition {
+  identifier: string;
+  name?: string;
+  description?: string;
+  image?: string;
+  thumbs?: string[];
+  pubkey: string;
+}
+
+interface BadgeAward {
+  id: string;
+  badgeDefinition: string; // '30009:pubkey:identifier'
+  awardedTo: string;
+  awardedBy: string;
+}
+
+interface ProfileBadge {
+  badgeDefinition: string; // '30009:pubkey:identifier'
+  badgeAward: string; // event id
+}
+
+/**
+ * Hook to fetch badge definitions for a specific identifier
+ */
+export function useBadgeDefinition(identifier: string, pubkey?: string) {
+  const { nostr } = useNostr();
+
+  return useQuery({
+    queryKey: ['badge-definition', identifier, pubkey],
+    queryFn: async ({ signal }) => {
+      const filter = pubkey 
+        ? { kinds: [30009], authors: [pubkey], '#d': [identifier] }
+        : { kinds: [30009], '#d': [identifier] };
+
+      const events = await nostr.query([filter], { signal });
+      
+      if (events.length === 0) return null;
+
+      const event = events[0];
+      return {
+        identifier,
+        name: event.tags.find(([name]) => name === 'name')?.[1],
+        description: event.tags.find(([name]) => name === 'description')?.[1],
+        image: event.tags.find(([name]) => name === 'image')?.[1],
+        thumbs: event.tags.filter(([name]) => name === 'thumb').map(([_, url]) => url),
+        pubkey: event.pubkey,
+      } as BadgeDefinition;
+    },
+    enabled: !!identifier,
+    staleTime: 300000, // 5 minutes
+  });
+}
+
+/**
+ * Hook to fetch badge awards for a specific pubkey
+ */
+export function useBadgeAwards(pubkey: string) {
+  const { nostr } = useNostr();
+
+  return useQuery({
+    queryKey: ['badge-awards', pubkey],
+    queryFn: async ({ signal }) => {
+      const events = await nostr.query([{ kinds: [8], '#p': [pubkey] }], { signal });
+      
+      return events.map(event => ({
+        id: event.id,
+        badgeDefinition: event.tags.find(([name]) => name === 'a')?.[1] || '',
+        awardedTo: pubkey,
+        awardedBy: event.pubkey,
+      })) as BadgeAward[];
+    },
+    enabled: !!pubkey,
+    staleTime: 300000, // 5 minutes
+  });
+}
+
+/**
+ * Hook to fetch profile badges (badges user chooses to display)
+ */
+export function useProfileBadges(pubkey: string) {
+  const { nostr } = useNostr();
+
+  return useQuery({
+    queryKey: ['profile-badges', pubkey],
+    queryFn: async ({ signal }) => {
+      const events = await nostr.query([
+        { kinds: [30008], authors: [pubkey], '#d': ['profile_badges'] }
+      ], { signal });
+      
+      if (events.length === 0) return [];
+
+      const event = events[0];
+      const profileBadges: ProfileBadge[] = [];
+      
+      // Parse ordered pairs of 'a' and 'e' tags
+      const tags = event.tags;
+      for (let i = 0; i < tags.length; i++) {
+        const tag = tags[i];
+        if (tag[0] === 'a' && i + 1 < tags.length && tags[i + 1][0] === 'e') {
+          profileBadges.push({
+            badgeDefinition: tag[1],
+            badgeAward: tags[i + 1][1],
+          });
+          i++; // Skip the next tag as we've processed it
+        }
+      }
+      
+      return profileBadges;
+    },
+    enabled: !!pubkey,
+    staleTime: 300000, // 5 minutes
+  });
+}
+
+/**
+ * Hook to get complete badge information for a user's profile
+ */
+export function useUserBadges(pubkey: string) {
+  const { data: profileBadges = [], isLoading: isLoadingProfileBadges } = useProfileBadges(pubkey);
+  const { data: badgeAwards = [], isLoading: isLoadingBadgeAwards } = useBadgeAwards(pubkey);
+
+  // Fetch badge definitions for each profile badge
+  const badgeDefinitions = useQuery({
+    queryKey: ['badge-definitions', profileBadges],
+    queryFn: async ({ signal }) => {
+      const definitions: BadgeDefinition[] = [];
+      
+      for (const profileBadge of profileBadges) {
+        const [kind, pubkey, identifier] = profileBadge.badgeDefinition.split(':');
+        if (kind === '30009' && pubkey && identifier) {
+          const filter = { kinds: [30009], authors: [pubkey], '#d': [identifier] };
+          const events = await nostr.query([filter], { signal });
+          
+          if (events.length > 0) {
+            const event = events[0];
+            definitions.push({
+              identifier,
+              name: event.tags.find(([name]) => name === 'name')?.[1],
+              description: event.tags.find(([name]) => name === 'description')?.[1],
+              image: event.tags.find(([name]) => name === 'image')?.[1],
+              thumbs: event.tags.filter(([name]) => name === 'thumb').map(([_, url]) => url),
+              pubkey: event.pubkey,
+            });
+          }
+        }
+      }
+      
+      return definitions;
+    },
+    enabled: profileBadges.length > 0,
+    staleTime: 300000, // 5 minutes
+  });
+
+  // Combine profile badges with their definitions and awards
+  const userBadges = profileBadges.map((profileBadge, index) => {
+    const definition = badgeDefinitions.data?.[index];
+    const award = badgeAwards.find(award => award.id === profileBadge.badgeAward);
+    
+    return {
+      profileBadge,
+      definition,
+      award,
+    };
+  }).filter(badge => badge.definition && badge.award);
+
+  return {
+    userBadges,
+    isLoading: isLoadingProfileBadges || isLoadingBadgeAwards || badgeDefinitions.isLoading,
+    error: badgeDefinitions.error,
+  };
+}
+
+/**
+ * Hook to fetch popular badge definitions (for discovery)
+ */
+export function usePopularBadgeDefinitions() {
+  const { nostr } = useNostr();
+
+  return useInfiniteQuery({
+    queryKey: ['popular-badge-definitions'],
+    queryFn: async ({ pageParam, signal }) => {
+      const events = await nostr.query([
+        { kinds: [30009], limit: 50, until: pageParam }
+      ], { signal });
+      
+      return events.map(event => ({
+        identifier: event.tags.find(([name]) => name === 'd')?.[1] || '',
+        name: event.tags.find(([name]) => name === 'name')?.[1],
+        description: event.tags.find(([name]) => name === 'description')?.[1],
+        image: event.tags.find(([name]) => name === 'image')?.[1],
+        thumbs: event.tags.filter(([name]) => name === 'thumb').map(([_, url]) => url),
+        pubkey: event.pubkey,
+      })) as BadgeDefinition[];
+    },
+    getNextPageParam: (lastPage) => {
+      if (lastPage.length === 0) return undefined;
+      return lastPage[lastPage.length - 1].created_at - 1;
+    },
+    initialPageParam: Math.floor(Date.now() / 1000),
+    staleTime: 300000, // 5 minutes
+  });
+}

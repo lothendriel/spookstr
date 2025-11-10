@@ -6,6 +6,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { useOutboxInfiniteQuery } from '@/hooks/useOutboxQuery';
 import { useProfileDiscovery } from '@/hooks/useContextualRelayDiscovery';
+import { useUserBadges } from '@/hooks/useBadges';
 import { SmartRelayDiscoveryIndicator } from '@/components/RelayDiscoveryIndicator';
 import { getDisplayName } from '@/lib/getDisplayName';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,7 +15,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { InfiniteScrollLoader, InfiniteScrollSkeleton } from '@/components/ui/InfiniteScrollLoader';
-import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check, MessageSquare, Edit, Shield, Bot, Award, Star, Crown, Sparkles } from 'lucide-react';
+import { NostrBadgeGrid, NostrBadgeSkeleton } from '@/components/NostrBadge';
+import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check, MessageSquare, Edit, Shield, Bot, Award, Star, Crown, Sparkles, Medal } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { PostDetailView } from '@/components/PostDetailView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -42,8 +44,12 @@ export default function Profile({ pubkey }: ProfileProps) {
   const [selectedPost, setSelectedPost] = useState<NostrEvent | null>(null);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
-  const [showBadges, setShowBadges] = useState(true);
+  const [showUIBadges, setShowUIBadges] = useState(true);
+  const [showNostrBadges, setShowNostrBadges] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Fetch NIP-58 badges for this user
+  const { userBadges, isLoading: isLoadingNostrBadges } = useUserBadges(pubkey);
 
   // Use profile discovery for enhanced relay discovery with visual indicators
   const {
@@ -60,8 +66,8 @@ export default function Profile({ pubkey }: ProfileProps) {
   const metadata = author.data?.metadata;
   const displayName = getDisplayName(metadata, pubkey);
 
-  // Determine user badges based on metadata
-  const userBadges = useMemo(() => {
+  // Determine UI badges based on metadata (system-generated badges)
+  const uiBadges = useMemo(() => {
     const badges = [];
 
     if (metadata?.nip05) {
@@ -390,20 +396,20 @@ export default function Profile({ pubkey }: ProfileProps) {
                     </div>
                   </div>
 
-                  {/* Badges Section */}
-                  {userBadges.length > 0 && (
-                    <div className="flex items-center gap-3 mb-3">
+                  {/* UI Badges Section (System-generated) */}
+                  {uiBadges.length > 0 && (
+                    <div className="flex items-start gap-3 mb-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-lime-500/70">Badges:</span>
+                        <span className="text-sm text-lime-500/70">Profile Badges:</span>
                         <Switch
-                          checked={showBadges}
-                          onCheckedChange={setShowBadges}
+                          checked={showUIBadges}
+                          onCheckedChange={setShowUIBadges}
                           size="sm"
                         />
                       </div>
-                      {showBadges && (
+                      {showUIBadges && (
                         <div className="flex flex-wrap gap-2">
-                          {userBadges.map((badge) => (
+                          {uiBadges.map((badge) => (
                             <Badge
                               key={badge.id}
                               variant="outline"
@@ -417,6 +423,41 @@ export default function Profile({ pubkey }: ProfileProps) {
                       )}
                     </div>
                   )}
+
+                  {/* NIP-58 Badges Section (Awarded badges) */}
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Medal className="h-4 w-4 text-lime-400" />
+                      <span className="text-sm text-lime-500/70">NIP-58 Badges:</span>
+                      <Switch
+                        checked={showNostrBadges}
+                        onCheckedChange={setShowNostrBadges}
+                        size="sm"
+                      />
+                    </div>
+                    {isLoadingNostrBadges && (
+                      <div className="flex gap-2">
+                        <NostrBadgeSkeleton size="sm" />
+                        <NostrBadgeSkeleton size="sm" />
+                        <NostrBadgeSkeleton size="sm" />
+                      </div>
+                    )}
+                    {showNostrBadges && !isLoadingNostrBadges && userBadges.length > 0 && (
+                      <div className="flex-1">
+                        <NostrBadgeGrid
+                          badges={userBadges}
+                          size="sm"
+                          maxBadges={8}
+                          className="grid grid-cols-auto-fit gap-2"
+                        />
+                      </div>
+                    )}
+                    {showNostrBadges && !isLoadingNostrBadges && userBadges.length === 0 && (
+                      <span className="text-xs text-lime-500/50 italic">
+                        No NIP-58 badges awarded yet
+                      </span>
+                    )}
+                  </div>
 
                   {/* NIP-05 Identifier */}
                   {metadata?.nip05 && (
