@@ -387,11 +387,13 @@ export default function Profile({ pubkey }: ProfileProps) {
                         )}
                       </div>
 
-                      {/* NIP-58 badge toggle - only for NIP-58 badges */}
-                      {userBadges.length > 0 && (
+                      {/* NIP-58 badge toggle - show when there are badges or demo badges */}
+                      {(userBadges.length > 0 || demoBadges.length > 0) && (
                         <div className="flex items-center gap-2">
                           <Award className="h-4 w-4 text-lime-400" />
-                          <span className="text-xs text-lime-400">NIP-58 Badges</span>
+                          <span className="text-xs text-lime-400">
+                            {userBadges.length > 0 ? 'NIP-58 Badges' : 'Demo Badges'}
+                          </span>
                           <Switch
                             checked={showBadges}
                             onCheckedChange={setShowBadges}
@@ -506,7 +508,7 @@ export default function Profile({ pubkey }: ProfileProps) {
                           </div>
                         ) : displayBadges.length > 0 ? (
                           <div>
-                            {displayBadges === demoBadges && (
+                            {displayBadges === demoBadges && userBadges.length === 0 && (
                                 <div className="text-xs text-lime-500/50 italic mb-2">
                                   Using demo badges - no actual badges found
                                 </div>
