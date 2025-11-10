@@ -16,7 +16,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { InfiniteScrollLoader, InfiniteScrollSkeleton } from '@/components/ui/InfiniteScrollLoader';
 import { NostrBadgeGrid, NostrBadgeSkeleton } from '@/components/NostrBadge';
-import { BadgeImageDebug } from '@/components/BadgeImageDebug';
 import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check, MessageSquare, Edit, Shield, Bot, Award, Star, Crown, Sparkles, Medal } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { PostDetailView } from '@/components/PostDetailView';
@@ -520,11 +519,6 @@ export default function Profile({ pubkey }: ProfileProps) {
                               maxBadges={12}
                               className="grid grid-cols-auto-fit gap-[1px]"
                             />
-
-                            {/* Temporary Debug Component */}
-                            <div className="mt-4">
-                              <BadgeImageDebug badges={displayBadges} />
-                            </div>
                           </div>
                         ) : (
                           <div className="text-xs text-lime-500/50 italic">
