@@ -35,6 +35,7 @@ export function SettingsExportImport() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [rawSettingsOpen, setRawSettingsOpen] = useState(false);
   const [textSettingsOpen, setTextSettingsOpen] = useState(false);
+  const [localStorageViewOpen, setLocalStorageViewOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [jsonInput, setJsonInput] = useState('');
 
@@ -43,18 +44,8 @@ export function SettingsExportImport() {
    */
   const handleExport = () => {
     try {
-      const backup: SettingsBackup = {
-        version: '1.0.0',
-        timestamp: Date.now(),
-        settings: {
-          hiddenUsers: hiddenPubkeys,
-          hiddenHashtags: hiddenHashtags,
-          personalizedHashtags: personalizedHashtags
-        }
-      };
-
-      // Create a JSON file with the settings
-      const dataStr = JSON.stringify(backup, null, 2);
+      // Use the same method as getCurrentSettingsJson for consistency
+      const dataStr = getCurrentSettingsJson();
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
 
       // Generate a filename with the current date
@@ -109,43 +100,52 @@ export function SettingsExportImport() {
           throw new Error('Invalid backup format');
         }
 
-        // Clear existing settings
-        clearHiddenUsers();
-        clearHiddenHashtags();
-        clearPersonalizedHashtags();
+        // Direct localStorage approach - more reliable than using the hooks
+        // This ensures we're writing the exact data format expected by the hooks
 
         // Import hidden users
         if (Array.isArray(data.settings.hiddenUsers)) {
-          data.settings.hiddenUsers.forEach(pubkey => {
-            try {
-              hideUser(pubkey);
-            } catch (err) {
-              console.warn(`Failed to import hidden user: ${pubkey}`);
-            }
-          });
+          localStorage.setItem('spookstr:hidden-users', JSON.stringify(data.settings.hiddenUsers));
         }
 
         // Import hidden hashtags
         if (Array.isArray(data.settings.hiddenHashtags)) {
-          data.settings.hiddenHashtags.forEach(hashtag => {
-            try {
-              hideHashtag(hashtag);
-            } catch (err) {
-              console.warn(`Failed to import hidden hashtag: ${hashtag}`);
-            }
-          });
+          localStorage.setItem('spookstr:hidden-hashtags', JSON.stringify(data.settings.hiddenHashtags));
         }
 
         // Import personalized hashtags
         if (Array.isArray(data.settings.personalizedHashtags)) {
-          data.settings.personalizedHashtags.forEach(hashtag => {
-            try {
-              addPersonalizedHashtag(hashtag);
-            } catch (err) {
-              console.warn(`Failed to import personalized hashtag: ${hashtag}`);
-            }
-          });
+          localStorage.setItem('spookstr:personalized-hashtags', JSON.stringify(data.settings.personalizedHashtags));
         }
+
+        // Also update the hook states (this might be redundant with useEffect in the hooks,
+        // but ensures immediate UI update)
+        clearHiddenUsers();
+        data.settings.hiddenUsers.forEach(pubkey => {
+          try {
+            hideUser(pubkey);
+          } catch (err) {
+            console.warn(`Failed to update UI for hidden user: ${pubkey}`);
+          }
+        });
+
+        clearHiddenHashtags();
+        data.settings.hiddenHashtags.forEach(hashtag => {
+          try {
+            hideHashtag(hashtag);
+          } catch (err) {
+            console.warn(`Failed to update UI for hidden hashtag: ${hashtag}`);
+          }
+        });
+
+        clearPersonalizedHashtags();
+        data.settings.personalizedHashtags.forEach(hashtag => {
+          try {
+            addPersonalizedHashtag(hashtag);
+          } catch (err) {
+            console.warn(`Failed to update UI for personalized hashtag: ${hashtag}`);
+          }
+        });
 
         setSuccess('Settings imported successfully');
         setTimeout(() => setSuccess(null), 3000);
@@ -171,13 +171,23 @@ export function SettingsExportImport() {
    * Get current settings as JSON string
    */
   const getCurrentSettingsJson = (): string => {
+    // Directly read from localStorage for maximum reliability
+    const hiddenUsers = localStorage.getItem('spookstr:hidden-users') || '[]';
+    const hiddenTags = localStorage.getItem('spookstr:hidden-hashtags') || '[]';
+    const personalizedTags = localStorage.getItem('spookstr:personalized-hashtags') || '[]';
+
+    // Parse the values
+    const parsedHiddenUsers = JSON.parse(hiddenUsers);
+    const parsedHiddenTags = JSON.parse(hiddenTags);
+    const parsedPersonalizedTags = JSON.parse(personalizedTags);
+
     const backup: SettingsBackup = {
       version: '1.0.0',
       timestamp: Date.now(),
       settings: {
-        hiddenUsers: hiddenPubkeys,
-        hiddenHashtags: hiddenHashtags,
-        personalizedHashtags: personalizedHashtags
+        hiddenUsers: parsedHiddenUsers,
+        hiddenHashtags: parsedHiddenTags,
+        personalizedHashtags: parsedPersonalizedTags
       }
     };
     return JSON.stringify(backup, null, 2);
@@ -221,43 +231,52 @@ export function SettingsExportImport() {
         throw new Error('Invalid backup format');
       }
 
-      // Clear existing settings
-      clearHiddenUsers();
-      clearHiddenHashtags();
-      clearPersonalizedHashtags();
+      // Direct localStorage approach - more reliable than using the hooks
+      // This ensures we're writing the exact data format expected by the hooks
 
       // Import hidden users
       if (Array.isArray(data.settings.hiddenUsers)) {
-        data.settings.hiddenUsers.forEach(pubkey => {
-          try {
-            hideUser(pubkey);
-          } catch (err) {
-            console.warn(`Failed to import hidden user: ${pubkey}`);
-          }
-        });
+        localStorage.setItem('spookstr:hidden-users', JSON.stringify(data.settings.hiddenUsers));
       }
 
       // Import hidden hashtags
       if (Array.isArray(data.settings.hiddenHashtags)) {
-        data.settings.hiddenHashtags.forEach(hashtag => {
-          try {
-            hideHashtag(hashtag);
-          } catch (err) {
-            console.warn(`Failed to import hidden hashtag: ${hashtag}`);
-          }
-        });
+        localStorage.setItem('spookstr:hidden-hashtags', JSON.stringify(data.settings.hiddenHashtags));
       }
 
       // Import personalized hashtags
       if (Array.isArray(data.settings.personalizedHashtags)) {
-        data.settings.personalizedHashtags.forEach(hashtag => {
-          try {
-            addPersonalizedHashtag(hashtag);
-          } catch (err) {
-            console.warn(`Failed to import personalized hashtag: ${hashtag}`);
-          }
-        });
+        localStorage.setItem('spookstr:personalized-hashtags', JSON.stringify(data.settings.personalizedHashtags));
       }
+
+      // Also update the hook states (this might be redundant with useEffect in the hooks,
+      // but ensures immediate UI update)
+      clearHiddenUsers();
+      data.settings.hiddenUsers.forEach(pubkey => {
+        try {
+          hideUser(pubkey);
+        } catch (err) {
+          console.warn(`Failed to update UI for hidden user: ${pubkey}`);
+        }
+      });
+
+      clearHiddenHashtags();
+      data.settings.hiddenHashtags.forEach(hashtag => {
+        try {
+          hideHashtag(hashtag);
+        } catch (err) {
+          console.warn(`Failed to update UI for hidden hashtag: ${hashtag}`);
+        }
+      });
+
+      clearPersonalizedHashtags();
+      data.settings.personalizedHashtags.forEach(hashtag => {
+        try {
+          addPersonalizedHashtag(hashtag);
+        } catch (err) {
+          console.warn(`Failed to update UI for personalized hashtag: ${hashtag}`);
+        }
+      });
 
       setSuccess('Settings imported successfully');
       setTextSettingsOpen(false);
@@ -346,6 +365,28 @@ export function SettingsExportImport() {
                 </DialogDescription>
               </DialogHeader>
 
+              {/* Settings Summary */}
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="border border-lime-500/20 rounded p-2 text-center">
+                  <div className="text-sm font-medium text-lime-400">Hidden Users</div>
+                  <div className="text-xl font-bold text-lime-500">
+                    {JSON.parse(localStorage.getItem('spookstr:hidden-users') || '[]').length}
+                  </div>
+                </div>
+                <div className="border border-lime-500/20 rounded p-2 text-center">
+                  <div className="text-sm font-medium text-lime-400">Hidden Tags</div>
+                  <div className="text-xl font-bold text-lime-500">
+                    {JSON.parse(localStorage.getItem('spookstr:hidden-hashtags') || '[]').length}
+                  </div>
+                </div>
+                <div className="border border-lime-500/20 rounded p-2 text-center">
+                  <div className="text-sm font-medium text-lime-400">Personalized</div>
+                  <div className="text-xl font-bold text-lime-500">
+                    {JSON.parse(localStorage.getItem('spookstr:personalized-hashtags') || '[]').length}
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <Textarea
                   className="font-mono text-xs h-64 bg-black/80 border-lime-500/30"
@@ -424,6 +465,45 @@ export function SettingsExportImport() {
             Note: Your settings are stored in your browser's local storage and will be lost if you clear your browser data.
             Export your settings periodically to ensure you can restore them if needed.
           </p>
+
+          <Dialog open={localStorageViewOpen} onOpenChange={setLocalStorageViewOpen}>
+            <Button
+              onClick={() => setLocalStorageViewOpen(true)}
+              variant="link"
+              size="sm"
+              className="text-xs text-lime-500/60 hover:text-lime-400 p-0 h-auto font-normal"
+            >
+              View raw localStorage keys (for debugging)
+            </Button>
+            <DialogContent className="bg-black border-lime-500/30 text-lime-400 max-w-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-lime-400">Raw localStorage Data</DialogTitle>
+                <DialogDescription className="text-lime-500/70">
+                  Technical view of all localStorage keys used by Spookstr
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3">
+                <div className="border border-lime-500/20 rounded p-3 bg-black/80 font-mono text-xs space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-lime-400 font-medium">Key</span>
+                    <span className="text-lime-400 font-medium">Value</span>
+                  </div>
+                  {Object.keys(localStorage)
+                    .filter(key => key.startsWith('spookstr:'))
+                    .map(key => (
+                      <div key={key} className="flex justify-between border-t border-lime-500/10 pt-2">
+                        <span className="text-lime-500">{key}</span>
+                        <span className="text-lime-300 truncate max-w-[300px]">
+                          {localStorage.getItem(key)?.length || 0} bytes
+                        </span>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </CardContent>
     </Card>
