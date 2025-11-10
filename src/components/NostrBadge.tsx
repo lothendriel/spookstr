@@ -2,7 +2,18 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Award, ExternalLink } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+// Global image cache to persist across component remounts
+const badgeImageCache = new Map<string, {
+  loaded: boolean;
+  error: boolean;
+}>();
+
+// Cache key generator for badge images
+function getBadgeImageCacheKey(imageUrl: string, badgeDefinition: string, badgeAwardId: string) {
+  return `${badgeDefinition}-${badgeAwardId}-${imageUrl}`;
+}
 
 interface NostrBadgeProps {
   name?: string;
@@ -27,8 +38,18 @@ export function NostrBadge({
   showTooltip = true,
   className = '',
 }: NostrBadgeProps) {
-  const [imageError, setImageError] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
+  const displayUrl = thumbnailUrl || imageUrl;
+
+  // Use global cache to persist image loading state across component remounts
+  const cacheKey = displayUrl ? getBadgeImageCacheKey(displayUrl, badgeDefinition, badgeAwardId) : '';
+
+  const [imageError, setImageError] = useState(() => {
+    return cacheKey ? badgeImageCache.get(cacheKey)?.error || false : false;
+  });
+
+  const [imageLoaded, setImageLoaded] = useState(() => {
+    return cacheKey ? badgeImageCache.get(cacheKey)?.loaded || false : false;
+  });
 
   // Size configurations
   const sizeConfig = {
@@ -39,8 +60,33 @@ export function NostrBadge({
   };
 
   const config = sizeConfig[size];
-  const displayUrl = thumbnailUrl || imageUrl;
   const fallbackName = name || 'Badge';
+
+  // Update global cache when image state changes
+  useEffect(() => {
+    if (cacheKey) {
+      badgeImageCache.set(cacheKey, {
+        loaded: imageLoaded,
+        error: imageError,
+      });
+    }
+  }, [imageLoaded, imageError, cacheKey]);
+
+  // Preload image to ensure browser caching
+  useEffect(() => {
+    if (displayUrl && !imageLoaded && !imageError) {
+      const img = new Image();
+      img.onload = () => {
+        setImageLoaded(true);
+        setImageError(false);
+      };
+      img.onerror = () => {
+        setImageError(true);
+        setImageLoaded(true);
+      };
+      img.src = displayUrl;
+    }
+  }, [displayUrl, imageLoaded, imageError]);
 
   const BadgeImage = () => {
     if (!displayUrl || imageError) {
@@ -68,6 +114,8 @@ export function NostrBadge({
             setImageLoaded(true);
           }}
           loading="lazy"
+          // Add cache busting prevention for consistent caching
+          crossOrigin="anonymous"
         />
       </>
     );
