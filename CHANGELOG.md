@@ -26,20 +26,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Improved
 - **Badge Management** - Refined NIP-58 badge toggle to only control badge visibility while keeping UI badges visible
 - **Badge Performance** - Improved badge definition loading with parallel fetching and better error handling
+- **Badge Image Loading** - **FIXED CORS Issues** - Implemented comprehensive CORS bypass system using Weserv proxy service
+- **Badge Image Reliability** - Added multi-strategy image loading with fallbacks and retry mechanisms
+- **Badge User Experience** - Enhanced fallback badges with initials and click-to-retry functionality
 - **Performance Optimization** - Content loads only when needed, reducing initial load time
 - **Memory Management** - Proper cleanup and deduplication prevents memory leaks
 - **User Experience** - Seamless scrolling without manual pagination buttons
 - **Data Fetching** - Optimized batch interactions limited to visible posts only
 - **Pagination Logic** - Timestamp-based pagination using `until` parameter for Nostr compatibility
-- **Error Handling** - Improved retry logic and error states for infinite scroll
+- **Error Handling** - Improved retry logic and error states for infinite scroll and badge images
 - **Responsive Design** - Infinite scroll works perfectly on all device sizes
 - **Consistent UI** - All three areas now have the same smooth scrolling experience
 - **Relay Discovery Consistency** - Profile pages now have the same visual discovery indicators as feed and notifications
 - **User Education** - Tooltips help users understand the relay discovery process and network effectiveness
 
+### Bug Fixes
+- **Badge Image CORS Errors** - **RESOLVED** - Fixed cross-origin policy errors blocking badge image loading from external domains
+- **Badge Images Not Loading** - **FIXED** - Implemented Weserv proxy (`images.weserv.nl`) to bypass CORS restrictions for problematic domains
+- **Incomplete Badge Display** - **FIXED** - Added intelligent fallback system showing badge initials when images fail to load
+- **Badge Loading Timeouts** - **FIXED** - Increased timeouts and added exponential backoff for better reliability
+- **Badge Image Retry Logic** - **FIXED** - Added user-initiated retry with visual indicators for failed badge images
+- **Proxy Service Integration** - **FIXED** - Integrated multiple proxy services (Weserv, AllOrigins) for maximum compatibility
+- **Cross-Origin Configuration** - **FIXED** - Implemented smart cross-origin handling that adapts to different image sources
+- **Badge Image Caching** - **FIXED** - Improved caching strategy to reduce repeated CORS issues
+- **Badge Error States** - **FIXED** - Added comprehensive error handling with informative user feedback
+- **Badge Loading Performance** - **FIXED** - Optimized image loading strategy to match professional services like badges.page
+
 ### Technical
 - **Badge Fetching** - Implemented proper AbortSignal timeout management for badge queries
 - **Badge Error Handling** - Added comprehensive error handling for badge fetching with fallbacks
+- **Badge Image CORS System** - **NEW** - Implemented multi-layered CORS bypass system using Weserv proxy service
+- **Proxy Service Integration** - **NEW** - Integrated `images.weserv.nl` professional image proxy for CORS-bypass
+- **Smart Cross-Origin Strategy** - **NEW** - Dynamic cross-origin handling that adapts to different image sources
+- **Multi-Strategy Image Loading** - **NEW** - Implements 3+ loading strategies per image URL with fallbacks
+- **Badge Image Retry System** - **NEW** - Enhanced retry logic with exponential backoff and user-initiated retry
+- **Badge Image Fallback Generation** - **NEW** - Intelligent fallback system using badge initials when images fail
 - **Intersection Observer** - Uses `react-intersection-observer` for efficient scroll detection
 - **TanStack Query Integration** - Implements `useInfiniteQuery` for robust data management
 - **Nostr Best Practices** - Follows Nostr infinite scroll standards and pagination patterns
@@ -48,6 +69,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Caching Strategy** - Enhanced caching for infinite scroll content
 - **Type Safety** - Full TypeScript support for all new infinite scroll features
 - **Custom Tooltip System** - Replaced Radix UI tooltips with pure CSS/React implementation
+
+### CORS Fix Implementation Details
+- **Weserv Proxy Integration** - Uses `images.weserv.nl/?url=${encodeURIComponent(url)}&w=64&h=64&fit=cover&output=webp` for professional CORS bypass
+- **Multi-Proxy Strategy** - Implements fallback proxy services: Weserv (primary), AllOrigins (secondary), cors-anywhere (tertiary)
+- **Domain-Specific Handling** - Different strategies for different domains (nostr.build, satellite.earth, primal.net, etc.)
+- **Smart Cross-Origin Logic** - Dynamic `crossOrigin` attribute setting based on URL type and proxy usage
+- **Enhanced Timeout Management** - Increased from 5s to 8s with 3 retry attempts and exponential backoff
+- **HTTP/HTTPS Fallback** - Automatically tries HTTP version if HTTPS fails due to CORS
+- **User-Initiated Retry** - Click-to-retry functionality with visual feedback for failed badge images
+- **Comprehensive Error Logging** - Detailed logging system for tracking CORS issues and successful loads
+- **Performance Optimized Loading** - Uses `loading="eager"`, `fetchPriority="high"`, and `decoding="async"` attributes
+- **Graceful Degradation** - Shows meaningful fallbacks (badge initials) instead of generic icons when images fail
 - **Z-Index Management** - Explicit z-[9999] positioning ensures tooltips appear above all elements
 - **Event Handling** - Mouse enter/leave events for reliable tooltip visibility control
 - **CSS Positioning** - Absolute positioning with transform centers for precise tooltip placement
