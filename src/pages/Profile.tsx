@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { InfiniteScrollLoader, InfiniteScrollSkeleton } from '@/components/ui/InfiniteScrollLoader';
-import { NostrBadgeGrid, NostrBadgeSkeleton } from '@/components/NostrBadge';
+import { ProfileBadgeGrid, ProfileBadgeSkeleton } from '@/components/ProfileBadge';
 import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check, MessageSquare, Edit, Shield, Bot, Award, Star, Crown, Sparkles, Medal } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { PostDetailView } from '@/components/PostDetailView';
@@ -500,11 +500,11 @@ export default function Profile({ pubkey }: ProfileProps) {
                     {showBadges && (
                       <>
                         {(isLoadingNostrBadges && !forceNotLoading) ? (
-                          <div className="flex gap-2 mb-3">
-                            <NostrBadgeSkeleton size="sm" />
-                            <NostrBadgeSkeleton size="sm" />
-                            <NostrBadgeSkeleton size="sm" />
-                            <span className="text-xs text-lime-500/50">Loading NIP-58 badges...</span>
+                          <div className="flex gap-0 mb-3">
+                            <ProfileBadgeSkeleton />
+                            <ProfileBadgeSkeleton />
+                            <ProfileBadgeSkeleton />
+                            <span className="text-xs text-lime-500/50 ml-2 self-center">Loading NIP-58 badges...</span>
                           </div>
                         ) : displayBadges.length > 0 ? (
                           <div>
@@ -513,11 +513,10 @@ export default function Profile({ pubkey }: ProfileProps) {
                                   Using demo badges - no actual badges found
                                 </div>
                               )}
-                            <NostrBadgeGrid
+                            <ProfileBadgeGrid
                               badges={displayBadges}
-                              size="sm"
                               maxBadges={12}
-                              className="grid grid-cols-auto-fit gap-[1px]"
+                              className="flex-wrap gap-0"
                             />
                           </div>
                         ) : (
