@@ -123,16 +123,34 @@ export function useProfileBadges(pubkey: string) {
       // Parse ordered pairs of 'a' and 'e' tags
       const tags = event.tags;
       console.log('🏷️ Event tags:', tags);
+      console.log('🏷️ First 5 tags:', tags.slice(0, 5));
+
+      // Count tag types
+      const aTags = tags.filter(([name]) => name === 'a');
+      const eTags = tags.filter(([name]) => name === 'e');
+      console.log('📊 Tag counts:', { aTags: aTags.length, eTags: eTags.length });
 
       for (let i = 0; i < tags.length; i++) {
         const tag = tags[i];
-        if (tag[0] === 'a' && i + 1 < tags.length && tags[i + 1][0] === 'e') {
-          profileBadges.push({
-            badgeDefinition: tag[1],
-            badgeAward: tags[i + 1][1],
-          });
-          i++; // Skip the next tag as we've processed it
-          console.log('✅ Found profile badge:', { badgeDefinition: tag[1], badgeAward: tags[i + 1][1] });
+        console.log(`🔍 Tag ${i}:`, tag);
+
+        if (tag[0] === 'a') {
+          console.log(`  Found 'a' tag at index ${i}:`, tag[1]);
+          if (i + 1 < tags.length) {
+            const nextTag = tags[i + 1];
+            console.log(`  Next tag at index ${i + 1}:`, nextTag);
+
+            if (nextTag[0] === 'e') {
+              profileBadges.push({
+                badgeDefinition: tag[1],
+                badgeAward: nextTag[1],
+              });
+              i++; // Skip the next tag as we've processed it
+              console.log('✅ Found profile badge:', { badgeDefinition: tag[1], badgeAward: nextTag[1] });
+            } else {
+              console.log(`❌ Next tag is not 'e', it's '${nextTag[0]}'`);
+            }
+          }
         }
       }
 
