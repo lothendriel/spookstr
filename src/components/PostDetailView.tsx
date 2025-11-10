@@ -22,7 +22,7 @@ import { getDisplayName } from '@/lib/getDisplayName';
 import { useNavigate } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 import { useNostr } from '@nostrify/react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +40,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/useToast';
+import { getCachedInteractions, setCachedInteractions } from '@/lib/interactionCache';
 
 interface PostDetailViewProps {
   event: NostrEvent;
@@ -79,8 +80,7 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   const { user } = useCurrentUser();
   const { mutate: createEvent } = useNostrPublish();
   const navigate = useNavigate();
-  const [liked, setLiked] = useState(false);
-  const [reposted, setReposted] = useState(false);
+  const queryClient = useQueryClient();
   const [isQuoteDialogOpen, setIsQuoteDialogOpen] = useState(false);
   const [quoteContent, setQuoteContent] = useState('');
   const [postToSpookstr2Only, setPostToSpookstr2Only] = useState(false);
@@ -108,6 +108,52 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
 
   const { nostr } = useNostr();
 
+  // Check if user has already interacted with this post using cached interactions
+  const { data: userInteractions } = useQuery({
+    queryKey: ['user-interactions', user?.pubkey, interactionEventId],
+    queryFn: async () => {
+      if (!user) return { liked: false, reposted: false, zapped: false };
+
+      // Check cache for existing interactions first using the utility
+      const cached = getCachedInteractions(user.pubkey, interactionEventId);
+      if (cached) {
+        console.log(`[PostDetailView] Using cached interactions for ${interactionEventId.slice(0, 8)}:`, cached);
+        return cached;
+      }
+
+      // Query for existing interactions if not in cache
+      try {
+        const signal = AbortSignal.timeout(3000);
+        const events = await nostr.query([{
+          kinds: [6, 7, 9735], // reposts, likes, zaps
+          '#e': [interactionEventId],
+          authors: [user.pubkey],
+          limit: 10,
+        }], { signal });
+
+        const liked = events.some(e => e.kind === 7);
+        const reposted = events.some(e => e.kind === 6);
+        const zapped = events.some(e => e.kind === 9735);
+
+        const result = { liked, reposted, zapped, timestamp: Date.now() };
+
+        // Cache the result using the utility
+        setCachedInteractions(user.pubkey, interactionEventId, result);
+        console.log(`[PostDetailView] Cached new interactions for ${interactionEventId.slice(0, 8)}:`, result);
+
+        return result;
+      } catch (error) {
+        console.warn('Failed to fetch user interactions:', error);
+        return { liked: false, reposted: false, zapped: false };
+      }
+    },
+    enabled: !!user && !!interactionEventId,
+    staleTime: 60000, // 1 minute
+  });
+
+  const hasLiked = userInteractions?.liked || false;
+  const hasReposted = userInteractions?.reposted || false;
+
   // Get metadata for the reposter
   const reposterMetadata = author.data?.metadata;
   const reposterDisplayName = getDisplayName(reposterMetadata, event.pubkey);
@@ -129,68 +175,87 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
   };
 
   const handleLike = () => {
-    if (!user) return;
+    if (!user || hasLiked) return;
 
     // Optimistic update
     optimisticUpdate(7, 1);
-    setLiked(true);
 
     // Like the original event, not the repost
     const targetEvent = repostedEvent || event;
 
-    createEvent(
-      {
-        event: {
-          kind: 7,
-          content: '+',
-          tags: [['e', targetEvent.id], ['p', targetEvent.pubkey]]
-        }
-      },
-      {
-        onError: () => {
-          // Revert on error
-          optimisticUpdate(7, -1);
-          setLiked(false);
-        }
+    createEvent({
+      event: {
+        kind: 7,
+        content: '+',
+        tags: [['e', targetEvent.id], ['p', targetEvent.pubkey]],
+        created_at: Math.floor(Date.now() / 1000),
       }
-    );
+    }, {
+      onSuccess: () => {
+        // Update cache using the utility
+        const updatedInteractions = {
+          ...userInteractions,
+          liked: true,
+          timestamp: Date.now()
+        };
+        setCachedInteractions(user.pubkey, interactionEventId, updatedInteractions);
+
+        // Update query cache
+        queryClient.setQueryData(['user-interactions', user.pubkey, interactionEventId], updatedInteractions);
+
+        console.log(`[PostDetailView] Like successful, cached for ${interactionEventId.slice(0, 8)}`);
+      },
+      onError: () => {
+        // Revert on error
+        optimisticUpdate(7, -1);
+      }
+    });
   };
 
   const handleRepost = (spookstrOnly: boolean = false) => {
-    if (!user) return;
+    if (!user || hasReposted) return;
 
     // Optimistic update
     optimisticUpdate(6, 1);
-    setReposted(true);
 
     // Repost the original event, not a repost of a repost
     const targetEvent = repostedEvent || event;
 
-    createEvent(
-      {
-        event: {
-          kind: 6,
-          content: JSON.stringify(targetEvent),
-          tags: [['e', targetEvent.id], ['p', targetEvent.pubkey]]
-        },
-        options: spookstrOnly ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
+    createEvent({
+      event: {
+        kind: 6,
+        content: JSON.stringify(targetEvent),
+        tags: [['e', targetEvent.id], ['p', targetEvent.pubkey]],
+        created_at: Math.floor(Date.now() / 1000),
       },
-      {
-        onSuccess: () => {
-          if (spookstrOnly) {
-            toast({
-              title: "Reposted to Spookstr",
-              description: "Your repost was published to the Spookstr relay only.",
-            });
-          }
-        },
-        onError: () => {
-          // Revert on error
-          optimisticUpdate(6, -1);
-          setReposted(false);
+      options: spookstrOnly ? { relayUrl: 'wss://spookstr2.nostr1.com' } : undefined
+    }, {
+      onSuccess: () => {
+        // Update cache using the utility
+        const updatedInteractions = {
+          ...userInteractions,
+          reposted: true,
+          timestamp: Date.now()
+        };
+        setCachedInteractions(user.pubkey, interactionEventId, updatedInteractions);
+
+        // Update query cache
+        queryClient.setQueryData(['user-interactions', user.pubkey, interactionEventId], updatedInteractions);
+
+        console.log(`[PostDetailView] Repost successful, cached for ${interactionEventId.slice(0, 8)}`);
+
+        if (spookstrOnly) {
+          toast({
+            title: "Reposted to Spookstr",
+            description: "Your repost was published to the Spookstr relay only.",
+          });
         }
+      },
+      onError: () => {
+        // Revert on error
+        optimisticUpdate(6, -1);
       }
-    );
+    });
   };
 
   const handleQuoteRepost = () => {
@@ -361,10 +426,10 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
                   variant="ghost"
                   size="sm"
                   onClick={handleLike}
-                  disabled={!user}
-                  className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
+                  disabled={!user || hasLiked}
+                  className={`text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1 ${hasLiked ? 'text-lime-500' : ''}`}
                 >
-                  <Heart className={`h-4 w-4 ${liked ? 'fill-lime-500 text-lime-500' : ''}`} />
+                  <Heart className={`h-4 w-4 ${hasLiked ? 'fill-current' : ''}`} />
                   <span className="text-xs">{likeCount}</span>
                 </Button>
 
@@ -373,10 +438,10 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
                     <Button
                       variant="ghost"
                       size="sm"
-                      disabled={!user}
-                      className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
+                      disabled={!user || hasReposted}
+                      className={`text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1 ${hasReposted ? 'text-lime-500' : ''}`}
                     >
-                      <Repeat className={`h-4 w-4 ${reposted ? 'fill-lime-500 text-lime-500' : ''}`} />
+                      <Repeat className={`h-4 w-4 ${hasReposted ? 'fill-current' : ''}`} />
                       <span className="text-xs">{repostCount}</span>
                     </Button>
                   </DropdownMenuTrigger>
@@ -416,7 +481,7 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
 
                 {hasLightningAddress ? (
                   <ZapButton
-                    target={event}
+                    target={displayEvent}
                     className="text-lime-500/60 hover:text-lime-400 hover:bg-lime-500/10 flex items-center space-x-1 pr-1"
                     zapData={{ count: zapCount, totalSats, isLoading: isZapLoading }}
                   >
@@ -424,7 +489,7 @@ export function PostDetailView({ event, onBack }: PostDetailViewProps) {
                     <span className="text-xs">{isZapLoading ? '...' : totalSats > 0 ? totalSats.toLocaleString() : 'Zap'}</span>
                   </ZapButton>
                 ) : (
-                  <ZapDialog target={event}>
+                  <ZapDialog target={displayEvent}>
                     <Button
                       variant="ghost"
                       size="sm"
