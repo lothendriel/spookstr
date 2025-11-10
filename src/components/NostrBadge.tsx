@@ -12,6 +12,11 @@ const globalImageCache = new Map<string, {
   retryCount: number;
 }>();
 
+// Expose to window for debugging
+if (typeof window !== 'undefined') {
+  (window as any).globalImageCache = globalImageCache;
+}
+
 // Known problematic domains and their alternative URLs
 const getAlternativeImageUrl = (src: string): string | null => {
   // Handle void.cat URLs - they often have CORS or availability issues
@@ -239,17 +244,42 @@ export function NostrBadge({
   const config = sizeConfig[size];
   const fallbackName = name || 'Badge';
 
-  // Check global cache on mount
+  // Check global cache on mount, but force retry for failed entries
   useEffect(() => {
-    if (displayUrl && globalImageCache.has(displayUrl)) {
-      const cached = globalImageCache.get(displayUrl)!;
-      setImageLoaded(cached.loaded);
-      setImageError(cached.error);
+    if (displayUrl) {
+      const cached = globalImageCache.get(displayUrl);
 
-      // Update ref with cached state
+      if (cached) {
+        if (cached.loaded) {
+          setImageLoaded(true);
+          setImageError(false);
+          console.log('✅ Using cached loaded state for:', displayUrl);
+        } else if (cached.error) {
+          const timeSinceFailure = Date.now() - cached.timestamp;
+          const retryDelay = Math.min(30000, 5000 * (cached.retryCount || 1));
+
+          if (timeSinceFailure >= retryDelay) {
+            console.log('🔄 Cache expired, retrying failed image:', displayUrl);
+            // Clear the cache entry to force a fresh attempt
+            globalImageCache.delete(displayUrl);
+            setImageLoaded(false);
+            setImageError(false);
+          } else {
+            console.log(`⏳ Waiting ${Math.ceil((retryDelay - timeSinceFailure) / 1000)}s before retrying:`, displayUrl);
+            setImageLoaded(false);
+            setImageError(true);
+          }
+        }
+      } else {
+        console.log('🆕 No cache entry for:', displayUrl);
+        setImageLoaded(false);
+        setImageError(false);
+      }
+
+      // Update ref with current state
       imageStateRef.current = {
-        loaded: cached.loaded,
-        error: cached.error,
+        loaded: imageLoaded,
+        error: imageError,
       };
     }
   }, [displayUrl]);
@@ -272,14 +302,8 @@ export function NostrBadge({
   useEffect(() => {
     if (!displayUrl || !preloadImages) return;
 
-    // Check if already cached
-    if (globalImageCache.has(displayUrl)) {
-      const cached = globalImageCache.get(displayUrl)!;
-      setImageLoaded(cached.loaded);
-      setImageError(cached.error);
-      console.log('📋 Using cached state for badge image:', displayUrl, { loaded: cached.loaded, error: cached.error });
-      return;
-    }
+    // Always try to load fresh, don't rely on cache for preloading
+    console.log('🎨 Starting fresh preload for badge image:', displayUrl);
 
     const preloadImageWithRetry = async (retries = 2) => {
       setIsPreloading(true);

@@ -45,9 +45,23 @@ export function BadgeImageDebug({ badges }: BadgeImageDebugProps) {
     });
   };
 
+  const clearCache = () => {
+    // Clear the global image cache
+    if (typeof window !== 'undefined') {
+      const globalCache = (window as any).globalImageCache;
+      if (globalCache) {
+        globalCache.clear();
+        console.log('🗑️ Cleared global badge image cache');
+      }
+    }
+    // Force a re-render by triggering state update
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 100);
+  };
+
   const refreshStatus = async () => {
     setRefreshing(true);
-    
+
     // Check all image URLs
     const imageUrls = new Set<string>();
     badges.forEach(badge => {
@@ -58,7 +72,7 @@ export function BadgeImageDebug({ badges }: BadgeImageDebugProps) {
     });
 
     console.log('🔍 Checking status of', imageUrls.size, 'badge images...');
-    
+
     for (const url of imageUrls) {
       try {
         const status = await checkImageStatus(url);
@@ -67,7 +81,7 @@ export function BadgeImageDebug({ badges }: BadgeImageDebugProps) {
         console.log(`❌ Error checking ${url}:`, error);
       }
     }
-    
+
     setRefreshing(false);
   };
 
@@ -76,16 +90,27 @@ export function BadgeImageDebug({ badges }: BadgeImageDebugProps) {
       <CardHeader>
         <CardTitle className="text-lime-400 flex items-center gap-2">
           <span>Badge Image Debug</span>
-          <Button
-            onClick={refreshStatus}
-            disabled={refreshing}
-            size="sm"
-            variant="outline"
-            className="border-lime-500/50 text-lime-400"
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Check Status
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={clearCache}
+              disabled={refreshing}
+              size="sm"
+              variant="outline"
+              className="border-red-500/50 text-red-400"
+            >
+              Clear Cache
+            </Button>
+            <Button
+              onClick={refreshStatus}
+              disabled={refreshing}
+              size="sm"
+              variant="outline"
+              className="border-lime-500/50 text-lime-400"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Check Status
+            </Button>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -93,7 +118,7 @@ export function BadgeImageDebug({ badges }: BadgeImageDebugProps) {
           {badges.map((badge, index) => {
             const imageUrl = badge.definition?.image;
             const thumbnailUrl = badge.definition?.thumbs?.[0];
-            
+
             return (
               <div key={index} className="border border-lime-500/20 rounded p-3">
                 <div className="flex items-center justify-between mb-2">
@@ -104,7 +129,7 @@ export function BadgeImageDebug({ badges }: BadgeImageDebugProps) {
                     {badge.profileBadge.badgeDefinition}
                   </Badge>
                 </div>
-                
+
                 <div className="space-y-2 text-sm">
                   {imageUrl && (
                     <div className="flex items-center gap-2">
@@ -114,7 +139,7 @@ export function BadgeImageDebug({ badges }: BadgeImageDebugProps) {
                       </code>
                     </div>
                   )}
-                  
+
                   {thumbnailUrl && (
                     <div className="flex items-center gap-2">
                       <span className="text-lime-500/70">Thumbnail:</span>
