@@ -62,21 +62,28 @@ export function useZaps(
 
       const signal = AbortSignal.any([c.signal, AbortSignal.timeout(5000)]);
 
+      console.log(`[useZaps] Querying zap receipts for event ${actualTarget.id.slice(0, 8)}, kind: ${actualTarget.kind}`);
+
       // Query for zap receipts for this specific event
       if (actualTarget.kind >= 30000 && actualTarget.kind < 40000) {
         // Addressable event
         const identifier = actualTarget.tags.find((t) => t[0] === 'd')?.[1] || '';
+        const aTag = `${actualTarget.kind}:${actualTarget.pubkey}:${identifier}`;
+        console.log(`[useZaps] Querying for addressable event with #a tag: ${aTag}`);
         const events = await nostr.query([{
           kinds: [9735],
-          '#a': [`${actualTarget.kind}:${actualTarget.pubkey}:${identifier}`],
+          '#a': [aTag],
         }], { signal });
+        console.log(`[useZaps] Found ${events.length} zap receipts for addressable event`);
         return events;
       } else {
         // Regular event
+        console.log(`[useZaps] Querying for regular event with #e tag: ${actualTarget.id}`);
         const events = await nostr.query([{
           kinds: [9735],
           '#e': [actualTarget.id],
         }], { signal });
+        console.log(`[useZaps] Found ${events.length} zap receipts for regular event`);
         return events;
       }
     },
