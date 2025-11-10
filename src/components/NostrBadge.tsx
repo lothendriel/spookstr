@@ -9,6 +9,7 @@ const globalImageCache = new Map<string, {
   loaded: boolean;
   error: boolean;
   timestamp: number;
+  retryCount: number;
 }>();
 
 // Known problematic domains and their alternative URLs
@@ -35,15 +36,28 @@ const getAlternativeImageUrl = (src: string): string | null => {
 // Image preloader utility with better error handling, timeout, and fallback URLs
 const preloadImage = (src: string, timeout = 8000, attempt = 1): Promise<void> => {
   return new Promise((resolve, reject) => {
-    if (globalImageCache.has(src)) {
-      const cached = globalImageCache.get(src)!;
-      if (cached.loaded) {
+    const now = Date.now();
+    const cacheEntry = globalImageCache.get(src);
+
+    // Check if we have a cached entry
+    if (cacheEntry) {
+      // If successfully loaded, resolve immediately
+      if (cacheEntry.loaded) {
         resolve();
         return;
       }
-      if (cached.error) {
-        reject(new Error('Image failed to load (from cache)'));
-        return;
+
+      // If failed, check if we should retry
+      if (cacheEntry.error) {
+        const timeSinceFailure = now - cacheEntry.timestamp;
+        const retryDelay = Math.min(30000, 5000 * cacheEntry.retryCount); // Max 30s delay
+
+        if (timeSinceFailure < retryDelay) {
+          reject(new Error(`Image failed to load (from cache) - retry in ${Math.ceil((retryDelay - timeSinceFailure) / 1000)}s`));
+          return;
+        } else {
+          console.log(`🔄 Retrying failed image after ${Math.floor(timeSinceFailure / 1000)}s:`, src);
+        }
       }
     }
 
@@ -58,7 +72,12 @@ const preloadImage = (src: string, timeout = 8000, attempt = 1): Promise<void> =
 
     const onSuccess = () => {
       cleanup();
-      globalImageCache.set(src, { loaded: true, error: false, timestamp: Date.now() });
+      globalImageCache.set(src, {
+        loaded: true,
+        error: false,
+        timestamp: Date.now(),
+        retryCount: 0
+      });
       console.log('✅ Badge image loaded:', src);
       resolve();
     };
@@ -74,7 +93,12 @@ const preloadImage = (src: string, timeout = 8000, attempt = 1): Promise<void> =
           try {
             await preloadImage(alternativeUrl, timeout, attempt + 1);
             // If alternative works, cache original URL as working too
-            globalImageCache.set(src, { loaded: true, error: false, timestamp: Date.now() });
+            globalImageCache.set(src, {
+              loaded: true,
+              error: false,
+              timestamp: Date.now(),
+              retryCount: 0
+            });
             resolve();
             return;
           } catch (altError) {
@@ -83,7 +107,14 @@ const preloadImage = (src: string, timeout = 8000, attempt = 1): Promise<void> =
         }
       }
 
-      globalImageCache.set(src, { loaded: false, error: true, timestamp: Date.now() });
+      // Cache as failed with retry count
+      const currentRetryCount = cacheEntry?.retryCount || 0;
+      globalImageCache.set(src, {
+        loaded: false,
+        error: true,
+        timestamp: Date.now(),
+        retryCount: currentRetryCount + 1
+      });
       console.log('❌ Badge image failed to load:', src, error?.message || 'Unknown error');
       reject(new Error('Image failed to load'));
     };
@@ -98,7 +129,12 @@ const preloadImage = (src: string, timeout = 8000, attempt = 1): Promise<void> =
           console.log('⏰ Timeout, trying alternative URL for:', src, '->', alternativeUrl);
           try {
             await preloadImage(alternativeUrl, timeout, attempt + 1);
-            globalImageCache.set(src, { loaded: true, error: false, timestamp: Date.now() });
+            globalImageCache.set(src, {
+              loaded: true,
+              error: false,
+              timestamp: Date.now(),
+              retryCount: 0
+            });
             resolve();
             return;
           } catch (altError) {
@@ -107,7 +143,14 @@ const preloadImage = (src: string, timeout = 8000, attempt = 1): Promise<void> =
         }
       }
 
-      globalImageCache.set(src, { loaded: false, error: true, timestamp: Date.now() });
+      // Cache as failed with retry count
+      const currentRetryCount = cacheEntry?.retryCount || 0;
+      globalImageCache.set(src, {
+        loaded: false,
+        error: true,
+        timestamp: Date.now(),
+        retryCount: currentRetryCount + 1
+      });
       console.log('⏰ Badge image timeout:', src);
       reject(new Error('Image loading timeout'));
     };
@@ -122,12 +165,20 @@ const preloadImage = (src: string, timeout = 8000, attempt = 1): Promise<void> =
   });
 };
 
-// Cleanup old cache entries (older than 1 hour)
+// Cleanup old cache entries (older than 1 hour, or failed entries older than 5 minutes)
 const cleanupImageCache = () => {
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+
   for (const [key, value] of globalImageCache.entries()) {
-    if (value.timestamp < oneHourAgo) {
+    // Remove successful entries older than 1 hour
+    if (value.loaded && value.timestamp < oneHourAgo) {
       globalImageCache.delete(key);
+    }
+    // Remove failed entries older than 5 minutes to allow retries
+    if (value.error && value.timestamp < fiveMinutesAgo) {
+      globalImageCache.delete(key);
+      console.log('🗑️ Cleared failed image cache entry for retry:', key);
     }
   }
 };
@@ -290,7 +341,14 @@ export function NostrBadge({
 
       // Update global cache on error
       if (currentImageUrl) {
-        globalImageCache.set(currentImageUrl, { loaded: false, error: true, timestamp: Date.now() });
+        const cacheEntry = globalImageCache.get(currentImageUrl);
+        const retryCount = cacheEntry?.retryCount || 0;
+        globalImageCache.set(currentImageUrl, {
+          loaded: false,
+          error: true,
+          timestamp: Date.now(),
+          retryCount: retryCount + 1
+        });
       }
     };
 
@@ -298,7 +356,12 @@ export function NostrBadge({
       setImageLoaded(true);
       // Update global cache on successful load
       if (currentImageUrl) {
-        globalImageCache.set(currentImageUrl, { loaded: true, error: false, timestamp: Date.now() });
+        globalImageCache.set(currentImageUrl, {
+          loaded: true,
+          error: false,
+          timestamp: Date.now(),
+          retryCount: 0
+        });
         console.log('✅ Badge image loaded successfully:', currentImageUrl);
       }
     };
