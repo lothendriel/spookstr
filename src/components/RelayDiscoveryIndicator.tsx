@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Zap,
   Activity,
@@ -22,6 +21,39 @@ import {
   BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// Custom tooltip component that doesn't rely on Radix UI
+function CustomTooltip({
+  children,
+  content,
+  className
+}: {
+  children: React.ReactNode;
+  content: React.ReactNode;
+  className?: string;
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  return (
+    <div
+      className={cn("relative inline-block", className)}
+      onMouseEnter={() => setIsVisible(true)}
+      onMouseLeave={() => setIsVisible(false)}
+    >
+      {children}
+      {isVisible && (
+        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black border border-lime-500 text-white text-xs rounded-lg shadow-lg min-w-[200px] max-w-xs z-[9999]">
+          <div className="relative">
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+              <div className="border-4 border-transparent border-t-black"></div>
+            </div>
+            {content}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface RelayDiscoveryIndicatorProps {
   context: DiscoveryContext;
@@ -102,57 +134,51 @@ export function RelayDiscoveryIndicator({
 
   if (variant === 'minimal') {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className={cn("inline-flex items-center text-xs", className)}>
-            {hintsUsed ? (
-              <Zap className="h-3 w-3 text-lime-500" />
-            ) : (
-              <Activity className="h-3 w-3 text-muted-foreground" />
-            )}
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="top" align="center" className="z-[9999]">
-          <div className="text-xs font-medium">
-            {hintsUsed ? `Enhanced discovery: ${eventsFound} events` : 'Standard discovery'}
-          </div>
-        </TooltipContent>
-      </Tooltip>
+      <CustomTooltip content={
+        <div className="text-xs font-medium text-white">
+          {hintsUsed ? `Enhanced discovery: ${eventsFound} events` : 'Standard discovery'}
+        </div>
+      }>
+        <div className={cn("inline-flex items-center text-xs cursor-help", className)}>
+          {hintsUsed ? (
+            <Zap className="h-3 w-3 text-lime-500" />
+          ) : (
+            <Activity className="h-3 w-3 text-muted-foreground" />
+          )}
+        </div>
+      </CustomTooltip>
     );
   }
 
   if (variant === 'badge') {
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-xs cursor-help transition-colors hover:opacity-80",
-              getStatusColor(),
-              className
-            )}
-          >
+      <CustomTooltip content={
+        <div className="space-y-2">
+          <div className="font-semibold flex items-center gap-2 text-sm text-white">
             {getContextIcon(context)}
-            <span className="ml-1">{getStatusText()}</span>
-          </Badge>
-        </TooltipTrigger>
-        <TooltipContent side="top" align="center" className="z-[9999] max-w-xs">
-          <div className="space-y-1">
-            <div className="font-semibold flex items-center gap-1 text-sm">
-              {getContextIcon(context)}
-              {getContextLabel(context)} Discovery
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {hintsUsed ? (
-                <>Enhanced relay discovery found {eventsFound} events using relay hints</>
-              ) : (
-                <>Standard discovery from {eventsFound > 0 ? `${eventsFound} events` : 'configured relays'}</>
-              )}
-            </div>
+            {getContextLabel(context)} Discovery
           </div>
-        </TooltipContent>
-      </Tooltip>
+          <div className="text-xs text-gray-300">
+            {hintsUsed ? (
+              <>Enhanced relay discovery found {eventsFound} events using relay hints</>
+            ) : (
+              <>Standard discovery from {eventsFound > 0 ? `${eventsFound} events` : 'configured relays'}</>
+            )}
+          </div>
+        </div>
+      }>
+        <Badge
+          variant="outline"
+          className={cn(
+            "text-xs cursor-help transition-colors hover:opacity-80",
+            getStatusColor(),
+            className
+          )}
+        >
+          {getContextIcon(context)}
+          <span className="ml-1">{getStatusText()}</span>
+        </Badge>
+      </CustomTooltip>
     );
   }
 
