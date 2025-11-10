@@ -177,84 +177,11 @@ export function useUserBadges(pubkey: string) {
   console.log('🎪 useUserBadges called with pubkey:', pubkey?.slice(0, 8) + '...');
   const { nostr } = useNostr();
 
-  // Image preloader utility for badge images with staggered loading and better error handling
+  // Simplified image preloader - let components handle their own loading to avoid conflicts
   const preloadBadgeImages = useCallback(async (definitions: BadgeDefinition[]) => {
-    const imageUrls = new Set<string>();
-
-    // Collect all image URLs
-    definitions.forEach(def => {
-      if (def.image) imageUrls.add(def.image);
-      if (def.thumbs) {
-        def.thumbs.forEach(thumb => imageUrls.add(thumb));
-      }
-    });
-
-    const urls = Array.from(imageUrls).filter(Boolean);
-    if (urls.length === 0) return;
-
-    console.log('🎨 Starting to preload', urls.length, 'badge images...');
-
-    // Stagger image loading to avoid overwhelming the browser/network
-    const staggeredLoad = async (urls: string[], delay = 200) => {
-      const results = await Promise.allSettled(
-        urls.map(async (url, index) => {
-          // Add small delay between each image load
-          if (index > 0) {
-            await new Promise(resolve => setTimeout(resolve, delay));
-          }
-
-          return new Promise<void>((resolve, reject) => {
-            const img = new Image();
-            let timeoutId: NodeJS.Timeout;
-
-            const cleanup = () => {
-              if (timeoutId) clearTimeout(timeoutId);
-              img.onload = null;
-              img.onerror = null;
-            };
-
-            const onSuccess = () => {
-              cleanup();
-              console.log('✅ Badge image loaded:', url);
-              resolve();
-            };
-
-            const onError = (error: any) => {
-              cleanup();
-              console.log('❌ Badge image failed:', url, error?.message || 'Unknown error');
-              // Don't reject - we want to continue with other images
-              resolve();
-            };
-
-            const onTimeout = () => {
-              cleanup();
-              console.log('⏰ Badge image timeout:', url);
-              // Don't reject - we want to continue with other images
-              resolve();
-            };
-
-            img.onload = onSuccess;
-            img.onerror = onError;
-            timeoutId = setTimeout(onTimeout, 10000); // 10 second timeout per image
-
-            // Set proper attributes for caching
-            img.crossOrigin = 'anonymous';
-            img.src = url;
-          });
-        })
-      );
-
-      const successful = results.filter(r => r.status === 'fulfilled').length;
-      const failed = results.filter(r => r.status === 'rejected').length;
-
-      console.log(`📊 Badge image preloading complete: ${successful}/${urls.length} successful, ${failed} failed`);
-    };
-
-    try {
-      await staggeredLoad(urls, 150); // 150ms delay between images
-    } catch (error) {
-      console.log('⚠️ Badge image preloading encountered an error:', error);
-    }
+    // Removed complex preloading to avoid conflicts with component-level loading
+    // Components now handle their own image loading for better control
+    console.log('🎨 Badge definitions available for component-level loading:', definitions.length);
   }, []);
 
   // Fetch profile badges (kind 30008 with d=profile_badges)
@@ -377,9 +304,9 @@ export function useUserBadges(pubkey: string) {
         const results = await Promise.all(definitionPromises);
         definitions.push(...results);
 
-        // Preload badge images after definitions are fetched
+        // Notify components that badge definitions are available
+        // Components will handle their own image loading
         if (definitions.length > 0) {
-          // Don't wait for preloading to complete, just trigger it in background
           preloadBadgeImages(definitions).catch(console.error);
         }
       } catch (error) {

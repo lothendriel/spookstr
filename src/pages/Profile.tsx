@@ -102,6 +102,7 @@ export default function Profile({ pubkey }: ProfileProps) {
 
   // Use actual Nostr NIP-58 badges if available, fall back to demo badges only if needed
   const displayBadges = (userBadges && userBadges.length > 0) ? userBadges : demoBadges;
+  const isUsingDemoBadges = userBadges.length === 0;
 
   // Debug: Always log badge state
   console.log('🎯 Badge debug:', {
@@ -508,7 +509,7 @@ export default function Profile({ pubkey }: ProfileProps) {
                           </div>
                         ) : displayBadges.length > 0 ? (
                           <div>
-                            {displayBadges === demoBadges && userBadges.length === 0 && (
+                            {isUsingDemoBadges && (
                                 <div className="text-xs text-lime-500/50 italic mb-2">
                                   Using demo badges - no actual badges found
                                 </div>
