@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **useOutboxInfiniteQuery** - Enhanced outbox query with timestamp-based pagination
 - **Smart Loading Indicators** - Added skeleton loaders and ghost animations during content fetching
 - **Empty State Handling** - Friendly "You've reached the end" messages when no more content available
+- **Profile Relay Discovery Indicators** - Added visual feedback for relay discovery on profile pages
+- **Custom Tooltip Implementation** - Created CustomTooltip component for reliable tooltip functionality
+- **Relay Discovery Tooltips** - Added detailed tooltips explaining relay discovery process and effectiveness
+- **Enhanced Discovery Transparency** - Users can now see when enhanced discovery is active and how many events were found
 
 ### Improved
 - **Performance Optimization** - Content loads only when needed, reducing initial load time
@@ -27,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Error Handling** - Improved retry logic and error states for infinite scroll
 - **Responsive Design** - Infinite scroll works perfectly on all device sizes
 - **Consistent UI** - All three areas now have the same smooth scrolling experience
+- **Relay Discovery Consistency** - Profile pages now have the same visual discovery indicators as feed and notifications
+- **User Education** - Tooltips help users understand the relay discovery process and network effectiveness
 
 ### Technical
 - **Intersection Observer** - Uses `react-intersection-observer` for efficient scroll detection
@@ -36,6 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Performance Optimizations** - 1-second minimum fetch intervals to prevent rapid successive requests
 - **Caching Strategy** - Enhanced caching for infinite scroll content
 - **Type Safety** - Full TypeScript support for all new infinite scroll features
+- **Custom Tooltip System** - Replaced Radix UI tooltips with pure CSS/React implementation
+- **Z-Index Management** - Explicit z-[9999] positioning ensures tooltips appear above all elements
+- **Event Handling** - Mouse enter/leave events for reliable tooltip visibility control
+- **CSS Positioning** - Absolute positioning with transform centers for precise tooltip placement
 
 ### Fixed
 - **Missing Import** - Added missing `useMemo` import in Profile page
@@ -43,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Pagination Issues** - Resolved problems with manual pagination in favor of infinite scroll
 - **Content Duplication** - Fixed duplicate posts appearing across pagination boundaries
 - **Loading States** - Improved loading indicators and error boundary handling
+- **Relay Discovery Indicator Tooltips** - Fixed tooltips not appearing when hovering over discovery indicators
+- **Radix UI Tooltip Issues** - Replaced problematic Radix UI tooltip system with custom CSS-based implementation
+- **Z-Index Conflicts** - Resolved tooltips being hidden behind other UI elements with explicit z-[9999] positioning
+- **Tooltip Visibility** - Fixed issue where users only saw question mark cursor instead of informative tooltips
+- **Profile Discovery Feedback** - Added visual relay discovery indicators to profile pages for consistency with other pages
+- **Cross-Page Consistency** - Ensured all pages (feed, notifications, profiles, post details) have same tooltip behavior
 
 ## [1.0.0] - 2024-10-24
 
