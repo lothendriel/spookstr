@@ -63,6 +63,7 @@ export function NostrBadge({
           style={{ width: config.width, height: config.height }}
           onLoad={() => setImageLoaded(true)}
           onError={() => {
+            console.log('❌ Failed to load badge image:', displayUrl);
             setImageError(true);
             setImageLoaded(true);
           }}
@@ -95,8 +96,8 @@ export function NostrBadge({
             <BadgeContent />
           </div>
         </TooltipTrigger>
-        <TooltipContent 
-          side="top" 
+        <TooltipContent
+          side="top"
           className="max-w-xs bg-black/90 border-lime-500/30 backdrop-blur-sm"
         >
           <div className="space-y-2">
@@ -167,11 +168,11 @@ interface NostrBadgeGridProps {
   className?: string;
 }
 
-export function NostrBadgeGrid({ 
-  badges, 
-  maxBadges = 12, 
+export function NostrBadgeGrid({
+  badges,
+  maxBadges = 12,
   size = 'sm',
-  className = '' 
+  className = ''
 }: NostrBadgeGridProps) {
   const displayBadges = badges.slice(0, maxBadges);
 

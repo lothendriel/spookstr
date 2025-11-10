@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { InfiniteScrollLoader, InfiniteScrollSkeleton } from '@/components/ui/InfiniteScrollLoader';
 import { NostrBadgeGrid, NostrBadgeSkeleton } from '@/components/NostrBadge';
+import { BadgeTest } from '@/components/BadgeTest';
 import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check, MessageSquare, Edit, Shield, Bot, Award, Star, Crown, Sparkles, Medal } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { PostDetailView } from '@/components/PostDetailView';
@@ -442,6 +443,11 @@ export default function Profile({ pubkey }: ProfileProps) {
                         className="grid grid-cols-auto-fit gap-2"
                       />
                     )}
+                    {!isLoadingNostrBadges && userBadges.length === 0 && showBadges && (
+                      <div className="text-xs text-lime-500/50 italic">
+                        No NIP-58 badges found
+                      </div>
+                    )}
                   </div>
 
                   {/* NIP-05 Identifier */}
@@ -518,6 +524,9 @@ export default function Profile({ pubkey }: ProfileProps) {
             </CardContent>
           </Card>
         )}
+
+        {/* Badge Test Component (Temporary) */}
+        <BadgeTest />
 
         {/* Posts and Replies Tabs */}
         <div className="mb-4">
