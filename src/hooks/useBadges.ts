@@ -158,29 +158,61 @@ export function useUserBadges(pubkey: string) {
           const filter = { kinds: [30009], authors: [pubkey], '#d': [identifier] };
           console.log('🔎 Querying for badge definition:', filter);
 
-          const events = await nostr.query([filter], { signal });
-          console.log('📋 Found badge definition events:', events.length);
+          try {
+            const events = await nostr.query([filter], { signal });
+            console.log('📋 Found badge definition events:', events.length);
 
-          if (events.length > 0) {
-            const event = events[0];
-            const definition = {
+            if (events.length > 0) {
+              const event = events[0];
+              const definition = {
+                identifier,
+                name: event.tags.find(([name]) => name === 'name')?.[1] || identifier,
+                description: event.tags.find(([name]) => name === 'description')?.[1] || '',
+                image: event.tags.find(([name]) => name === 'image')?.[1],
+                thumbs: event.tags.filter(([name]) => name === 'thumb').map(([_, url]) => url),
+                pubkey: event.pubkey,
+              };
+              console.log('✅ Badge definition:', definition);
+              definitions.push(definition);
+            } else {
+              console.log('❌ No badge definition found for:', profileBadge.badgeDefinition);
+              // Create a fallback definition
+              definitions.push({
+                identifier,
+                name: identifier,
+                description: '',
+                image: '',
+                thumbs: [],
+                pubkey
+              });
+            }
+          } catch (error) {
+            console.log('❌ Error fetching badge definition:', error);
+            // Create a fallback definition
+            definitions.push({
               identifier,
-              name: event.tags.find(([name]) => name === 'name')?.[1],
-              description: event.tags.find(([name]) => name === 'description')?.[1],
-              image: event.tags.find(([name]) => name === 'image')?.[1],
-              thumbs: event.tags.filter(([name]) => name === 'thumb').map(([_, url]) => url),
-              pubkey: event.pubkey,
-            };
-            console.log('✅ Badge definition:', definition);
-            definitions.push(definition);
-          } else {
-            console.log('❌ No badge definition found for:', profileBadge.badgeDefinition);
+              name: identifier,
+              description: '',
+              image: '',
+              thumbs: [],
+              pubkey
+            });
           }
         } else {
           console.log('❌ Invalid badge definition format:', profileBadge.badgeDefinition);
+          // Create a fallback for invalid format
+          definitions.push({
+            identifier: profileBadge.badgeDefinition,
+            name: profileBadge.badgeDefinition,
+            description: '',
+            image: '',
+            thumbs: [],
+            pubkey: pubkey || 'unknown'
+          });
         }
       }
 
+      console.log('🎯 Final definitions array:', definitions);
       return definitions;
     },
     enabled: profileBadges.length > 0,
@@ -203,7 +235,20 @@ export function useUserBadges(pubkey: string) {
       definition,
       award,
     };
-  }).filter(badge => badge.definition && badge.award);
+  }).filter(badge => {
+    // Only filter if BOTH definition and award are missing
+    // If we have at least one, we can show the badge
+    const hasDefinition = badge.definition !== undefined;
+    const hasAward = badge.award !== undefined;
+
+    console.log('🎯 Filtering badge:', {
+      hasDefinition,
+      hasAward,
+      keep: hasDefinition || hasAward
+    });
+
+    return hasDefinition || hasAward;
+  });
 
   console.log('🏆 Final user badges:', userBadges);
 

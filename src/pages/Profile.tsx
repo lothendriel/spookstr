@@ -83,6 +83,15 @@ export default function Profile({ pubkey }: ProfileProps) {
   // Use demo badges if no real badges found (in development)
   const displayBadges = userBadges.length > 0 ? userBadges : demoBadges;
 
+  // Debug: Log badge counts
+  console.log('🎯 Badge debug:', {
+    userBadges: userBadges.length,
+    demoBadges: demoBadges.length,
+    displayBadges: displayBadges.length,
+    showBadges,
+    isLoadingNostrBadges
+  });
+
   // Use profile discovery for enhanced relay discovery with visual indicators
   const {
     events: discoveredEvents,
