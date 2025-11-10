@@ -181,7 +181,7 @@ export function NostrBadgeGrid({
   }
 
   return (
-    <div className={`grid grid-cols-auto-fit gap-3 ${className}`}>
+    <div className={`grid grid-cols-auto-fit gap-1 ${className}`}>
       {displayBadges.map((badge, index) => (
         <NostrBadge
           key={`${badge.profileBadge.badgeDefinition}-${index}`}

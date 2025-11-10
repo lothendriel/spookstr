@@ -16,7 +16,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ParanormalPost } from '@/components/ParanormalPost';
 import { InfiniteScrollLoader, InfiniteScrollSkeleton } from '@/components/ui/InfiniteScrollLoader';
 import { NostrBadgeGrid, NostrBadgeSkeleton } from '@/components/NostrBadge';
-import { BadgeTest } from '@/components/BadgeTest';
 import { Ghost, ArrowLeft, ExternalLink, Zap as ZapIcon, UserPlus, UserMinus, Copy, Check, MessageSquare, Edit, Shield, Bot, Award, Star, Crown, Sparkles, Medal } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { PostDetailView } from '@/components/PostDetailView';
@@ -366,11 +365,8 @@ export default function Profile({ pubkey }: ProfileProps) {
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-3">
                         <h1 className="text-2xl font-bold text-lime-400 truncate">
-                          {displayName}
+                          {metadata?.display_name || displayName}
                         </h1>
-                        {metadata?.display_name && metadata.display_name !== metadata.name && (
-                          <span className="text-lime-300/80 text-lg">({metadata.display_name})</span>
-                        )}
                         {metadata?.nip05 && (
                           <span className="text-lime-500">✓</span>
                         )}
@@ -382,10 +378,11 @@ export default function Profile({ pubkey }: ProfileProps) {
                         />
                       </div>
 
-                      {/* Simple badge toggle */}
-                      {(uiBadges.length > 0 || userBadges.length > 0) && (
+                      {/* NIP-58 badge toggle - only for NIP-58 badges */}
+                      {userBadges.length > 0 && (
                         <div className="flex items-center gap-2">
                           <Award className="h-4 w-4 text-lime-400" />
+                          <span className="text-xs text-lime-400">NIP-58 Badges</span>
                           <Switch
                             checked={showBadges}
                             onCheckedChange={setShowBadges}
@@ -471,8 +468,8 @@ export default function Profile({ pubkey }: ProfileProps) {
                     </div>
                   </div>
 
-                  {/* UI Badges (System-generated) */}
-                  {uiBadges.length > 0 && showBadges && (
+                  {/* UI Badges (System-generated) - always shown regardless of showBadges toggle */}
+                  {uiBadges.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-3">
                       {uiBadges.map((badge) => (
                         <Badge
@@ -500,20 +497,16 @@ export default function Profile({ pubkey }: ProfileProps) {
                           </div>
                         ) : displayBadges.length > 0 ? (
                           <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Award className="h-4 w-4 text-lime-400" />
-                              <h4 className="text-sm font-medium text-lime-400">NIP-58 Badges</h4>
-                              {displayBadges === demoBadges && (
-                                <span className="text-xs text-lime-500/50 italic">
-                                  (Using demo badges - no NIP-58 badges found)
-                                </span>
+                            {displayBadges === demoBadges && (
+                                <div className="text-xs text-lime-500/50 italic mb-2">
+                                  Using demo badges - no actual badges found
+                                </div>
                               )}
-                            </div>
                             <NostrBadgeGrid
                               badges={displayBadges}
                               size="sm"
                               maxBadges={12}
-                              className="grid grid-cols-auto-fit gap-2"
+                              className="grid grid-cols-auto-fit gap-1"
                             />
                           </div>
                         ) : (
@@ -600,8 +593,7 @@ export default function Profile({ pubkey }: ProfileProps) {
           </Card>
         )}
 
-        {/* Badge Test Component (Temporary) */}
-        <BadgeTest />
+        {/* Badge Test Component removed */}
 
         {/* Posts and Replies Tabs */}
         <div className="mb-4">
