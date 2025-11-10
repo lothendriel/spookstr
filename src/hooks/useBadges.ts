@@ -254,15 +254,26 @@ export function useUserBadges(pubkey: string) {
 
               if (events.length > 0) {
                 const event = events[0];
+                const imageUrl = event.tags.find(([name]) => name === 'image')?.[1];
+                const thumbs = event.tags.filter(([name]) => name === 'thumb').map(([_, url]) => url);
+
                 const definition = {
                   identifier,
                   name: event.tags.find(([name]) => name === 'name')?.[1] || identifier,
                   description: event.tags.find(([name]) => name === 'description')?.[1] || '',
-                  image: event.tags.find(([name]) => name === 'image')?.[1],
-                  thumbs: event.tags.filter(([name]) => name === 'thumb').map(([_, url]) => url),
+                  image: imageUrl,
+                  thumbs: thumbs,
                   pubkey: badgePubkey,
                 };
-                console.log('✅ Badge definition:', definition);
+
+                // Debug: Log image URL status
+                console.log('✅ Badge definition:', {
+                  ...definition,
+                  hasImage: !!imageUrl,
+                  hasThumbs: thumbs.length > 0,
+                  thumbCount: thumbs.length,
+                  firstThumb: thumbs[0]?.substring(0, 50) + '...'
+                });
                 return definition;
               } else {
                 console.log('❌ No badge definition found for:', profileBadge.badgeDefinition);

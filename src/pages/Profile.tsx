@@ -104,12 +104,21 @@ export default function Profile({ pubkey }: ProfileProps) {
   const displayBadges = (userBadges && userBadges.length > 0) ? userBadges : demoBadges;
   const isUsingDemoBadges = userBadges.length === 0;
 
-  // Debug: Always log badge state
+  // Debug: Always log badge state with detailed image information
   console.log('🎯 Badge debug:', {
     userBadges: userBadges?.length || 0,
     isLoadingNostrBadges,
     pubkey: pubkey.slice(0, 8) + '...',
-    displayBadges: displayBadges.length
+    displayBadges: displayBadges.length,
+    badgeDetails: displayBadges.map((badge, index) => ({
+      index,
+      name: badge.definition?.name || 'Unknown',
+      hasImage: !!badge.definition?.image,
+      hasThumbs: (badge.definition?.thumbs?.length || 0) > 0,
+      thumbCount: badge.definition?.thumbs?.length || 0,
+      imageUrl: badge.definition?.image?.substring(0, 50) + '...',
+      firstThumb: badge.definition?.thumbs?.[0]?.substring(0, 50) + '...'
+    }))
   });
 
   // Use profile discovery for enhanced relay discovery with visual indicators
