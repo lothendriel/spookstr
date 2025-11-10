@@ -51,6 +51,38 @@ export default function Profile({ pubkey }: ProfileProps) {
   // Fetch NIP-58 badges for this user
   const { userBadges, isLoading: isLoadingNostrBadges } = useUserBadges(pubkey);
 
+  // Demo badges for testing (remove when real badges work)
+  const demoBadges = useMemo(() => {
+    if (process.env.NODE_ENV === 'development' && userBadges.length === 0) {
+      return [
+        {
+          profileBadge: {
+            badgeDefinition: '30009:npub1l2vyh47mk2p0qlsku7hg0vn29faehy9hy34ygaclpnscukqr9g8s6s5j85an:spookstr-fan',
+            badgeAward: 'demo-award-1'
+          },
+          definition: {
+            identifier: 'spookstr-fan',
+            name: 'Spookstr Fan',
+            description: 'Active member of the Spookstr community',
+            image: 'https://nostr.build/i/111e07f4a3332bfdcd719396a3427d740717f48bdc7df1e45a2ff47fed40b2ba.jpg',
+            thumbs: [],
+            pubkey: 'npub1l2vyh47mk2p0qlsku7hg0vn29faehy9hy34ygaclpnscukqr9g8s6s5j85an'
+          },
+          award: {
+            id: 'demo-award-1',
+            badgeDefinition: '30009:npub1l2vyh47mk2p0qlsku7hg0vn29faehy9hy34ygaclpnscukqr9g8s6s5j85an:spookstr-fan',
+            awardedTo: pubkey,
+            awardedBy: 'npub1l2vyh47mk2p0qlsku7hg0vn29faehy9hy34ygaclpnscukqr9g8s6s5j85an'
+          }
+        }
+      ];
+    }
+    return [];
+  }, [userBadges.length, pubkey]);
+
+  // Use demo badges if no real badges found (in development)
+  const displayBadges = userBadges.length > 0 ? userBadges : demoBadges;
+
   // Use profile discovery for enhanced relay discovery with visual indicators
   const {
     events: discoveredEvents,
@@ -435,15 +467,15 @@ export default function Profile({ pubkey }: ProfileProps) {
                         <NostrBadgeSkeleton size="sm" />
                       </div>
                     )}
-                    {!isLoadingNostrBadges && userBadges.length > 0 && showBadges && (
+                    {!isLoadingNostrBadges && displayBadges.length > 0 && showBadges && (
                       <NostrBadgeGrid
-                        badges={userBadges}
+                        badges={displayBadges}
                         size="sm"
                         maxBadges={12}
                         className="grid grid-cols-auto-fit gap-2"
                       />
                     )}
-                    {!isLoadingNostrBadges && userBadges.length === 0 && showBadges && (
+                    {!isLoadingNostrBadges && displayBadges.length === 0 && showBadges && (
                       <div className="text-xs text-lime-500/50 italic">
                         No NIP-58 badges found
                       </div>

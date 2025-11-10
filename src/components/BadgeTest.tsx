@@ -12,15 +12,15 @@ export function BadgeTest() {
     setLoading(true);
     try {
       console.log('🧪 Testing badge queries...');
-      
+
       // Test 1: Find any profile badge events (kind 30008)
       const profileBadges = await nostr.query([{ kinds: [30008], limit: 10 }], { signal: AbortSignal.timeout(5000) });
       console.log('📋 Profile badge events:', profileBadges.length);
-      
+
       // Test 2: Find any badge award events (kind 8)
       const badgeAwards = await nostr.query([{ kinds: [8], limit: 10 }], { signal: AbortSignal.timeout(5000) });
       console.log('🏅 Badge award events:', badgeAwards.length);
-      
+
       // Test 3: Find any badge definition events (kind 30009)
       const badgeDefinitions = await nostr.query([{ kinds: [30009], limit: 10 }], { signal: AbortSignal.timeout(5000) });
       console.log('📖 Badge definition events:', badgeDefinitions.length);
@@ -28,11 +28,20 @@ export function BadgeTest() {
       // Test 4: Check for well-known badge issuers
       const knownIssuers = [
         'npub1l2vyh47mk2p0qlsku7hg0vn29faehy9hy34ygaclpnscukqr9g8s6s5j85an', // badges.page
+        'npub1qqqqqqzqqkqlh7a08e6y5kq8s3xvz4hjzgk9e3w2p7aenpmd6yqprw05x', // Another known issuer
       ];
-      
+
       for (const issuer of knownIssuers) {
         const issuerBadges = await nostr.query([{ kinds: [30009], authors: [issuer], limit: 5 }], { signal: AbortSignal.timeout(5000) });
         console.log(`🏢 Badges from ${issuer}:`, issuerBadges.length);
+
+        if (issuerBadges.length > 0) {
+          console.log('Sample badge from issuer:', {
+            id: issuerBadges[0].id,
+            name: issuerBadges[0].tags.find(([name]) => name === 'name')?.[1],
+            identifier: issuerBadges[0].tags.find(([name]) => name === 'd')?.[1],
+          });
+        }
       }
 
       setResults({
@@ -57,20 +66,20 @@ export function BadgeTest() {
         <CardTitle className="text-lime-400">NIP-58 Badge Test</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Button 
-          onClick={testBadgeQueries} 
+        <Button
+          onClick={testBadgeQueries}
           disabled={loading}
           className="bg-lime-500 hover:bg-lime-600 text-black"
         >
           {loading ? 'Testing...' : 'Test Badge Queries'}
         </Button>
-        
+
         {Object.keys(results).length > 0 && (
           <div className="space-y-2 text-sm">
             <div>Profile Badge Events: {results.profileBadges}</div>
             <div>Badge Award Events: {results.badgeAwards}</div>
             <div>Badge Definition Events: {results.badgeDefinitions}</div>
-            
+
             {results.sampleProfileBadge && (
               <div className="mt-4 p-2 bg-black/20 rounded">
                 <div className="font-mono text-xs break-all">
@@ -78,7 +87,7 @@ export function BadgeTest() {
                 </div>
               </div>
             )}
-            
+
             {results.sampleBadgeAward && (
               <div className="mt-4 p-2 bg-black/20 rounded">
                 <div className="font-mono text-xs break-all">
@@ -86,7 +95,7 @@ export function BadgeTest() {
                 </div>
               </div>
             )}
-            
+
             {results.sampleBadgeDefinition && (
               <div className="mt-4 p-2 bg-black/20 rounded">
                 <div className="font-mono text-xs break-all">
