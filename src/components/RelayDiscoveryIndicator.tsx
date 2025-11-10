@@ -102,7 +102,7 @@ export function RelayDiscoveryIndicator({
 
   if (variant === 'minimal') {
     return (
-      <Tooltip delayDuration={0}>
+      <Tooltip>
         <TooltipTrigger asChild>
           <div className={cn("inline-flex items-center text-xs", className)}>
             {hintsUsed ? (
@@ -112,7 +112,7 @@ export function RelayDiscoveryIndicator({
             )}
           </div>
         </TooltipTrigger>
-        <TooltipContent side="top" align="center" className="z-50">
+        <TooltipContent side="top" align="center" className="z-[9999]">
           <div className="text-xs font-medium">
             {hintsUsed ? `Enhanced discovery: ${eventsFound} events` : 'Standard discovery'}
           </div>
@@ -123,7 +123,7 @@ export function RelayDiscoveryIndicator({
 
   if (variant === 'badge') {
     return (
-      <Tooltip delayDuration={0}>
+      <Tooltip>
         <TooltipTrigger asChild>
           <Badge
             variant="outline"
@@ -137,7 +137,7 @@ export function RelayDiscoveryIndicator({
             <span className="ml-1">{getStatusText()}</span>
           </Badge>
         </TooltipTrigger>
-        <TooltipContent side="top" align="center" className="z-50 max-w-xs">
+        <TooltipContent side="top" align="center" className="z-[9999] max-w-xs">
           <div className="space-y-1">
             <div className="font-semibold flex items-center gap-1 text-sm">
               {getContextIcon(context)}
