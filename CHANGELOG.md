@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **NIP-58 Badge Support** - Added proper support for NIP-58 profile badges with fallback to demo badges when none found
 - **Infinite Scroll Implementation** - Added seamless infinite scrolling across all main content areas
 - **Main Feed Infinite Scroll** - Replaced manual pagination with automatic content loading as users scroll
 - **Notifications Infinite Scroll** - Enhanced notifications with automatic loading, removed "Load More" button
@@ -23,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Enhanced Discovery Transparency** - Users can now see when enhanced discovery is active and how many events were found
 
 ### Improved
+- **Badge Management** - Refined NIP-58 badge toggle to only control badge visibility while keeping UI badges visible
+- **Badge Performance** - Improved badge definition loading with parallel fetching and better error handling
 - **Performance Optimization** - Content loads only when needed, reducing initial load time
 - **Memory Management** - Proper cleanup and deduplication prevents memory leaks
 - **User Experience** - Seamless scrolling without manual pagination buttons
@@ -35,6 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **User Education** - Tooltips help users understand the relay discovery process and network effectiveness
 
 ### Technical
+- **Badge Fetching** - Implemented proper AbortSignal timeout management for badge queries
+- **Badge Error Handling** - Added comprehensive error handling for badge fetching with fallbacks
 - **Intersection Observer** - Uses `react-intersection-observer` for efficient scroll detection
 - **TanStack Query Integration** - Implements `useInfiniteQuery` for robust data management
 - **Nostr Best Practices** - Follows Nostr infinite scroll standards and pagination patterns
@@ -48,6 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CSS Positioning** - Absolute positioning with transform centers for precise tooltip placement
 
 ### Fixed
+- **NIP-58 Profile Badges** - Fixed badge loading and display issues with improved error handling
+- **Badge Definition Fetching** - Enhanced badge fetching with parallel processing and proper timeouts
+- **Badge UI** - Optimized badge display with minimal 1px spacing for compact presentation
+- **Profile Display Name** - Fixed duplicate display name issue in profile headers
 - **Missing Import** - Added missing `useMemo` import in Profile page
 - **Reference Errors** - Fixed `useQuery` and `useMemo` undefined references
 - **Pagination Issues** - Resolved problems with manual pagination in favor of infinite scroll
