@@ -1,7 +1,7 @@
 import { useNostr } from '@/hooks/useNostr';
 import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { nip19 } from 'nostr-tools';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { NostrEvent } from '@nostrify/nostrify';
 
 interface BadgeDefinition {
