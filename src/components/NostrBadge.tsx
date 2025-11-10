@@ -11,8 +11,29 @@ const globalImageCache = new Map<string, {
   timestamp: number;
 }>();
 
-// Image preloader utility with better error handling and timeout
-const preloadImage = (src: string, timeout = 8000): Promise<void> => {
+// Known problematic domains and their alternative URLs
+const getAlternativeImageUrl = (src: string): string | null => {
+  // Handle void.cat URLs - they often have CORS or availability issues
+  if (src.includes('void.cat/d/')) {
+    // Try to convert to different void.cat URL format or use mirror
+    const fileId = src.match(/void\.cat\/d\/([a-zA-Z0-9]+)/)?.[1];
+    if (fileId) {
+      // Try different void.cat endpoints
+      return [
+        `https://void.cat/d/${fileId}.webp`,
+        `https://void.cat/d/${fileId}`,
+        `https://cdn.void.cat/d/${fileId}`,
+        `https://mirror.void.cat/d/${fileId}`
+      ].find(url => url !== src) || null;
+    }
+  }
+
+  // Handle other problematic domains here as needed
+  return null;
+};
+
+// Image preloader utility with better error handling, timeout, and fallback URLs
+const preloadImage = (src: string, timeout = 8000, attempt = 1): Promise<void> => {
   return new Promise((resolve, reject) => {
     if (globalImageCache.has(src)) {
       const cached = globalImageCache.get(src)!;
@@ -42,15 +63,50 @@ const preloadImage = (src: string, timeout = 8000): Promise<void> => {
       resolve();
     };
 
-    const onError = (error: any) => {
+    const onError = async (error: any) => {
       cleanup();
+
+      // Try alternative URL if available and this is first attempt
+      if (attempt === 1) {
+        const alternativeUrl = getAlternativeImageUrl(src);
+        if (alternativeUrl) {
+          console.log('🔄 Trying alternative URL for:', src, '->', alternativeUrl);
+          try {
+            await preloadImage(alternativeUrl, timeout, attempt + 1);
+            // If alternative works, cache original URL as working too
+            globalImageCache.set(src, { loaded: true, error: false, timestamp: Date.now() });
+            resolve();
+            return;
+          } catch (altError) {
+            console.log('❌ Alternative URL also failed:', alternativeUrl);
+          }
+        }
+      }
+
       globalImageCache.set(src, { loaded: false, error: true, timestamp: Date.now() });
       console.log('❌ Badge image failed to load:', src, error?.message || 'Unknown error');
       reject(new Error('Image failed to load'));
     };
 
-    const onTimeout = () => {
+    const onTimeout = async () => {
       cleanup();
+
+      // Try alternative URL on timeout too
+      if (attempt === 1) {
+        const alternativeUrl = getAlternativeImageUrl(src);
+        if (alternativeUrl) {
+          console.log('⏰ Timeout, trying alternative URL for:', src, '->', alternativeUrl);
+          try {
+            await preloadImage(alternativeUrl, timeout, attempt + 1);
+            globalImageCache.set(src, { loaded: true, error: false, timestamp: Date.now() });
+            resolve();
+            return;
+          } catch (altError) {
+            console.log('❌ Alternative URL also timed out:', alternativeUrl);
+          }
+        }
+      }
+
       globalImageCache.set(src, { loaded: false, error: true, timestamp: Date.now() });
       console.log('⏰ Badge image timeout:', src);
       reject(new Error('Image loading timeout'));
@@ -207,7 +263,47 @@ export function NostrBadge({
   }, [displayUrl, preloadImages]);
 
   const BadgeImage = () => {
-    if (!displayUrl || imageError) {
+    // Try to use thumbnail if main image failed
+    const [currentImageUrl, setCurrentImageUrl] = useState(displayUrl);
+    const [hasTriedFallback, setHasTriedFallback] = useState(false);
+
+    // Reset when displayUrl changes
+    useEffect(() => {
+      setCurrentImageUrl(displayUrl);
+      setHasTriedFallback(false);
+    }, [displayUrl]);
+
+    const handleImageError = () => {
+      console.log('❌ Failed to load badge image:', currentImageUrl);
+
+      // Try thumbnail if main image failed and we haven't tried fallback yet
+      if (!hasTriedFallback && imageUrl && thumbnailUrl && currentImageUrl === imageUrl) {
+        console.log('🔄 Trying thumbnail fallback for:', imageUrl);
+        setCurrentImageUrl(thumbnailUrl);
+        setHasTriedFallback(true);
+        return;
+      }
+
+      // If thumbnail also fails or no thumbnail available, show fallback
+      setImageError(true);
+      setImageLoaded(true);
+
+      // Update global cache on error
+      if (currentImageUrl) {
+        globalImageCache.set(currentImageUrl, { loaded: false, error: true, timestamp: Date.now() });
+      }
+    };
+
+    const handleImageLoad = () => {
+      setImageLoaded(true);
+      // Update global cache on successful load
+      if (currentImageUrl) {
+        globalImageCache.set(currentImageUrl, { loaded: true, error: false, timestamp: Date.now() });
+        console.log('✅ Badge image loaded successfully:', currentImageUrl);
+      }
+    };
+
+    if (!currentImageUrl || imageError) {
       return (
         <div className={`${config.className} flex items-center justify-center bg-gradient-to-br from-lime-500/20 to-lime-600/20 rounded-full border border-lime-500/30`}>
           <Award className="h-1/2 w-1/2 text-lime-400" />
@@ -226,26 +322,12 @@ export function NostrBadge({
           <Skeleton className={`${config.className} rounded-full`} />
         )}
         <img
-          src={displayUrl}
+          src={currentImageUrl}
           alt={fallbackName}
           className={`${config.className} rounded-full border-2 border-lime-500/30 transition-all duration-200 hover:border-lime-500/50 hover:scale-105 ${imageLoaded ? '' : 'hidden'}`}
           style={{ width: config.width, height: config.height }}
-          onLoad={() => {
-            setImageLoaded(true);
-            // Update global cache on successful load
-            if (displayUrl) {
-              globalImageCache.set(displayUrl, { loaded: true, error: false, timestamp: Date.now() });
-            }
-          }}
-          onError={() => {
-            console.log('❌ Failed to load badge image:', displayUrl);
-            setImageError(true);
-            setImageLoaded(true);
-            // Update global cache on error
-            if (displayUrl) {
-              globalImageCache.set(displayUrl, { loaded: false, error: true, timestamp: Date.now() });
-            }
-          }}
+          onLoad={handleImageLoad}
+          onError={handleImageError}
           // Remove lazy loading - load immediately
           loading="eager"
           // Add cache busting prevention for consistent caching
