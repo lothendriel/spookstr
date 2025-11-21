@@ -29,7 +29,11 @@ export function HiddenUsersManager() {
       setSuccess('User hidden successfully');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError('Invalid npub format. Please enter a valid npub (e.g., npub1...)');
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Invalid format. Please enter a valid npub (starting with npub1...) or 64-character hex pubkey');
+      }
     }
   };
 
@@ -103,7 +107,7 @@ export function HiddenUsersManager() {
             </Button>
           </div>
           <p className="text-xs text-lime-500/60">
-            Enter an npub to hide posts from that user
+            Enter an npub (starting with npub1...) or 64-character hex pubkey to hide posts from that user
           </p>
         </div>
 

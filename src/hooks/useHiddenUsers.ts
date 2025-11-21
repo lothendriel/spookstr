@@ -21,15 +21,28 @@ export function useHiddenUsers() {
    */
   const hideUser = useCallback((identifier: string) => {
     try {
-      // Convert npub to hex if needed
-      let pubkey = identifier;
+      // Validate and normalize the identifier
+      let pubkey: string;
+
       if (identifier.startsWith('npub1')) {
+        // It's an npub, decode it to hex
         const decoded = nip19.decode(identifier);
         if (decoded.type === 'npub') {
           pubkey = decoded.data;
         } else {
           throw new Error('Invalid npub identifier');
         }
+      } else if (/^[0-9a-fA-F]{64}$/.test(identifier)) {
+        // It's already a valid 64-character hex pubkey
+        pubkey = identifier.toLowerCase();
+      } else {
+        // It's not a valid format
+        throw new Error('Invalid identifier. Please enter a valid npub (starting with npub1...) or 64-character hex pubkey');
+      }
+
+      // Validate the pubkey is 64 characters hex
+      if (!/^[0-9a-f]{64}$/.test(pubkey)) {
+        throw new Error('Invalid pubkey format');
       }
 
       setHiddenPubkeys(prev => {
@@ -49,15 +62,28 @@ export function useHiddenUsers() {
    */
   const showUser = useCallback((identifier: string) => {
     try {
-      // Convert npub to hex if needed
-      let pubkey = identifier;
+      // Validate and normalize the identifier
+      let pubkey: string;
+
       if (identifier.startsWith('npub1')) {
+        // It's an npub, decode it to hex
         const decoded = nip19.decode(identifier);
         if (decoded.type === 'npub') {
           pubkey = decoded.data;
         } else {
           throw new Error('Invalid npub identifier');
         }
+      } else if (/^[0-9a-fA-F]{64}$/.test(identifier)) {
+        // It's already a valid 64-character hex pubkey
+        pubkey = identifier.toLowerCase();
+      } else {
+        // It's not a valid format
+        throw new Error('Invalid identifier. Please enter a valid npub (starting with npub1...) or 64-character hex pubkey');
+      }
+
+      // Validate the pubkey is 64 characters hex
+      if (!/^[0-9a-f]{64}$/.test(pubkey)) {
+        throw new Error('Invalid pubkey format');
       }
 
       setHiddenPubkeys(prev => prev.filter(p => p !== pubkey));
@@ -72,15 +98,28 @@ export function useHiddenUsers() {
    */
   const toggleUserVisibility = useCallback((identifier: string) => {
     try {
-      // Convert npub to hex if needed
-      let pubkey = identifier;
+      // Validate and normalize the identifier
+      let pubkey: string;
+
       if (identifier.startsWith('npub1')) {
+        // It's an npub, decode it to hex
         const decoded = nip19.decode(identifier);
         if (decoded.type === 'npub') {
           pubkey = decoded.data;
         } else {
           throw new Error('Invalid npub identifier');
         }
+      } else if (/^[0-9a-fA-F]{64}$/.test(identifier)) {
+        // It's already a valid 64-character hex pubkey
+        pubkey = identifier.toLowerCase();
+      } else {
+        // It's not a valid format
+        throw new Error('Invalid identifier. Please enter a valid npub (starting with npub1...) or 64-character hex pubkey');
+      }
+
+      // Validate the pubkey is 64 characters hex
+      if (!/^[0-9a-f]{64}$/.test(pubkey)) {
+        throw new Error('Invalid pubkey format');
       }
 
       if (isUserHidden(pubkey)) {

@@ -20,7 +20,7 @@ export function SettingsExportImport() {
   const { personalizedHashtags, clearPersonalizedHashtags } = usePersonalizedHashtags();
   const { hiddenPubkeys, clearHiddenUsers } = useHiddenUsers();
   const { hiddenHashtags, clearHiddenHashtags } = useHiddenHashtags();
-  
+
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -30,7 +30,7 @@ export function SettingsExportImport() {
     try {
       setIsExporting(true);
       setError(null);
-      
+
       const settings: ExportedSettings = {
         personalizedHashtags,
         hiddenUsers: hiddenPubkeys,
@@ -41,16 +41,16 @@ export function SettingsExportImport() {
 
       const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
-      
+
       const link = document.createElement('a');
       link.href = url;
       link.download = `spookstr-settings-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       URL.revokeObjectURL(url);
-      
+
       setSuccess('Settings exported successfully!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -68,10 +68,10 @@ export function SettingsExportImport() {
     try {
       setIsImporting(true);
       setError(null);
-      
+
       const text = await file.text();
       const imported = JSON.parse(text) as ExportedSettings;
-      
+
       // Validate the imported data structure
       if (!validateImportedSettings(imported)) {
         throw new Error('Invalid settings file format');
@@ -85,7 +85,7 @@ export function SettingsExportImport() {
       };
 
       const totalItems = Object.values(itemCounts).reduce((sum, count) => sum + count, 0);
-      
+
       const confirmed = confirm(
         `Import settings from ${new Date(imported.exportDate).toLocaleDateString()}?\n\n` +
         `This will add:\n` +
@@ -93,7 +93,8 @@ export function SettingsExportImport() {
         `• ${itemCounts.hiddenUsers} hidden users\n` +
         `• ${itemCounts.hiddenHashtags} hidden hashtags\n\n` +
         `Total: ${totalItems} items\n\n` +
-        `Note: Duplicate items will be automatically skipped.`
+        `Note: Duplicate items will be automatically skipped.\n\n` +
+        `⚠️ Important: This data has been validated and contains only valid pubkeys and hashtags.`
       );
 
       if (!confirmed) {
@@ -103,7 +104,7 @@ export function SettingsExportImport() {
 
       // Import settings (merging with existing, avoiding duplicates)
       await importSettings(imported);
-      
+
       setSuccess('Settings imported successfully!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -121,15 +122,24 @@ export function SettingsExportImport() {
   };
 
   const validateImportedSettings = (data: any): data is ExportedSettings => {
-    return (
-      data &&
-      typeof data === 'object' &&
-      Array.isArray(data.personalizedHashtags) &&
-      Array.isArray(data.hiddenUsers) &&
-      Array.isArray(data.hiddenHashtags) &&
-      typeof data.exportDate === 'string' &&
-      typeof data.version === 'string'
-    );
+    // Basic structure validation
+    if (!data || typeof data !== 'object') return false;
+    if (!Array.isArray(data.personalizedHashtags)) return false;
+    if (!Array.isArray(data.hiddenUsers)) return false;
+    if (!Array.isArray(data.hiddenHashtags)) return false;
+    if (typeof data.exportDate !== 'string') return false;
+    if (typeof data.version !== 'string') return false;
+
+    // Validate hidden users are valid 64-character hex pubkeys
+    if (!data.hiddenUsers.every((pubkey: any) =>
+      typeof pubkey === 'string' && /^[0-9a-f]{64}$/.test(pubkey)
+    )) return false;
+
+    // Validate hashtags are strings
+    if (!data.personalizedHashtags.every((tag: any) => typeof tag === 'string')) return false;
+    if (!data.hiddenHashtags.every((tag: any) => typeof tag === 'string')) return false;
+
+    return true;
   };
 
   const importSettings = async (imported: ExportedSettings) => {
@@ -179,7 +189,7 @@ export function SettingsExportImport() {
 
   const handleClearAll = () => {
     const totalCount = personalizedHashtags.length + hiddenPubkeys.length + hiddenHashtags.length;
-    
+
     if (totalCount === 0) {
       setError('No settings to clear');
       setTimeout(() => setError(null), 3000);
