@@ -16,6 +16,7 @@ import { NoteContent } from '@/components/NoteContent';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useCommunity } from '@/hooks/useCommunity';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
+import { useModerationPersistence } from '@/hooks/useModerationPersistence';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import {
   Shield,
@@ -73,6 +74,12 @@ export function ModeratorPanel() {
     verifyUser
   } = useNostrCommunities();
 
+  const {
+    saveModerationDecision,
+    applyOptimisticUpdates,
+    invalidateModerationQueries
+  } = useModerationPersistence();
+
   // Fetch community data
   const { data: community, isLoading: communityLoading } = useCommunity(communityId);
   const { data: communities } = getCommunities;
@@ -102,21 +109,37 @@ export function ModeratorPanel() {
   }, [community]);
 
   const handleApprovePost = async (topic: any) => {
-    if (!community) return;
+    if (!community || !user) return;
 
     try {
-      // Add to moderation log immediately for better UX
-      const action: ModerationAction = {
+      // 1. Save decision to localStorage immediately for instant UI updates
+      const decision = {
+        action: 'approve' as const,
+        eventId: topic.id,
+        eventPubkey: topic.pubkey,
+        moderator: user.pubkey,
+        timestamp: Math.floor(Date.now() / 1000),
+        communityId: community.id,
+        communityAuthor: community.author
+      };
+      saveModerationDecision(decision);
+
+      // 2. Apply optimistic updates to query cache
+      applyOptimisticUpdates(decision, topic);
+
+      // 3. Add to moderation log immediately for better UX
+      const logAction: ModerationAction = {
         id: Date.now().toString(),
-        moderator: user!.pubkey,
+        moderator: user.pubkey,
         action: 'approve',
         targetId: topic.id,
         targetType: 'post',
         timestamp: Date.now(),
         details: topic.title || topic.content.substring(0, 50) + '...'
       };
-      setModerationLog(prev => [action, ...prev]);
+      setModerationLog(prev => [logAction, ...prev]);
 
+      // 4. Publish approval event to Nostr relays
       await moderatePost.mutateAsync({
         communityId: community.id,
         communityAuthor: community.author,
@@ -127,6 +150,9 @@ export function ModeratorPanel() {
         action: 'approve'
       });
 
+      // 5. Invalidate queries to refetch from relays
+      await invalidateModerationQueries(community.id, community.author);
+
     } catch (error) {
       console.error('Failed to approve post:', error);
       // Remove from log if failed
@@ -135,21 +161,37 @@ export function ModeratorPanel() {
   };
 
   const handleDenyPost = async (topic: any) => {
-    if (!community) return;
+    if (!community || !user) return;
 
     try {
-      // Add to moderation log immediately for better UX
-      const action: ModerationAction = {
+      // 1. Save decision to localStorage immediately for instant UI updates
+      const decision = {
+        action: 'deny' as const,
+        eventId: topic.id,
+        eventPubkey: topic.pubkey,
+        moderator: user.pubkey,
+        timestamp: Math.floor(Date.now() / 1000),
+        communityId: community.id,
+        communityAuthor: community.author
+      };
+      saveModerationDecision(decision);
+
+      // 2. Apply optimistic updates to query cache
+      applyOptimisticUpdates(decision, topic);
+
+      // 3. Add to moderation log immediately for better UX
+      const logAction: ModerationAction = {
         id: Date.now().toString(),
-        moderator: user!.pubkey,
+        moderator: user.pubkey,
         action: 'deny',
         targetId: topic.id,
         targetType: 'post',
         timestamp: Date.now(),
         details: topic.title || topic.content.substring(0, 50) + '...'
       };
-      setModerationLog(prev => [action, ...prev]);
+      setModerationLog(prev => [logAction, ...prev]);
 
+      // 4. Publish denial event to Nostr relays
       await moderatePost.mutateAsync({
         communityId: community.id,
         communityAuthor: community.author,
@@ -159,6 +201,9 @@ export function ModeratorPanel() {
         postEvent: topic,
         action: 'deny'
       });
+
+      // 5. Invalidate queries to refetch from relays
+      await invalidateModerationQueries(community.id, community.author);
 
     } catch (error) {
       console.error('Failed to deny post:', error);

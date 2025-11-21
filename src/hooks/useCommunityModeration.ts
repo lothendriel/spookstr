@@ -84,57 +84,6 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
       console.log(`📱 Total local moderation decisions found: ${localModeratedEvents.size}`);
       console.log(`📱 Local moderated event IDs:`, Array.from(localModeratedEvents.keys()).map(id => id.slice(0, 8) + '...'));
 
-      // Clean up stale local decisions (older than 24 hours without remote confirmation)
-      const staleThreshold = Math.floor(Date.now() / 1000) - (24 * 60 * 60); // 24 hours ago
-      let staleCount = 0;
-
-      for (const [eventId, action] of localModeratedEvents) {
-        try {
-          const key = `moderation-${communityId}-${eventId}`;
-          const value = localStorage.getItem(key);
-
-          if (value) {
-            const data = JSON.parse(value);
-
-            // Check if the decision is stale
-            if (data.timestamp && data.timestamp < staleThreshold) {
-              console.log(`⏰ Found stale local decision: ${action} for ${eventId.slice(0, 8)}... (${Math.floor((staleThreshold - data.timestamp) / 3600)} hours old)`);
-
-              // Check if we have a remote confirmation
-              const hasRemoteApproval = approvedEventIds.has(eventId);
-              const hasRemoteDenial = deniedEventIds.has(eventId);
-
-              if (!hasRemoteApproval && !hasRemoteDenial) {
-                // No remote confirmation found, clean up stale local decision
-                localStorage.removeItem(key);
-                localModeratedEvents.delete(eventId);
-                staleCount++;
-                console.log(`🧹 Cleaned up stale local decision: ${action} for ${eventId.slice(0, 8)}...`);
-              } else {
-                console.log(`✅ Remote confirmation found for ${eventId.slice(0, 8)}..., keeping local decision`);
-              }
-            }
-          }
-        } catch (error) {
-          console.error(`❌ Failed to check stale decision for ${eventId.slice(0, 8)}...:`, error);
-
-          // Remove potentially corrupted data
-          const key = `moderation-${communityId}-${eventId}`;
-          try {
-            localStorage.removeItem(key);
-            localModeratedEvents.delete(eventId);
-            staleCount++;
-            console.log(`🧹 Cleaned up corrupted local decision for ${eventId.slice(0, 8)}...`);
-          } catch (removeError) {
-            console.error(`❌ Failed to remove corrupted decision: ${removeError}`);
-          }
-        }
-      }
-
-      if (staleCount > 0) {
-        console.log(`🧹 Cleaned up ${staleCount} stale local moderation decisions`);
-      }
-
       // Query for all posts and replies (kind 1111) in this community
       const allPosts = await nostr.query([{
         kinds: [1111],
@@ -257,6 +206,57 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
 
       console.log(`🎯 ${approvedEventIds.size} unique approved event IDs`);
       console.log(`🚫 ${deniedEventIds.size} unique denied event IDs`);
+
+      // Now clean up stale local decisions (older than 24 hours without remote confirmation)
+      const staleThreshold = Math.floor(Date.now() / 1000) - (24 * 60 * 60); // 24 hours ago
+      let staleCount = 0;
+
+      for (const [eventId, action] of Array.from(localModeratedEvents.entries())) {
+        try {
+          const key = `moderation-${communityId}-${eventId}`;
+          const value = localStorage.getItem(key);
+
+          if (value) {
+            const data = JSON.parse(value);
+
+            // Check if the decision is stale
+            if (data.timestamp && data.timestamp < staleThreshold) {
+              console.log(`⏰ Found stale local decision: ${action} for ${eventId.slice(0, 8)}... (${Math.floor((staleThreshold - data.timestamp) / 3600)} hours old)`);
+
+              // Check if we have a remote confirmation
+              const hasRemoteApproval = approvedEventIds.has(eventId);
+              const hasRemoteDenial = deniedEventIds.has(eventId);
+
+              if (!hasRemoteApproval && !hasRemoteDenial) {
+                // No remote confirmation found, clean up stale local decision
+                localStorage.removeItem(key);
+                localModeratedEvents.delete(eventId);
+                staleCount++;
+                console.log(`🧹 Cleaned up stale local decision: ${action} for ${eventId.slice(0, 8)}...`);
+              } else {
+                console.log(`✅ Remote confirmation found for ${eventId.slice(0, 8)}..., keeping local decision`);
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`❌ Failed to check stale decision for ${eventId.slice(0, 8)}...:`, error);
+
+          // Remove potentially corrupted data
+          const key = `moderation-${communityId}-${eventId}`;
+          try {
+            localStorage.removeItem(key);
+            localModeratedEvents.delete(eventId);
+            staleCount++;
+            console.log(`🧹 Cleaned up corrupted local decision for ${eventId.slice(0, 8)}...`);
+          } catch (removeError) {
+            console.error(`❌ Failed to remove corrupted decision: ${removeError}`);
+          }
+        }
+      }
+
+      if (staleCount > 0) {
+        console.log(`🧹 Cleaned up ${staleCount} stale local moderation decisions`);
+      }
 
       // Filter out approved and denied posts - only show truly pending posts
       // Remote decisions take priority over local decisions to prevent conflicts
