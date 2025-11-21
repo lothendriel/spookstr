@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { Download, Upload, AlertCircle, CheckCircle, FileDown, FileUp, Trash2 } from 'lucide-react';
+import { Download, Upload, AlertCircle, CheckCircle, FileDown, FileUp, Trash2, RotateCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface ExportedSettings {
@@ -23,6 +23,12 @@ export function SettingsExportImport() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRefresh = () => {
+    // Force a re-render by updating the refresh key
+    setRefreshKey(prev => prev + 1);
+  };
 
   const handleExport = async () => {
     try {
@@ -31,7 +37,7 @@ export function SettingsExportImport() {
 
       const settings: ExportedSettings = {
         personalizedHashtags,
-        hiddenUsers: hiddenPubkeys,
+        hiddenUsers,
         hiddenHashtags,
         exportDate: new Date().toISOString(),
         version: '1.0'
@@ -216,13 +222,26 @@ export function SettingsExportImport() {
   return (
     <Card className="border-lime-500/20 bg-black/40 backdrop-blur-sm">
       <CardHeader>
-        <CardTitle className="text-lime-400 flex items-center gap-2">
-          <FileDown className="h-5 w-5" />
-          Export & Import Settings
-        </CardTitle>
-        <CardDescription className="text-lime-500/70">
-          Backup your preferences to restore them later or transfer to another browser.
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-lime-400 flex items-center gap-2">
+              <FileDown className="h-5 w-5" />
+              Export & Import Settings
+            </CardTitle>
+            <CardDescription className="text-lime-500/70">
+              Backup your preferences to restore them later or transfer to another browser.
+            </CardDescription>
+          </div>
+          <Button
+            onClick={handleRefresh}
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 text-lime-400 hover:bg-lime-500/10 hover:text-lime-300"
+            title="Refresh settings"
+          >
+            <RotateCw className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Success/Error Messages */}
