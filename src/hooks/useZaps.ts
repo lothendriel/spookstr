@@ -684,12 +684,8 @@ export function useZaps(
                   const signedZapReceipt = await user.signer.signEvent(zapReceiptEvent);
 
                   // Publish to relays using Nostrify
-                  const { nostr } = await import('@nostrify/react');
-                  const { useNostr } = nostr;
-                  const nostrClient = useNostr();
-
                   try {
-                    await nostrClient.event(signedZapReceipt);
+                    await nostr.event(signedZapReceipt);
                     console.log(`[useZaps] Zap receipt published successfully: ${signedZapReceipt.id}`);
                   } catch (publishError) {
                     console.error(`[useZaps] Failed to publish zap receipt:`, publishError);
@@ -788,12 +784,8 @@ export function useZaps(
                   const signedZapReceipt = await user.signer.signEvent(zapReceiptEvent);
 
                   // Publish to relays using Nostrify
-                  const { nostr } = await import('@nostrify/react');
-                  const { useNostr } = nostr;
-                  const nostrClient = useNostr();
-
                   try {
-                    await nostrClient.event(signedZapReceipt);
+                    await nostr.event(signedZapReceipt);
                     console.log(`[useZaps] Zap receipt published successfully: ${signedZapReceipt.id}`);
                   } catch (publishError) {
                     console.error(`[useZaps] Failed to publish zap receipt:`, publishError);
@@ -915,12 +907,8 @@ export function useZaps(
         const signedZapReceipt = await user.signer.signEvent(zapReceiptEvent);
 
         // Publish to relays using Nostrify
-        const { nostr } = await import('@nostrify/react');
-        const { useNostr } = nostr;
-        const nostrClient = useNostr();
-
         try {
-          await nostrClient.event(signedZapReceipt);
+          await nostr.event(signedZapReceipt);
           console.log(`[useZaps] Zap receipt published successfully: ${signedZapReceipt.id}`);
         } catch (publishError) {
           console.error(`[useZaps] Failed to publish zap receipt:`, publishError);
