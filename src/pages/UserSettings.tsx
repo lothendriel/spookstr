@@ -2,7 +2,8 @@ import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { HiddenUsersManager } from '@/components/HiddenUsersManager';
 import { HiddenHashtagsManager } from '@/components/HiddenHashtagsManager';
 import { PersonalizedHashtagsManager } from '@/components/PersonalizedHashtagsManager';
-import { Settings } from 'lucide-react';
+import { SettingsExportImport } from '@/components/SettingsExportImport';
+import { Settings, Database } from 'lucide-react';
 
 export default function UserSettings() {
   return (
@@ -17,7 +18,7 @@ export default function UserSettings() {
             <h1 className="text-3xl font-bold text-lime-400">User Settings</h1>
           </div>
           <p className="text-lime-500/70">
-            Manage your content preferences and privacy settings
+            Manage your content preferences, privacy settings, and export/import your data
           </p>
         </div>
 
@@ -31,6 +32,9 @@ export default function UserSettings() {
 
           {/* Hidden Hashtags Section */}
           <HiddenHashtagsManager />
+
+          {/* Export/Import Section */}
+          <SettingsExportImport />
         </div>
       </main>
     </div>
