@@ -36,12 +36,6 @@ export interface AppConfig {
   blossomServers?: string[];
   /** When enabled, includes NIP-89 client tag "conjured with Spookstr" in published events */
   includeClientTag?: boolean;
-  /** Personalized hashtags for feed customization */
-  personalizedHashtags?: string[];
-  /** List of hidden user pubkeys */
-  hiddenUsers?: string[];
-  /** List of hidden hashtags */
-  hiddenHashtags?: string[];
 }
 
 export interface AppContextType {

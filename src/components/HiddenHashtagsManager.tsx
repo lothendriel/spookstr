@@ -2,20 +2,20 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useUnifiedSettings } from '@/hooks/useUnifiedSettings';
+import { useHiddenHashtags } from '@/hooks/useHiddenHashtags';
 import { Eye, EyeOff, Trash2, Hash, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 
 export function HiddenHashtagsManager() {
-  const { hiddenHashtags, addHiddenHashtag: hideHashtag, removeHiddenHashtag: showHashtag, clearHiddenHashtags } = useUnifiedSettings();
+  const { hiddenHashtags, hideHashtag, showHashtag, clearHiddenHashtags } = useHiddenHashtags();
   const [newHashtagInput, setNewHashtagInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const handleAddHashtag = () => {
     const trimmed = newHashtagInput.trim();
-
+    
     if (!trimmed) {
       setError('Please enter a hashtag');
       return;

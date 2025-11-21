@@ -2,15 +2,9 @@ import { SpookstrHeader } from '@/components/SpookstrHeader';
 import { HiddenUsersManager } from '@/components/HiddenUsersManager';
 import { HiddenHashtagsManager } from '@/components/HiddenHashtagsManager';
 import { PersonalizedHashtagsManager } from '@/components/PersonalizedHashtagsManager';
-import { SettingsSyncManager } from '@/components/SettingsSyncManager';
-import { Settings, Cloud, Filter } from 'lucide-react';
-
-import { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Settings } from 'lucide-react';
 
 export default function UserSettings() {
-  const [activeTab, setActiveTab] = useState('sync');
-
   return (
     <div className="min-h-screen bg-background">
       <SpookstrHeader />
@@ -23,42 +17,21 @@ export default function UserSettings() {
             <h1 className="text-3xl font-bold text-lime-400">User Settings</h1>
           </div>
           <p className="text-lime-500/70">
-            Manage your app settings, content preferences, and sync options
+            Manage your content preferences and privacy settings
           </p>
         </div>
 
-        {/* Settings Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="sync" className="flex items-center gap-2">
-              <Cloud className="h-4 w-4" />
-              Sync & Backup
-            </TabsTrigger>
-            <TabsTrigger value="content" className="flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Content Filtering
-            </TabsTrigger>
-          </TabsList>
+        {/* Content Filtering */}
+        <div className="space-y-6">
+          {/* Personalized Hashtags Section */}
+          <PersonalizedHashtagsManager />
 
-          {/* Sync & Backup Tab */}
-          <TabsContent value="sync" className="space-y-6">
-            <SettingsSyncManager />
-          </TabsContent>
+          {/* Hidden Users Section */}
+          <HiddenUsersManager />
 
-          {/* Content Filtering Tab */}
-          <TabsContent value="content" className="space-y-6">
-            <div className="space-y-6">
-              {/* Personalized Hashtags Section */}
-              <PersonalizedHashtagsManager />
-
-              {/* Hidden Users Section */}
-              <HiddenUsersManager />
-
-              {/* Hidden Hashtags Section */}
-              <HiddenHashtagsManager />
-            </div>
-          </TabsContent>
-        </Tabs>
+          {/* Hidden Hashtags Section */}
+          <HiddenHashtagsManager />
+        </div>
       </main>
     </div>
   );
