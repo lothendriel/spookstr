@@ -2,25 +2,25 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { usePersonalizedHashtags } from '@/hooks/usePersonalizedHashtags';
+import { useUnifiedSettings } from '@/hooks/useUnifiedSettings';
 import { Plus, Trash2, Hash, AlertCircle, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 
 export function PersonalizedHashtagsManager() {
-  const { 
-    personalizedHashtags, 
-    addPersonalizedHashtag, 
-    removePersonalizedHashtag, 
-    clearPersonalizedHashtags 
-  } = usePersonalizedHashtags();
+  const {
+    personalizedHashtags,
+    addPersonalizedHashtag,
+    removePersonalizedHashtag,
+    clearPersonalizedHashtags
+  } = useUnifiedSettings();
   const [newHashtagInput, setNewHashtagInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const handleAddHashtag = () => {
     const trimmed = newHashtagInput.trim();
-    
+
     if (!trimmed) {
       setError('Please enter a hashtag');
       return;
@@ -74,7 +74,7 @@ export function PersonalizedHashtagsManager() {
           Personalized Hashtags
         </CardTitle>
         <CardDescription className="text-lime-500/70">
-          Add hashtags you're interested in to see more relevant content in your feed. 
+          Add hashtags you're interested in to see more relevant content in your feed.
           These preferences are stored privately in your browser.
         </CardDescription>
       </CardHeader>

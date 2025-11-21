@@ -45,15 +45,15 @@ export function exportSettings(config: AppConfig, filename?: string): void {
     const link = document.createElement('a');
     link.href = url;
     link.download = filename || `spookstr-settings-${new Date().toISOString().split('T')[0]}.json`;
-    
+
     // Append to body, click, and remove
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     // Clean up the URL object
     URL.revokeObjectURL(url);
-    
+
     console.log('Settings exported successfully');
   } catch (error) {
     console.error('Error exporting settings:', error);
@@ -67,15 +67,15 @@ export function exportSettings(config: AppConfig, filename?: string): void {
 export function importSettings(file: File): Promise<SettingsImportResult> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    
+
     reader.onload = (event) => {
       try {
         const jsonString = event.target?.result as string;
         const data = JSON.parse(jsonString);
-        
+
         // Validate the imported data structure
         const result = validateImportData(data);
-        
+
         if (result.success) {
           resolve(result);
         } else {
@@ -85,11 +85,11 @@ export function importSettings(file: File): Promise<SettingsImportResult> {
         reject(new Error('Invalid JSON file'));
       }
     };
-    
+
     reader.onerror = () => {
       reject(new Error('Failed to read file'));
     };
-    
+
     reader.readAsText(file);
   });
 }
@@ -171,7 +171,7 @@ function validateConfigStructure(config: any): boolean {
   }
 
   // Validate optional arrays if they exist
-  const optionalArrays = ['selectedRelays', 'searchRelays', 'blossomServers'];
+  const optionalArrays = ['selectedRelays', 'searchRelays', 'blossomServers', 'personalizedHashtags', 'hiddenUsers', 'hiddenHashtags'];
   for (const field of optionalArrays) {
     if (config[field] && !Array.isArray(config[field])) {
       return false;
@@ -186,6 +186,34 @@ function validateConfigStructure(config: any): boolean {
       }
       const validModes = ['read', 'write', 'both'];
       if (!validModes.includes(relay.mode)) {
+        return false;
+      }
+    }
+  }
+
+  // Validate personalized hashtags if they exist
+  if (config.personalizedHashtags && Array.isArray(config.personalizedHashtags)) {
+    for (const hashtag of config.personalizedHashtags) {
+      if (typeof hashtag !== 'string' || hashtag.trim() === '') {
+        return false;
+      }
+    }
+  }
+
+  // Validate hidden users if they exist
+  if (config.hiddenUsers && Array.isArray(config.hiddenUsers)) {
+    for (const pubkey of config.hiddenUsers) {
+      if (typeof pubkey !== 'string' || pubkey.length !== 64) {
+        // Basic validation for hex pubkey
+        return false;
+      }
+    }
+  }
+
+  // Validate hidden hashtags if they exist
+  if (config.hiddenHashtags && Array.isArray(config.hiddenHashtags)) {
+    for (const hashtag of config.hiddenHashtags) {
+      if (typeof hashtag !== 'string' || hashtag.trim() === '') {
         return false;
       }
     }

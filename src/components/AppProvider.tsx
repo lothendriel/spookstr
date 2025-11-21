@@ -97,6 +97,17 @@ export function AppProvider(props: AppProviderProps) {
           ];
         }
 
+        // Ensure user preferences have defaults
+        if (!parsed.personalizedHashtags) {
+          parsed.personalizedHashtags = [];
+        }
+        if (!parsed.hiddenUsers) {
+          parsed.hiddenUsers = [];
+        }
+        if (!parsed.hiddenHashtags) {
+          parsed.hiddenHashtags = [];
+        }
+
         return AppConfigSchema.parse(parsed);
       }
     }

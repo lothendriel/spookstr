@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { 
-  CheckCircle, 
-  AlertCircle, 
-  Download, 
+import {
+  CheckCircle,
+  AlertCircle,
+  Download,
   Settings,
   Eye,
   EyeOff
@@ -25,10 +25,10 @@ interface SettingsImportApplierProps {
   onCancel: () => void;
 }
 
-export function SettingsImportApplier({ 
-  importResult, 
-  onApply, 
-  onCancel 
+export function SettingsImportApplier({
+  importResult,
+  onApply,
+  onCancel
 }: SettingsImportApplierProps) {
   const { config: currentConfig } = useAppContext();
   const [showDetails, setShowDetails] = useState(false);
@@ -205,6 +205,12 @@ function getConfigDifferences(current: AppConfig, imported: AppConfig): ConfigDi
     if (a == null || b == null) return false;
     if (typeof a !== typeof b) return false;
     if (typeof a === 'object') {
+      if (Array.isArray(a) && Array.isArray(b)) {
+        // Special handling for arrays - compare sorted versions
+        const aSorted = [...a].sort();
+        const bSorted = [...b].sort();
+        return JSON.stringify(aSorted) === JSON.stringify(bSorted);
+      }
       return JSON.stringify(a) === JSON.stringify(b);
     }
     return String(a) === String(b);

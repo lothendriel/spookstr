@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useHiddenUsers } from '@/hooks/useHiddenUsers';
+import { useUnifiedSettings } from '@/hooks/useUnifiedSettings';
 import { useAuthor } from '@/hooks/useAuthor';
 import { getDisplayName } from '@/lib/getDisplayName';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -11,7 +11,7 @@ import { nip19 } from 'nostr-tools';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export function HiddenUsersManager() {
-  const { hiddenPubkeys, hideUser, showUser, clearHiddenUsers } = useHiddenUsers();
+  const { hiddenUsers: hiddenPubkeys, hideUser, showUser, clearHiddenUsers } = useUnifiedSettings();
   const [newUserInput, setNewUserInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
