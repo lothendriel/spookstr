@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Settings Export & Import** - Complete backup and restore functionality for user preferences
+- **Personalized Hashtags Export** - Export personalized feed preferences to JSON format
+- **Hidden Users Export** - Export hidden user list for backup and transfer
+- **Hidden Hashtags Export** - Export hidden hashtag preferences for content filtering
+- **Settings Import with Merge** - Import settings while preserving existing items and avoiding duplicates
+- **Settings Validation** - Comprehensive validation of imported data to ensure integrity
+- **Refresh Button** - Added refresh button to export/import card for manual updates
+- **Real-time Settings Sync** - Enhanced useLocalStorage hook with custom event system for instant updates
+- **Cross-Browser Settings Transfer** - Export settings from one browser and import to another
+- **Settings Summary Display** - Visual count display of current settings in each category
+- **Clear All Settings** - One-click clearing of all user preferences with confirmation
 - **NIP-58 Badge Support** - Added proper support for NIP-58 profile badges with fallback to demo badges when none found
 - **Infinite Scroll Implementation** - Added seamless infinite scrolling across all main content areas
 - **Main Feed Infinite Scroll** - Replaced manual pagination with automatic content loading as users scroll
@@ -53,6 +64,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CSS Positioning** - Absolute positioning with transform centers for precise tooltip placement
 
 ### Fixed
+- **Import Functionality** - Fixed issue where imported settings didn't appear in manager components
+- **Settings Synchronization** - Enhanced useLocalStorage hook to listen for custom localStorageUpdate events
+- **Cross-Component Updates** - Added custom event system to trigger state updates across all components
+- **Real-time Settings Display** - Fixed export/import counts not updating when items are added
+- **Hidden Users Validation** - Added comprehensive validation for npub and hex pubkey formats
+- **Import Data Integrity** - Enhanced validation to ensure imported pubkeys are valid 64-character hex strings
+- **Export Empty Data** - Fixed export functionality returning empty arrays despite having settings
+- **localStorage State Sync** - Resolved issue where components maintained stale state after localStorage updates
 - **NIP-58 Profile Badges** - Fixed badge loading and display issues with improved error handling
 - **Badge Definition Fetching** - Enhanced badge fetching with parallel processing and proper timeouts
 - **Badge UI** - Optimized badge display with minimal 1px spacing for compact presentation
