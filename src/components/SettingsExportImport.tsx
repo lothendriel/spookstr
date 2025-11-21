@@ -1,10 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { usePersonalizedHashtags } from '@/hooks/usePersonalizedHashtags';
-import { useHiddenUsers } from '@/hooks/useHiddenUsers';
-import { useHiddenHashtags } from '@/hooks/useHiddenHashtags';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Download, Upload, AlertCircle, CheckCircle, FileDown, FileUp, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -17,9 +15,9 @@ interface ExportedSettings {
 }
 
 export function SettingsExportImport() {
-  const { personalizedHashtags, clearPersonalizedHashtags } = usePersonalizedHashtags();
-  const { hiddenPubkeys, clearHiddenUsers } = useHiddenUsers();
-  const { hiddenHashtags, clearHiddenHashtags } = useHiddenHashtags();
+  const [personalizedHashtags] = useLocalStorage<string[]>('spookstr:personalized-hashtags', []);
+  const [hiddenUsers] = useLocalStorage<string[]>('spookstr:hidden-users', []);
+  const [hiddenHashtags] = useLocalStorage<string[]>('spookstr:hidden-hashtags', []);
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -143,18 +141,16 @@ export function SettingsExportImport() {
   };
 
   const importSettings = async (imported: ExportedSettings) => {
-    // Get current settings
-    const currentSettings = {
-      personalizedHashtags,
-      hiddenUsers: hiddenPubkeys,
-      hiddenHashtags
-    };
+    // Get current settings directly from localStorage
+    const currentPersonalizedHashtags = JSON.parse(localStorage.getItem('spookstr:personalized-hashtags') || '[]');
+    const currentHiddenUsers = JSON.parse(localStorage.getItem('spookstr:hidden-users') || '[]');
+    const currentHiddenHashtags = JSON.parse(localStorage.getItem('spookstr:hidden-hashtags') || '[]');
 
     // Merge personalized hashtags (avoid duplicates)
     const mergedPersonalizedHashtags = [
-      ...currentSettings.personalizedHashtags,
+      ...currentPersonalizedHashtags,
       ...imported.personalizedHashtags.filter(
-        hashtag => !currentSettings.personalizedHashtags.some(
+        hashtag => !currentPersonalizedHashtags.some(
           existing => existing.toLowerCase() === hashtag.toLowerCase()
         )
       )
@@ -162,17 +158,17 @@ export function SettingsExportImport() {
 
     // Merge hidden users (avoid duplicates)
     const mergedHiddenUsers = [
-      ...currentSettings.hiddenUsers,
+      ...currentHiddenUsers,
       ...imported.hiddenUsers.filter(
-        pubkey => !currentSettings.hiddenUsers.includes(pubkey)
+        pubkey => !currentHiddenUsers.includes(pubkey)
       )
     ];
 
     // Merge hidden hashtags (avoid duplicates)
     const mergedHiddenHashtags = [
-      ...currentSettings.hiddenHashtags,
+      ...currentHiddenHashtags,
       ...imported.hiddenHashtags.filter(
-        hashtag => !currentSettings.hiddenHashtags.some(
+        hashtag => !currentHiddenHashtags.some(
           existing => existing.toLowerCase() === hashtag.toLowerCase()
         )
       )
@@ -188,7 +184,7 @@ export function SettingsExportImport() {
   };
 
   const handleClearAll = () => {
-    const totalCount = personalizedHashtags.length + hiddenPubkeys.length + hiddenHashtags.length;
+    const totalCount = personalizedHashtags.length + hiddenUsers.length + hiddenHashtags.length;
 
     if (totalCount === 0) {
       setError('No settings to clear');
@@ -200,18 +196,20 @@ export function SettingsExportImport() {
       `Are you sure you want to clear ALL settings?\n\n` +
       `This will remove:\n` +
       `• ${personalizedHashtags.length} personalized hashtags\n` +
-      `• ${hiddenPubkeys.length} hidden users\n` +
+      `• ${hiddenUsers.length} hidden users\n` +
       `• ${hiddenHashtags.length} hidden hashtags\n\n` +
       `Total: ${totalCount} items\n\n` +
       `This action cannot be undone.`
     );
 
     if (confirmed) {
-      clearPersonalizedHashtags();
-      clearHiddenUsers();
-      clearHiddenHashtags();
+      localStorage.removeItem('spookstr:personalized-hashtags');
+      localStorage.removeItem('spookstr:hidden-users');
+      localStorage.removeItem('spookstr:hidden-hashtags');
       setSuccess('All settings cleared successfully!');
       setTimeout(() => setSuccess(null), 3000);
+      // Force a re-render by triggering a page reload
+      window.location.reload();
     }
   };
 
@@ -259,7 +257,7 @@ export function SettingsExportImport() {
             <div className="p-3 border border-lime-500/20 rounded-lg bg-black/20">
               <p className="text-xs text-lime-500/60 mb-1">Hidden Users</p>
               <Badge variant="outline" className="border-lime-500/30 text-lime-400">
-                {hiddenPubkeys.length}
+                {hiddenUsers.length}
               </Badge>
             </div>
             <div className="p-3 border border-lime-500/20 rounded-lg bg-black/20">
