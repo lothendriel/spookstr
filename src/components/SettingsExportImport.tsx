@@ -185,7 +185,22 @@ export function SettingsExportImport() {
     localStorage.setItem('spookstr:hidden-users', JSON.stringify(mergedHiddenUsers));
     localStorage.setItem('spookstr:hidden-hashtags', JSON.stringify(mergedHiddenHashtags));
 
-    // Trigger a page reload to reflect changes
+    // Force a storage event to trigger updates in useLocalStorage hooks
+    // This is needed because storage events only work across tabs/windows, not same-tab
+    const forceStorageUpdate = (key: string, value: any) => {
+      // Create a custom event that useLocalStorage can listen to
+      const event = new CustomEvent('localStorageUpdate', {
+        detail: { key, value }
+      });
+      window.dispatchEvent(event);
+    };
+
+    // Dispatch custom events for each key
+    forceStorageUpdate('spookstr:personalized-hashtags', mergedPersonalizedHashtags);
+    forceStorageUpdate('spookstr:hidden-users', mergedHiddenUsers);
+    forceStorageUpdate('spookstr:hidden-hashtags', mergedHiddenHashtags);
+
+    // Trigger a page reload to ensure all components update properly
     window.location.reload();
   };
 

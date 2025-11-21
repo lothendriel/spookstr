@@ -34,7 +34,7 @@ export function useLocalStorage<T>(
     }
   };
 
-  // Sync with localStorage changes from other tabs
+  // Sync with localStorage changes from other tabs and custom events
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === key && e.newValue !== null) {
@@ -46,8 +46,23 @@ export function useLocalStorage<T>(
       }
     };
 
+    const handleCustomStorageUpdate = (e: CustomEvent) => {
+      if (e.detail && e.detail.key === key) {
+        try {
+          setState(e.detail.value);
+        } catch (error) {
+          console.warn(`Failed to sync ${key} from custom event:`, error);
+        }
+      }
+    };
+
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('localStorageUpdate', handleCustomStorageUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('localStorageUpdate', handleCustomStorageUpdate as EventListener);
+    };
   }, [key, deserialize]);
 
   return [state, setValue] as const;
