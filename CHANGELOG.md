@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Community Moderation Persistence** - Fixed critical bug where approved/denied posts would reappear in the pending list
+  - Root cause: Aggressive localStorage cleanup was deleting moderation decisions immediately after saving them
+  - When a post was approved/denied, the system would:
+    1. Save decision to localStorage ✓
+    2. Publish approval/denial event to Nostr relays ✓
+    3. Trigger query refetch
+    4. Find the remote event that was just published
+    5. Immediately delete the localStorage entry ✗
+    6. Next query had no local decision → post reappeared as pending
+  - **Solution**: Removed all localStorage cleanup triggered by finding remote events
+  - localStorage now serves as a **permanent performance cache** (up to 30 days)
+  - Benefits:
+    - Posts stay in their moderated state permanently
+    - Instant UI updates without waiting for relay queries
+    - Better resilience if relays are slow or unavailable
+    - Improved performance by reducing relay dependency
+  - Only cleanup now is for very old decisions (30+ days) and corrupted data
+  - ModeratorPanel now uses `usePendingPosts` and `useApprovedPosts` hooks that properly check localStorage
+  - Fixed missing return statement in `useApprovedPosts` that prevented approved posts from displaying
+
 ### Added
 - **Settings Export & Import** - Complete backup and restore functionality for user preferences
 - **Personalized Hashtags Export** - Export personalized feed preferences to JSON format
