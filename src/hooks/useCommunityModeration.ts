@@ -148,33 +148,7 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
           if (eTag[1]) {
             approvedEventIds.add(eTag[1]);
             console.log(`✅ Remote approval added to set: ${eTag[1].slice(0, 8)}...`);
-
-            // Clean up local storage if we have ANY local decision for this event
-            // BUT only if the local decision is older than 10 seconds to avoid cleaning up fresh decisions
-            if (localModeratedEvents.has(eTag[1])) {
-              const localKey = `moderation-${communityId}-${eTag[1]}`;
-              const localAction = localModeratedEvents.get(eTag[1]);
-              const localValue = localStorage.getItem(localKey);
-
-              if (localValue) {
-                try {
-                  const localData = JSON.parse(localValue);
-                  const now = Math.floor(Date.now() / 1000);
-                  const age = now - (localData.timestamp || 0);
-
-                  // Only cleanup if the local decision is older than 10 seconds
-                  if (age > 10) {
-                    localStorage.removeItem(localKey);
-                    localModeratedEvents.delete(eTag[1]);
-                    console.log(`🧹 Cleaned up local ${localAction} for ${eTag[1].slice(0, 8)}... (remote approval found, age: ${age}s)`);
-                  } else {
-                    console.log(`⏰ Skipping cleanup of fresh local decision for ${eTag[1].slice(0, 8)}... (age: ${age}s)`);
-                  }
-                } catch (error) {
-                  console.error(`❌ Failed to cleanup local decision for ${eTag[1].slice(0, 8)}...:`, error);
-                }
-              }
-            }
+            // No cleanup - localStorage serves as a persistent cache for better performance
           }
         });
       });
@@ -196,33 +170,7 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
           if (eTag[1]) {
             deniedEventIds.add(eTag[1]);
             console.log(`❌ Remote denial added to set: ${eTag[1].slice(0, 8)}...`);
-
-            // Clean up local storage if we have ANY local decision for this event
-            // BUT only if the local decision is older than 10 seconds to avoid cleaning up fresh decisions
-            if (localModeratedEvents.has(eTag[1])) {
-              const localKey = `moderation-${communityId}-${eTag[1]}`;
-              const localAction = localModeratedEvents.get(eTag[1]);
-              const localValue = localStorage.getItem(localKey);
-
-              if (localValue) {
-                try {
-                  const localData = JSON.parse(localValue);
-                  const now = Math.floor(Date.now() / 1000);
-                  const age = now - (localData.timestamp || 0);
-
-                  // Only cleanup if the local decision is older than 10 seconds
-                  if (age > 10) {
-                    localStorage.removeItem(localKey);
-                    localModeratedEvents.delete(eTag[1]);
-                    console.log(`🧹 Cleaned up local ${localAction} for ${eTag[1].slice(0, 8)}... (remote denial found, age: ${age}s)`);
-                  } else {
-                    console.log(`⏰ Skipping cleanup of fresh local decision for ${eTag[1].slice(0, 8)}... (age: ${age}s)`);
-                  }
-                } catch (error) {
-                  console.error(`❌ Failed to cleanup local decision for ${eTag[1].slice(0, 8)}...:`, error);
-                }
-              }
-            }
+            // No cleanup - localStorage serves as a persistent cache for better performance
           }
         });
       });
@@ -233,8 +181,9 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
       console.log(`🎯 ${approvedEventIds.size} unique approved event IDs`);
       console.log(`🚫 ${deniedEventIds.size} unique denied event IDs`);
 
-      // Now clean up stale local decisions (older than 24 hours without remote confirmation)
-      const staleThreshold = Math.floor(Date.now() / 1000) - (24 * 60 * 60); // 24 hours ago
+      // Clean up very old local decisions (older than 30 days) to prevent localStorage bloat
+      // Keep decisions for 30 days to serve as a persistent cache for better performance
+      const staleThreshold = Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60); // 30 days ago
       let staleCount = 0;
 
       for (const [eventId, action] of Array.from(localModeratedEvents.entries())) {
@@ -245,23 +194,15 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
           if (value) {
             const data = JSON.parse(value);
 
-            // Check if the decision is stale
+            // Only clean up if the decision is very old (30+ days)
             if (data.timestamp && data.timestamp < staleThreshold) {
-              console.log(`⏰ Found stale local decision: ${action} for ${eventId.slice(0, 8)}... (${Math.floor((staleThreshold - data.timestamp) / 3600)} hours old)`);
+              const daysOld = Math.floor((Math.floor(Date.now() / 1000) - data.timestamp) / (24 * 60 * 60));
+              console.log(`⏰ Found very old local decision: ${action} for ${eventId.slice(0, 8)}... (${daysOld} days old)`);
 
-              // Check if we have a remote confirmation
-              const hasRemoteApproval = approvedEventIds.has(eventId);
-              const hasRemoteDenial = deniedEventIds.has(eventId);
-
-              if (!hasRemoteApproval && !hasRemoteDenial) {
-                // No remote confirmation found, clean up stale local decision
-                localStorage.removeItem(key);
-                localModeratedEvents.delete(eventId);
-                staleCount++;
-                console.log(`🧹 Cleaned up stale local decision: ${action} for ${eventId.slice(0, 8)}...`);
-              } else {
-                console.log(`✅ Remote confirmation found for ${eventId.slice(0, 8)}..., keeping local decision`);
-              }
+              localStorage.removeItem(key);
+              localModeratedEvents.delete(eventId);
+              staleCount++;
+              console.log(`🧹 Cleaned up very old local decision: ${action} for ${eventId.slice(0, 8)}...`);
             }
           }
         } catch (error) {
@@ -281,7 +222,7 @@ export function usePendingPosts(communityId?: string, communityAuthor?: string) 
       }
 
       if (staleCount > 0) {
-        console.log(`🧹 Cleaned up ${staleCount} stale local moderation decisions`);
+        console.log(`🧹 Cleaned up ${staleCount} very old local moderation decisions`);
       }
 
       // Filter out approved and denied posts - only show truly pending posts
@@ -364,9 +305,10 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
 
       console.log('🔍 Fetching approved posts for community:', communityTag);
 
-      // First, get local moderation decisions from localStorage with validation
+      // Get local moderation decisions from localStorage with validation
+      // Keep decisions for 30 days to serve as a persistent cache
       const localApprovedEvents = new Set<string>();
-      const staleThreshold = Math.floor(Date.now() / 1000) - (24 * 60 * 60); // 24 hours ago
+      const staleThreshold = Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60); // 30 days ago
 
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -378,10 +320,11 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
             // Validate the data structure
             if (data && typeof data === 'object' && data.eventId && data.action && ['approve', 'deny'].includes(data.action)) {
               if (data.action === 'approve') {
-                // Check if it's stale
+                // Only exclude if very old (30+ days)
                 if (data.timestamp && data.timestamp < staleThreshold) {
-                  console.log(`⏰ Found stale local approval: ${data.eventId.slice(0, 8)}... (${Math.floor((staleThreshold - data.timestamp) / 3600)} hours old)`);
-                  // Don't add to localApprovedEvents if stale
+                  const daysOld = Math.floor((Math.floor(Date.now() / 1000) - data.timestamp) / (24 * 60 * 60));
+                  console.log(`⏰ Found very old local approval: ${data.eventId.slice(0, 8)}... (${daysOld} days old)`);
+                  // Don't add to localApprovedEvents if very old
                 } else {
                   localApprovedEvents.add(data.eventId);
                   console.log(`📱 Found local approval: ${data.eventId.slice(0, 8)}...`);
@@ -447,32 +390,7 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
           if (eTag[1]) {
             approvedEventIds.add(eTag[1]);
             console.log(`✅ Remote approval added to set: ${eTag[1].slice(0, 8)}...`);
-
-            // Clean up local storage if we have ANY local decision for this event
-            // BUT only if the local decision is older than 10 seconds to avoid cleaning up fresh decisions
-            if (localApprovedEvents.has(eTag[1])) {
-              const localKey = `moderation-${communityId}-${eTag[1]}`;
-              const localValue = localStorage.getItem(localKey);
-
-              if (localValue) {
-                try {
-                  const localData = JSON.parse(localValue);
-                  const now = Math.floor(Date.now() / 1000);
-                  const age = now - (localData.timestamp || 0);
-
-                  // Only cleanup if the local decision is older than 10 seconds
-                  if (age > 10) {
-                    localStorage.removeItem(localKey);
-                    localApprovedEvents.delete(eTag[1]);
-                    console.log(`🧹 Cleaned up local approval for ${eTag[1].slice(0, 8)}... (remote approval found, age: ${age}s)`);
-                  } else {
-                    console.log(`⏰ Skipping cleanup of fresh local decision for ${eTag[1].slice(0, 8)}... (age: ${age}s)`);
-                  }
-                } catch (error) {
-                  console.error(`❌ Failed to cleanup local decision for ${eTag[1].slice(0, 8)}...:`, error);
-                }
-              }
-            }
+            // No cleanup - localStorage serves as a persistent cache for better performance
           }
         });
       });
@@ -486,32 +404,7 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
           if (eTag[1]) {
             deniedEventIds.add(eTag[1]);
             console.log(`❌ Remote denial added to set: ${eTag[1].slice(0, 8)}...`);
-
-            // Clean up local storage if we have ANY local decision for this event
-            // BUT only if the local decision is older than 10 seconds to avoid cleaning up fresh decisions
-            if (localApprovedEvents.has(eTag[1])) {
-              const localKey = `moderation-${communityId}-${eTag[1]}`;
-              const localValue = localStorage.getItem(localKey);
-
-              if (localValue) {
-                try {
-                  const localData = JSON.parse(localValue);
-                  const now = Math.floor(Date.now() / 1000);
-                  const age = now - (localData.timestamp || 0);
-
-                  // Only cleanup if the local decision is older than 10 seconds
-                  if (age > 10) {
-                    localStorage.removeItem(localKey);
-                    localApprovedEvents.delete(eTag[1]);
-                    console.log(`🧹 Cleaned up local approval for ${eTag[1].slice(0, 8)}... (remote denial found, age: ${age}s)`);
-                  } else {
-                    console.log(`⏰ Skipping cleanup of fresh local decision for ${eTag[1].slice(0, 8)}... (age: ${age}s)`);
-                  }
-                } catch (error) {
-                  console.error(`❌ Failed to cleanup local decision for ${eTag[1].slice(0, 8)}...:`, error);
-                }
-              }
-            }
+            // No cleanup - localStorage serves as a persistent cache for better performance
           }
         });
       });
@@ -617,9 +510,10 @@ export function useModerationActions(communityId?: string, communityAuthor?: str
 
       console.log('🔍 Fetching moderation actions for community:', communityTag);
 
-      // First, get local moderation decisions from localStorage with validation
+      // Get local moderation decisions from localStorage with validation
+      // Keep decisions for 30 days to serve as a persistent cache
       const localActions: ModerationAction[] = [];
-      const staleThreshold = Math.floor(Date.now() / 1000) - (24 * 60 * 60); // 24 hours ago
+      const staleThreshold = Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60); // 30 days ago
 
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -633,10 +527,11 @@ export function useModerationActions(communityId?: string, communityAuthor?: str
                 data.eventId && data.action && data.moderator && data.timestamp &&
                 ['approve', 'deny'].includes(data.action)) {
 
-              // Check if it's stale
+              // Only exclude if very old (30+ days)
               if (data.timestamp && data.timestamp < staleThreshold) {
-                console.log(`⏰ Found stale local action: ${data.action} by ${data.moderator.slice(0, 8)}... (${Math.floor((staleThreshold - data.timestamp) / 3600)} hours old)`);
-                // Don't include stale actions
+                const daysOld = Math.floor((Math.floor(Date.now() / 1000) - data.timestamp) / (24 * 60 * 60));
+                console.log(`⏰ Found very old local action: ${data.action} by ${data.moderator.slice(0, 8)}... (${daysOld} days old)`);
+                // Don't include very old actions
               } else {
                 // Create a synthetic event for local actions
                 const syntheticEvent = {
@@ -715,29 +610,7 @@ export function useModerationActions(communityId?: string, communityAuthor?: str
               timestamp: approval.created_at,
               moderator: approval.pubkey
             });
-
-            // Clean up local storage if we have a remote confirmation
-            // BUT only if the local decision is older than 10 seconds to avoid cleaning up fresh decisions
-            const localKey = `moderation-${communityId}-${eTag[1]}`;
-            const localValue = localStorage.getItem(localKey);
-
-            if (localValue) {
-              try {
-                const localData = JSON.parse(localValue);
-                const now = Math.floor(Date.now() / 1000);
-                const age = now - (localData.timestamp || 0);
-
-                // Only cleanup if the local decision is older than 10 seconds
-                if (age > 10) {
-                  localStorage.removeItem(localKey);
-                  console.log(`🧹 Cleaned up local action for ${eTag[1].slice(0, 8)}... (remote approval found, age: ${age}s)`);
-                } else {
-                  console.log(`⏰ Skipping cleanup of fresh local decision for ${eTag[1].slice(0, 8)}... (age: ${age}s)`);
-                }
-              } catch (error) {
-                console.error(`❌ Failed to cleanup local action for ${eTag[1].slice(0, 8)}...:`, error);
-              }
-            }
+            // No cleanup - localStorage serves as a persistent cache for better performance
           }
         });
       });
@@ -754,29 +627,7 @@ export function useModerationActions(communityId?: string, communityAuthor?: str
               timestamp: denial.created_at,
               moderator: denial.pubkey
             });
-
-            // Clean up local storage if we have a remote confirmation
-            // BUT only if the local decision is older than 10 seconds to avoid cleaning up fresh decisions
-            const localKey = `moderation-${communityId}-${eTag[1]}`;
-            const localValue = localStorage.getItem(localKey);
-
-            if (localValue) {
-              try {
-                const localData = JSON.parse(localValue);
-                const now = Math.floor(Date.now() / 1000);
-                const age = now - (localData.timestamp || 0);
-
-                // Only cleanup if the local decision is older than 10 seconds
-                if (age > 10) {
-                  localStorage.removeItem(localKey);
-                  console.log(`🧹 Cleaned up local action for ${eTag[1].slice(0, 8)}... (remote denial found, age: ${age}s)`);
-                } else {
-                  console.log(`⏰ Skipping cleanup of fresh local decision for ${eTag[1].slice(0, 8)}... (age: ${age}s)`);
-                }
-              } catch (error) {
-                console.error(`❌ Failed to cleanup local action for ${eTag[1].slice(0, 8)}...:`, error);
-              }
-            }
+            // No cleanup - localStorage serves as a persistent cache for better performance
           }
         });
       });
