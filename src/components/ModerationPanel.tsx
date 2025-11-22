@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +14,7 @@ import { useToast } from '@/hooks/useToast';
 import { usePendingPosts, useApprovedPosts, useModerationActions } from '@/hooks/useCommunityModeration';
 import { useModerationPersistence } from '@/hooks/useModerationPersistence';
 import { useCommunity, CommunityDefinition } from '@/hooks/useCommunity';
-import { Shield, CheckCircle, XCircle, MessageSquare, Clock, Eye } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, MessageSquare, Clock, Eye, ArrowLeft } from 'lucide-react';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NoteContent } from '@/components/NoteContent';
@@ -26,6 +27,7 @@ interface ModerationPanelProps {
 
 export function ModerationPanel({ communityId }: ModerationPanelProps) {
   // ALL HOOKS MUST BE AT THE TOP - NO CONDITIONAL HOOK CALLS
+  const navigate = useNavigate();
   const { data: community, isLoading: communityLoading } = useCommunity(communityId);
   const { user } = useCurrentUser();
   const queryClient = useQueryClient();
@@ -317,13 +319,23 @@ export function ModerationPanel({ communityId }: ModerationPanelProps) {
     <>
       <Card className="border-purple-500/20 bg-black/40 backdrop-blur-sm">
         <CardHeader>
-          <CardTitle className="text-purple-400 flex items-center space-x-2">
-            <Shield className="h-5 w-5" />
-            <span>Moderation Panel</span>
-            {!isOwner && (
-              <Badge variant="secondary">Moderator</Badge>
-            )}
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-purple-400 flex items-center space-x-2">
+              <Shield className="h-5 w-5" />
+              <span>Moderation Panel</span>
+              {!isOwner && (
+                <Badge variant="secondary">Moderator</Badge>
+              )}
+            </CardTitle>
+            <Button
+              onClick={() => navigate(`/community/${communityId}`)}
+              variant="outline"
+              className="border-purple-500/30 text-purple-400 hover:bg-purple-500/20"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Community
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent>
