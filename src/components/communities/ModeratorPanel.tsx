@@ -17,6 +17,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useCommunity } from '@/hooks/useCommunity';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useModerationPersistence } from '@/hooks/useModerationPersistence';
+import { usePendingPosts, useApprovedPosts } from '@/hooks/useCommunityModeration';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
 import {
   Shield,
@@ -69,7 +70,6 @@ export function ModeratorPanel() {
 
   const {
     getCommunities,
-    getCommunityTopics,
     moderatePost,
     verifyUser
   } = useNostrCommunities();
@@ -84,8 +84,11 @@ export function ModeratorPanel() {
   const { data: community, isLoading: communityLoading } = useCommunity(communityId);
   const { data: communities } = getCommunities;
 
-  // Get all topics (approved and pending) for moderation
-  const { data: allTopics, isLoading: topicsLoading } = getCommunityTopics(communityId, community?.author);
+  // Get pending and approved posts using the moderation hooks that respect localStorage
+  const { data: pendingPostsData, isLoading: pendingLoading } = usePendingPosts(communityId, community?.author);
+  const { data: approvedPostsData, isLoading: approvedLoading } = useApprovedPosts(communityId, community?.author);
+
+  const topicsLoading = pendingLoading || approvedLoading;
 
   // Mock moderation log - in real implementation this would come from Nostr events
   const [moderationLog, setModerationLog] = useState<ModerationAction[]>([]);
@@ -477,9 +480,30 @@ export function ModeratorPanel() {
     );
   }
 
-  // Separate topics into approved and pending
-  const pendingTopics = allTopics?.filter(topic => !topic.approved) || [];
-  const approvedTopics = allTopics?.filter(topic => topic.approved) || [];
+  // Convert the data from the hooks to the format expected by the components
+  const pendingTopics = (pendingPostsData || []).map(p => ({
+    id: p.event.id,
+    pubkey: p.event.pubkey,
+    content: p.event.content,
+    created_at: p.event.created_at,
+    tags: p.event.tags,
+    kind: p.event.kind,
+    title: p.event.tags.find(t => t[0] === 'title')?.[1],
+    approved: false,
+    approvalCount: 0
+  }));
+
+  const approvedTopics = (approvedPostsData || []).map(p => ({
+    id: p.event.id,
+    pubkey: p.event.pubkey,
+    content: p.event.content,
+    created_at: p.event.created_at,
+    tags: p.event.tags,
+    kind: p.event.kind,
+    title: p.event.tags.find(t => t[0] === 'title')?.[1],
+    approved: true,
+    approvalCount: 1
+  }));
 
   return (
     <div className="min-h-screen">

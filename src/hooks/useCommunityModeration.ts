@@ -538,6 +538,8 @@ export function useApprovedPosts(communityId?: string, communityAuthor?: string)
 
       console.log(`✅ Final result: ${approvedPosts.length} approved posts after filtering`);
       console.log(`✅ Approved post IDs:`, approvedPosts.map(p => p.event.id.slice(0, 8) + '...'));
+
+      return approvedPosts;
     },
     enabled: !!communityId && !!communityAuthor,
     refetchInterval: 30000, // Refetch every 30 seconds (reduced frequency)
