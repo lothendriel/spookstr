@@ -112,9 +112,18 @@ export function ModeratorPanel() {
   }, [community]);
 
   const handleApprovePost = async (topic: any) => {
-    if (!community || !user) return;
+    console.log('🎯 handleApprovePost called with topic:', topic.id.slice(0, 8) + '...');
+    console.log('🎯 Community:', community?.id);
+    console.log('🎯 User:', user?.pubkey.slice(0, 8) + '...');
+
+    if (!community || !user) {
+      console.log('❌ Missing community or user, aborting');
+      return;
+    }
 
     try {
+      console.log('✅ Starting moderation process...');
+
       // 1. Save decision to localStorage immediately for instant UI updates
       const decision = {
         action: 'approve' as const,
@@ -125,7 +134,11 @@ export function ModeratorPanel() {
         communityId: community.id,
         communityAuthor: community.author
       };
+
+      console.log('📝 Decision object created:', decision);
+      console.log('📝 Calling saveModerationDecision...');
       saveModerationDecision(decision);
+      console.log('✅ saveModerationDecision called');
 
       // 2. Apply optimistic updates to query cache
       applyOptimisticUpdates(decision, topic);
@@ -164,9 +177,18 @@ export function ModeratorPanel() {
   };
 
   const handleDenyPost = async (topic: any) => {
-    if (!community || !user) return;
+    console.log('🎯 handleDenyPost called with topic:', topic.id.slice(0, 8) + '...');
+    console.log('🎯 Community:', community?.id);
+    console.log('🎯 User:', user?.pubkey.slice(0, 8) + '...');
+
+    if (!community || !user) {
+      console.log('❌ Missing community or user, aborting');
+      return;
+    }
 
     try {
+      console.log('✅ Starting moderation process...');
+
       // 1. Save decision to localStorage immediately for instant UI updates
       const decision = {
         action: 'deny' as const,
@@ -177,7 +199,11 @@ export function ModeratorPanel() {
         communityId: community.id,
         communityAuthor: community.author
       };
+
+      console.log('📝 Decision object created:', decision);
+      console.log('📝 Calling saveModerationDecision...');
       saveModerationDecision(decision);
+      console.log('✅ saveModerationDecision called');
 
       // 2. Apply optimistic updates to query cache
       applyOptimisticUpdates(decision, topic);
