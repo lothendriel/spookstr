@@ -12,9 +12,8 @@ import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useToast } from '@/hooks/useToast';
 import { usePendingPosts, useApprovedPosts, useModerationActions } from '@/hooks/useCommunityModeration';
 import { useModerationPersistence } from '@/hooks/useModerationPersistence';
-import { debugModerationLocalStorage, debugLocalStorageAvailability, debugPendingPostsFiltering } from '@/hooks/useModerationDebug';
 import { useCommunity, CommunityDefinition } from '@/hooks/useCommunity';
-import { Shield, CheckCircle, XCircle, MessageSquare, Clock, Eye, Bug } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, MessageSquare, Clock, Eye } from 'lucide-react';
 import { NostrEvent } from '@nostrify/nostrify';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NoteContent } from '@/components/NoteContent';
@@ -328,49 +327,6 @@ export function ModerationPanel({ communityId }: ModerationPanelProps) {
         </CardHeader>
 
         <CardContent>
-          {/* Debug Section */}
-          <div className="mb-4 p-3 border border-yellow-500/30 rounded-lg bg-yellow-500/10">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-2">
-                <Bug className="h-4 w-4 text-yellow-500" />
-                <span className="text-sm font-medium text-yellow-600">Debug Tools</span>
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  onClick={() => debugLocalStorageAvailability()}
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/20"
-                >
-                  Test Storage
-                </Button>
-                <Button
-                  onClick={() => debugModerationLocalStorage()}
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/20"
-                >
-                  Show Moderation Data
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (pendingPosts) {
-                      debugPendingPostsFiltering(pendingPosts.map(p => p.event), community.id, community.author);
-                    }
-                  }}
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/20"
-                >
-                  Debug Filtering
-                </Button>
-              </div>
-            </div>
-            <p className="text-xs text-yellow-600/80">
-              Use these tools to debug moderation persistence issues. Check browser console for detailed output.
-            </p>
-          </div>
-
           <Tabs defaultValue="pending" className="w-full">
             <TabsList className="grid w-full grid-cols-2 bg-black/40">
               <TabsTrigger value="pending" className="data-[state=active]:bg-purple-500/20">
