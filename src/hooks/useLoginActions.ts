@@ -49,23 +49,49 @@ export function useLoginActions() {
         // Parse the URI to extract relay information for debugging
         const url = new URL(uri);
         const pubkey = url.hostname || url.pathname.replace('//', '');
-        const relay = url.searchParams.get('relay');
+        const relays = url.searchParams.getAll('relay');
         const secret = url.searchParams.get('secret');
 
         console.log('👤 Remote signer pubkey:', pubkey?.substring(0, 16) + '...');
-        console.log('🔗 Bunker relay:', relay);
+        console.log('🔗 Bunker relays:', relays);
         console.log('🔑 Has secret:', !!secret);
 
+        // Check if this looks like a self-connection attempt
+        if (pubkey === '0155373ac79b7ffb0f586c3e68396f9e82d46f7afe7016d46ed9ca46ba3e1bed') {
+          console.warn('⚠️ The remote signer pubkey matches your own pubkey. This might indicate a configuration issue.');
+          console.warn('⚠️ Bunker URIs typically contain the pubkey of the remote signer service, not your own pubkey.');
+          console.warn('⚠️ Please verify you have the correct bunker URI from your bunker service.');
+        }
+
         // Test relay connectivity first
-        if (relay) {
+        if (relays.length > 0) {
           console.log('🧪 Testing relay connectivity...');
           onStatus?.('Testing relay connectivity...');
-          const isReachable = await testRelayConnection(relay);
-          if (!isReachable) {
-            console.error('❌ Relay is not reachable:', relay);
-            throw new Error(`Cannot connect to relay: ${relay}. The relay may be down or blocked.`);
+
+          // Test each relay
+          let anyReachable = false;
+          for (const relayUrl of relays) {
+            console.log(`🔍 Testing relay: ${relayUrl}`);
+            const isReachable = await testRelayConnection(relayUrl);
+            if (isReachable) {
+              console.log('✅ Relay is reachable:', relayUrl);
+              anyReachable = true;
+
+              // Special handling for nsec.app
+              if (relayUrl.includes('nsec.app')) {
+                console.log('ℹ️ Detected nsec.app relay - this is a known bunker service');
+                onStatus?.('Connected to nsec.app bunker service...');
+              }
+            } else {
+              console.error('❌ Relay is not reachable:', relayUrl);
+            }
           }
-          console.log('✅ Relay is reachable');
+
+          if (!anyReachable) {
+            console.error('❌ No relays are reachable:', relays);
+            throw new Error(`Cannot connect to any relays: ${relays.join(', ')}. The relays may be down or blocked.`);
+          }
+          console.log('✅ At least one relay is reachable');
           onStatus?.('Relay connected successfully');
         }
 
@@ -83,8 +109,28 @@ export function useLoginActions() {
         // Wrap the bunker connection to catch auth challenges immediately
         const wrappedLoginPromise = (async () => {
           try {
-            return await NLogin.fromBunker(uri, nostr);
+            console.log('📡 Calling NLogin.fromBunker with:', {
+              uri: uri.substring(0, 60) + '...',
+              nostrAvailable: !!nostr
+            });
+
+            const result = await NLogin.fromBunker(uri, nostr);
+
+            console.log('✅ NLogin.fromBunker succeeded:', {
+              hasId: !!result?.id,
+              hasPubkey: !!result?.pubkey,
+              hasSigner: !!result?.signer
+            });
+
+            return result;
           } catch (err) {
+            console.error('❌ NLogin.fromBunker failed:', {
+              error: err,
+              message: err instanceof Error ? err.message : String(err),
+              stack: err instanceof Error ? err.stack : undefined,
+              isAuthChallenge: err instanceof Error && err.message.startsWith('https://')
+            });
+
             // Check if this is an auth challenge (URL thrown as error)
             if (err instanceof Error && err.message.startsWith('https://')) {
               console.log('🔐 Auth challenge detected immediately!');
@@ -208,14 +254,46 @@ export function useLoginActions() {
         // Provide more user-friendly error messages
         if (error instanceof Error) {
           const errorMsg = error.message.toLowerCase();
-          console.log('🔍 Error analysis:', { message: error.message, lower: errorMsg });
+          console.log('🔍 Error analysis:', {
+            message: error.message,
+            lower: errorMsg,
+            stack: error.stack
+          });
+
+          // Log the full error for debugging
+          console.error('🚨 Full bunker error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+            uri: uri.substring(0, 50) + '...'
+          });
 
           if (errorMsg.includes('timeout')) {
             throw new Error('Connection timeout. The bunker relay may be unreachable or not responding.');
           } else if (errorMsg.includes('relay') || errorMsg.includes('websocket')) {
             throw new Error('Failed to connect to the bunker relay. Please verify the relay URL is correct and accessible.');
-          } else if (errorMsg.includes('secret') || errorMsg.includes('auth')) {
-            throw new Error('Authentication failed. Please check your bunker secret is correct.');
+          } else if (errorMsg.includes('secret')) {
+            // More specific secret-related errors
+            if (errorMsg.includes('invalid') || errorMsg.includes('wrong') || errorMsg.includes('incorrect')) {
+              throw new Error('The secret in your bunker URI is incorrect. Please check your bunker app and copy the exact URI.');
+            } else if (errorMsg.includes('expired') || errorMsg.includes('expir')) {
+              throw new Error('The secret in your bunker URI has expired. Please generate a new connection URI from your bunker app.');
+            } else if (errorMsg.includes('missing') || errorMsg.includes('required')) {
+              throw new Error('A secret is required for this bunker. Please include the secret parameter in your bunker URI.');
+            } else {
+              throw new Error('Authentication failed. This could be due to an incorrect secret, expired secret, or the bunker service rejecting the connection.');
+            }
+          } else if (errorMsg.includes('auth')) {
+            // More specific authentication errors
+            if (errorMsg.includes('denied') || errorMsg.includes('reject')) {
+              throw new Error('Authentication was denied by the bunker service. The connection may have been rejected.');
+            } else if (errorMsg.includes('pending') || errorMsg.includes('waiting')) {
+              throw new Error('Authentication is still pending. Please complete the authentication in your bunker app and try again.');
+            } else if (errorMsg.includes('failed') || errorMsg.includes('error')) {
+              throw new Error('Authentication process failed. This could be due to a server error or configuration issue with the bunker service.');
+            } else {
+              throw new Error('Authentication failed. Please check your bunker app and ensure the connection is properly configured.');
+            }
           } else if (errorMsg.includes('pubkey') || errorMsg.includes('invalid key')) {
             throw new Error('Invalid pubkey or key in bunker URI. Please check the URI is correct and the pubkey is 64 hexadecimal characters.');
           } else if (errorMsg.includes('popup')) {
@@ -224,6 +302,10 @@ export function useLoginActions() {
             throw new Error('Bunker service not found. The relay may be down or the URI may be incorrect.');
           } else if (errorMsg.includes('connection') || errorMsg.includes('connect')) {
             throw new Error('Connection failed. Please check your internet connection and the bunker relay URL.');
+          } else if (errorMsg.includes('unauthorized') || errorMsg.includes('forbidden')) {
+            throw new Error('Access denied. The bunker service is not allowing connections from this client.');
+          } else if (errorMsg.includes('server') || errorMsg.includes('internal')) {
+            throw new Error('Server error occurred. The bunker service may be experiencing technical difficulties.');
           } else {
             // Return the original error message if it doesn't match known patterns
             console.log('📝 Unknown error pattern, returning original message');
