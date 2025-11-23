@@ -138,31 +138,48 @@ export function useLoginActions() {
           console.log('📝 Request ID:', reqId);
 
           // Wait for the user to approve and for the bunker to process it
-          console.log('⏰ Waiting 5 seconds for authorization approval and processing...');
-          onStatus?.('Waiting for authorization approval...');
-          await new Promise(resolve => setTimeout(resolve, 5000));
+          console.log('⏰ Waiting 15 seconds for authorization approval and processing...');
+          onStatus?.('Waiting for authorization approval... (15s)');
+          await new Promise(resolve => setTimeout(resolve, 15000));
 
           console.log('🔄 Retrying bunker connection after auth approval...');
           onStatus?.('Completing connection after authorization...');
 
-          // Retry the connection with a much longer timeout (90 seconds)
+          // Retry the connection with a much longer timeout and multiple attempts
           const retryPromise = (async () => {
-            try {
-              return await NLogin.fromBunker(uri, nostr);
-            } catch (retryErr) {
-              // If we get another auth URL on retry, it means the first auth didn't work
-              if (retryErr instanceof Error && retryErr.message.startsWith('https://')) {
-                throw new Error('Authorization was not completed. Please try again and approve the connection in the popup.');
+            const maxRetries = 6; // Try up to 6 times
+            const retryDelay = 10000; // 10 seconds between retries
+
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+              try {
+                console.log(`🔄 Retry attempt ${attempt}/${maxRetries}...`);
+                onStatus?.(`Connecting... (attempt ${attempt}/${maxRetries})`);
+                return await NLogin.fromBunker(uri, nostr);
+              } catch (retryErr) {
+                // If we get another auth URL on retry, it means auth isn't complete yet
+                if (retryErr instanceof Error && retryErr.message.startsWith('https://')) {
+                  if (attempt < maxRetries) {
+                    console.log(`⏳ Auth not complete yet, waiting ${retryDelay/1000}s before retry ${attempt + 1}...`);
+                    onStatus?.(`Authorization pending... retrying in ${retryDelay/1000}s`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                    continue; // Try again
+                  } else {
+                    console.error('❌ Max retries reached, authorization still not complete');
+                    throw new Error('Authorization was not completed. Please try again and make sure to approve the connection in the popup window.');
+                  }
+                }
+                throw retryErr; // Re-throw non-auth errors immediately
               }
-              throw retryErr;
             }
+
+            throw new Error('Max retry attempts reached without success.');
           })();
 
           const retryTimeout = new Promise((_, reject) => {
             setTimeout(() => {
-              console.error('⏱️ Authorization timeout after 60s');
+              console.error('⏱️ Authorization timeout after 120s');
               reject(new Error('Authorization timeout. The bunker did not respond after approval. Please try again.'));
-            }, 60000); // 60 second timeout for auth response
+            }, 120000); // 120 second timeout for auth response (increased)
           });
 
           try {
