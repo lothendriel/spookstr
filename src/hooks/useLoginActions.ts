@@ -29,6 +29,55 @@ async function testRelayConnection(relayUrl: string): Promise<boolean> {
   });
 }
 
+// Helper function to diagnose nsec.app specific issues
+function diagnoseNsecAppIssue(uri: string, error: Error): string {
+  try {
+    const url = new URL(uri);
+    const pubkey = url.hostname;
+    const relays = url.searchParams.getAll('relay');
+    const secret = url.searchParams.get('secret');
+
+    console.log('🔍 nsec.app diagnosis:', {
+      pubkey: pubkey?.substring(0, 16) + '...',
+      relays,
+      hasSecret: !!secret,
+      secretLength: secret?.length,
+      error: error.message
+    });
+
+    // Check for common nsec.app issues
+    if (!secret) {
+      return 'nsec.app requires a secret parameter in the URI. Please generate a new connection URI from nsec.app.';
+    }
+
+    if (secret.length < 8) {
+      return 'The secret in your nsec.app URI appears to be too short. Please generate a new connection URI.';
+    }
+
+    if (!relays.some(relay => relay.includes('nsec.app'))) {
+      return 'The URI does not contain an nsec.app relay. Please use the exact URI provided by nsec.app.';
+    }
+
+    // Check if error message suggests specific issues
+    const errorMsg = error.message.toLowerCase();
+    if (errorMsg.includes('invalid') || errorMsg.includes('wrong') || errorMsg.includes('incorrect')) {
+      return 'nsec.app is reporting an invalid secret. This could mean:\n1. The secret has expired\n2. You need to generate a new connection URI\n3. There\'s a configuration issue with your nsec.app account';
+    }
+
+    if (errorMsg.includes('not found') || errorMsg.includes('404')) {
+      return 'nsec.app service endpoint not found. The service might be temporarily down or the URL has changed.';
+    }
+
+    if (errorMsg.includes('timeout')) {
+      return 'Connection to nsec.app timed out. The service might be experiencing high load or temporary issues.';
+    }
+
+    return 'nsec.app authentication failed. Please try generating a new connection URI from nsec.app and ensure you\'re logged in.';
+  } catch (e) {
+    return 'Unable to diagnose nsec.app issue. Please check the URI format and try again.';
+  }
+}
+
 export function useLoginActions() {
   const { nostr } = useNostr();
   const { logins, addLogin, removeLogin } = useNostrLogin();
@@ -63,6 +112,33 @@ export function useLoginActions() {
           console.warn('⚠️ Please verify you have the correct bunker URI from your bunker service.');
         }
 
+        // Check for nsec.app specific issues
+        if (relays.some(relay => relay.includes('nsec.app'))) {
+          console.log('📱 nsec.app URI analysis:');
+
+          if (!secret) {
+            console.warn('⚠️ nsec.app URI missing secret parameter');
+            console.warn('⚠️ nsec.app requires a secret for authentication');
+          } else {
+            console.log('🔑 Secret info:', {
+              length: secret.length,
+              preview: secret.substring(0, 4) + '...',
+              looksValid: secret.length >= 8
+            });
+
+            if (secret.length < 8) {
+              console.warn('⚠️ Secret appears too short for nsec.app');
+            }
+          }
+
+          // Check if this might be an expired/used secret
+          console.log('ℹ️ nsec.app troubleshooting tips:');
+          console.log('  1. Secrets are often single-use and expire after first use');
+          console.log('  2. Generate a fresh URI each time you want to connect');
+          console.log('  3. Make sure you\'re logged into nsec.app');
+          console.log('  4. Copy the URI immediately after generating it');
+        }
+
         // Test relay connectivity first
         if (relays.length > 0) {
           console.log('🧪 Testing relay connectivity...');
@@ -80,6 +156,12 @@ export function useLoginActions() {
               // Special handling for nsec.app
               if (relayUrl.includes('nsec.app')) {
                 console.log('ℹ️ Detected nsec.app relay - this is a known bunker service');
+                console.log('📱 nsec.app connection info:', {
+                  relay: relayUrl,
+                  hasSecret: !!secret,
+                  secretLength: secret ? secret.length : 0,
+                  secretPreview: secret ? secret.substring(0, 4) + '...' : 'none'
+                });
                 onStatus?.('Connected to nsec.app bunker service...');
               }
             } else {
@@ -273,15 +355,26 @@ export function useLoginActions() {
           } else if (errorMsg.includes('relay') || errorMsg.includes('websocket')) {
             throw new Error('Failed to connect to the bunker relay. Please verify the relay URL is correct and accessible.');
           } else if (errorMsg.includes('secret')) {
-            // More specific secret-related errors
-            if (errorMsg.includes('invalid') || errorMsg.includes('wrong') || errorMsg.includes('incorrect')) {
-              throw new Error('The secret in your bunker URI is incorrect. Please check your bunker app and copy the exact URI.');
-            } else if (errorMsg.includes('expired') || errorMsg.includes('expir')) {
-              throw new Error('The secret in your bunker URI has expired. Please generate a new connection URI from your bunker app.');
-            } else if (errorMsg.includes('missing') || errorMsg.includes('required')) {
-              throw new Error('A secret is required for this bunker. Please include the secret parameter in your bunker URI.');
+            // More specific secret-related errors - but be more careful about categorization
+            console.log('🔑 Secret-related error detected, analyzing...');
+
+            // For nsec.app, many errors get misclassified as secret issues
+            if (relays.some(relay => relay.includes('nsec.app'))) {
+              console.log('📱 nsec.app detected - running diagnostics...');
+              const diagnosis = diagnoseNsecAppIssue(uri, error);
+              console.log('📋 nsec.app diagnosis result:', diagnosis);
+              throw new Error(diagnosis);
             } else {
-              throw new Error('Authentication failed. This could be due to an incorrect secret, expired secret, or the bunker service rejecting the connection.');
+              // For other bunker services, use the original logic
+              if (errorMsg.includes('invalid') || errorMsg.includes('wrong') || errorMsg.includes('incorrect')) {
+                throw new Error('The secret in your bunker URI is incorrect. Please check your bunker app and copy the exact URI.');
+              } else if (errorMsg.includes('expired') || errorMsg.includes('expir')) {
+                throw new Error('The secret in your bunker URI has expired. Please generate a new connection URI from your bunker app.');
+              } else if (errorMsg.includes('missing') || errorMsg.includes('required')) {
+                throw new Error('A secret is required for this bunker. Please include the secret parameter in your bunker URI.');
+              } else {
+                throw new Error('Authentication failed. This could be due to an incorrect secret, expired secret, or the bunker service rejecting the connection.');
+              }
             }
           } else if (errorMsg.includes('auth')) {
             // More specific authentication errors
