@@ -358,8 +358,17 @@ export function useLoginActions() {
             // More specific secret-related errors - but be more careful about categorization
             console.log('🔑 Secret-related error detected, analyzing...');
 
+            // Re-parse the URI to get relays for error handling
+            let parsedRelays: string[] = [];
+            try {
+              const parsedUrl = new URL(uri);
+              parsedRelays = parsedUrl.searchParams.getAll('relay');
+            } catch (e) {
+              console.warn('⚠️ Could not parse URI for error handling:', e);
+            }
+
             // For nsec.app, many errors get misclassified as secret issues
-            if (relays.some(relay => relay.includes('nsec.app'))) {
+            if (parsedRelays.some(relay => relay.includes('nsec.app'))) {
               console.log('📱 nsec.app detected - running diagnostics...');
               const diagnosis = diagnoseNsecAppIssue(uri, error);
               console.log('📋 nsec.app diagnosis result:', diagnosis);
