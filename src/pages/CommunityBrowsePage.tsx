@@ -12,8 +12,9 @@ import { genUserName } from '@/lib/genUserName';
 import { useCommunity, CommunityDefinition } from '@/hooks/useCommunity';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useToast } from '@/hooks/useToast';
+import { useCommunityPostCount } from '@/hooks/useCommunityPostCount';
 import { SpookstrHeader } from '@/components/SpookstrHeader';
-import { Users, Search, Plus, Ghost, Zap } from 'lucide-react';
+import { Users, Search, Plus, Ghost, Zap, MessageSquare } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const PARANORMAL_COMMUNITIES = [
@@ -245,6 +246,10 @@ interface CommunityCardProps {
 function CommunityCard({ community, onClick }: CommunityCardProps) {
   const author = useAuthor(community.author);
   const metadata = author.data?.metadata;
+  const { data: postCount, isLoading: isLoadingPostCount } = useCommunityPostCount({
+    communityId: community.id,
+    communityAuthor: community.author
+  });
 
   const creatorName = metadata?.name || (community.author ? genUserName(community.author) : 'Unknown Creator');
   const creatorImage = metadata?.picture;
@@ -317,6 +322,14 @@ function CommunityCard({ community, onClick }: CommunityCardProps) {
             <Badge variant="secondary" className="text-xs">
               {community.moderators?.length || 0} mods
             </Badge>
+            {community.exists && (
+              <Badge variant="outline" className="border-blue-500/50 text-blue-400 flex items-center space-x-1">
+                <MessageSquare className="h-3 w-3" />
+                <span>
+                  {isLoadingPostCount ? '...' : postCount || 0}
+                </span>
+              </Badge>
+            )}
           </div>
         </div>
       </CardContent>
