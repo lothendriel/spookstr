@@ -30,20 +30,47 @@ const validateBunkerUri = (uri: string) => {
   try {
     // Parse the bunker URI to validate its structure
     const url = new URL(uri);
-    const pubkey = url.hostname || url.pathname.replace('//', '');
-    const relay = url.searchParams.get('relay');
 
-    // Bunker URI must have a pubkey (64 hex chars) and at least one relay
-    if (!pubkey || pubkey.length !== 64 || !/^[0-9a-f]{64}$/.test(pubkey)) {
+    // Extract pubkey - it should be the hostname for bunker:// URIs
+    const pubkey = url.hostname;
+
+    // Get all relay parameters
+    const relays = url.searchParams.getAll('relay');
+
+    console.log('🔍 Bunker URI validation:', {
+      uri: uri.substring(0, 50) + '...',
+      pubkey: pubkey?.substring(0, 16) + '...',
+      pubkeyLength: pubkey?.length,
+      relays: relays,
+      secret: url.searchParams.has('secret')
+    });
+
+    // Bunker URI must have a pubkey (64 hex chars)
+    if (!pubkey || pubkey.length !== 64 || !/^[0-9a-fA-F]{64}$/.test(pubkey)) {
+      console.error('❌ Invalid pubkey:', { pubkey, length: pubkey?.length });
       return false;
     }
 
-    if (!relay || !relay.startsWith('wss://')) {
+    // Must have at least one relay
+    if (relays.length === 0) {
+      console.error('❌ No relays found');
       return false;
     }
 
+    // Check that at least one relay is valid (starts with wss:// or ws://)
+    const validRelay = relays.some(relay =>
+      relay && (relay.startsWith('wss://') || relay.startsWith('ws://'))
+    );
+
+    if (!validRelay) {
+      console.error('❌ No valid relays found:', relays);
+      return false;
+    }
+
+    console.log('✅ Bunker URI validation passed');
     return true;
-  } catch {
+  } catch (error) {
+    console.error('❌ Bunker URI parsing error:', error);
     return false;
   }
 };
@@ -144,7 +171,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
     if (!validateBunkerUri(bunkerUri)) {
       setErrors(prev => ({
         ...prev,
-        bunker: 'Invalid bunker URI format. Must be: bunker://<pubkey>?relay=wss://relay-url&secret=<optional-secret>'
+        bunker: 'Invalid bunker URI format. Expected: bunker://<64-char-hex-pubkey>?relay=wss://relay-url'
       }));
       return;
     }

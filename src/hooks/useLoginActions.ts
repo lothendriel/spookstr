@@ -208,6 +208,7 @@ export function useLoginActions() {
         // Provide more user-friendly error messages
         if (error instanceof Error) {
           const errorMsg = error.message.toLowerCase();
+          console.log('🔍 Error analysis:', { message: error.message, lower: errorMsg });
 
           if (errorMsg.includes('timeout')) {
             throw new Error('Connection timeout. The bunker relay may be unreachable or not responding.');
@@ -215,12 +216,17 @@ export function useLoginActions() {
             throw new Error('Failed to connect to the bunker relay. Please verify the relay URL is correct and accessible.');
           } else if (errorMsg.includes('secret') || errorMsg.includes('auth')) {
             throw new Error('Authentication failed. Please check your bunker secret is correct.');
-          } else if (errorMsg.includes('pubkey') || errorMsg.includes('invalid')) {
-            throw new Error('Invalid bunker URI. Please check the pubkey and parameters.');
+          } else if (errorMsg.includes('pubkey') || errorMsg.includes('invalid key')) {
+            throw new Error('Invalid pubkey or key in bunker URI. Please check the URI is correct and the pubkey is 64 hexadecimal characters.');
           } else if (errorMsg.includes('popup')) {
             throw new Error('Please enable popups for this site to complete bunker authentication.');
+          } else if (errorMsg.includes('not found') || errorMsg.includes('404')) {
+            throw new Error('Bunker service not found. The relay may be down or the URI may be incorrect.');
+          } else if (errorMsg.includes('connection') || errorMsg.includes('connect')) {
+            throw new Error('Connection failed. Please check your internet connection and the bunker relay URL.');
           } else {
             // Return the original error message if it doesn't match known patterns
+            console.log('📝 Unknown error pattern, returning original message');
             throw new Error(`Bunker connection failed: ${error.message}`);
           }
         }
