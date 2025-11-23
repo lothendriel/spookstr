@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Community Post Count Display** - Added post count badges to community cards on the browse page
+- **Post Count Hook** - Created `useCommunityPostCount` hook for efficient main post counting
+- **Community Activity Metrics** - Users can now see the number of main posts in each community before joining
 - **Moderation Panel Navigation** - Added "Back to Community" button for easy navigation from moderation panel back to community
 - **Clean Moderation Interface** - Removed debug tools area from community moderation panel for cleaner production interface
 
