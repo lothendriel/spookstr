@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { MapPin, Clock, User, ExternalLink, X, Image as ImageIcon } from 'lucide-react';
 import { ParanormalLocation } from '@/types/paranormal';
 import { useState } from 'react';
@@ -30,6 +31,36 @@ export default function LocationDetails({ location, onClose }: LocationDetailsPr
 
   const formatPubkey = (pubkey: string) => {
     return `${pubkey.substring(0, 8)}...${pubkey.substring(pubkey.length - 8)}`;
+  };
+
+  const getCategoryEmoji = (category?: string) => {
+    const emojiMap: Record<string, string> = {
+      ghost: '👻',
+      haunting: '🏚️',
+      poltergeist: '💥',
+      ufo: '🛸',
+      cryptid: '🦎',
+      orb: '⭕',
+      evp: '🎙️',
+      shadow: '🌑',
+      other: '❓',
+    };
+    return category ? emojiMap[category] || '❓' : '👻';
+  };
+
+  const getCategoryLabel = (category?: string) => {
+    const labelMap: Record<string, string> = {
+      ghost: 'Ghost / Apparition',
+      haunting: 'Haunting',
+      poltergeist: 'Poltergeist',
+      ufo: 'UFO / UAP',
+      cryptid: 'Cryptid',
+      orb: 'Orbs / Light Phenomena',
+      evp: 'EVP / Audio Phenomena',
+      shadow: 'Shadow Figure',
+      other: 'Other',
+    };
+    return category ? labelMap[category] || 'Paranormal' : 'Paranormal';
   };
 
   return (
@@ -101,19 +132,31 @@ export default function LocationDetails({ location, onClose }: LocationDetailsPr
       <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="bg-gray-800 border-gray-700 text-gray-100 max-w-2xl max-h-[90vh] overflow-y-auto z-[99999] shadow-2xl border-2 border-lime-500/50">
         <DialogHeader className="border-b border-gray-700 pb-4">
-          <DialogTitle className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-lime-400">
-              <MapPin className="w-5 h-5" />
-              <span className="text-xl font-bold">{location.title}</span>
+          <DialogTitle className="space-y-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 text-lime-400">
+                <MapPin className="w-5 h-5" />
+                <span className="text-xl font-bold">{location.title}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="text-gray-400 hover:text-white hover:bg-gray-700"
+              >
+                <X className="w-4 h-4" />
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="text-gray-400 hover:text-white hover:bg-gray-700"
-            >
-              <X className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="secondary" className="bg-lime-500/20 text-lime-300 border-lime-500/50">
+                {getCategoryEmoji(location.category)} {getCategoryLabel(location.category)}
+              </Badge>
+              {location.locationName && (
+                <span className="text-sm text-gray-400">
+                  📍 {location.locationName}
+                </span>
+              )}
+            </div>
           </DialogTitle>
         </DialogHeader>
 

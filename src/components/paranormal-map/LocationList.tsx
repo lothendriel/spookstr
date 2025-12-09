@@ -1,4 +1,5 @@
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { MapPin, Clock, User, Image as ImageIcon } from 'lucide-react';
 import { ParanormalLocation } from '@/types/paranormal';
 
@@ -21,6 +22,36 @@ export default function LocationList({ locations, onLocationSelect }: LocationLi
     return text.substring(0, maxLength) + '...';
   };
 
+  const getCategoryEmoji = (category?: string) => {
+    const emojiMap: Record<string, string> = {
+      ghost: '👻',
+      haunting: '🏚️',
+      poltergeist: '💥',
+      ufo: '🛸',
+      cryptid: '🦎',
+      orb: '⭕',
+      evp: '🎙️',
+      shadow: '🌑',
+      other: '❓',
+    };
+    return category ? emojiMap[category] || '❓' : '👻';
+  };
+
+  const getCategoryLabel = (category?: string) => {
+    const labelMap: Record<string, string> = {
+      ghost: 'Ghost',
+      haunting: 'Haunting',
+      poltergeist: 'Poltergeist',
+      ufo: 'UFO',
+      cryptid: 'Cryptid',
+      orb: 'Orbs',
+      evp: 'EVP',
+      shadow: 'Shadow',
+      other: 'Other',
+    };
+    return category ? labelMap[category] || 'Paranormal' : 'Paranormal';
+  };
+
   return (
     <div className="h-full flex flex-col">
       <ScrollArea className="flex-1 px-4 pb-4">
@@ -41,18 +72,30 @@ export default function LocationList({ locations, onLocationSelect }: LocationLi
                 className="bg-gray-700 rounded-lg p-4 cursor-pointer hover:bg-gray-600 transition-all duration-200 hover:shadow-lg hover:shadow-lime-500/10 border border-gray-600 hover:border-lime-500/50"
               >
                 {/* Location Title */}
-                <h3 className="font-bold text-lime-400 mb-2 flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <span>{location.title}</span>
-                  </div>
-                  {location.media && location.media.length > 0 && (
-                    <div className="flex items-center gap-1 text-xs bg-gray-800 px-2 py-1 rounded">
-                      <ImageIcon className="w-3 h-3" />
-                      {location.media.length}
+                <div className="mb-2 space-y-2">
+                  <h3 className="font-bold text-lime-400 flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <span>{location.title}</span>
                     </div>
-                  )}
-                </h3>
+                    {location.media && location.media.length > 0 && (
+                      <div className="flex items-center gap-1 text-xs bg-gray-800 px-2 py-1 rounded">
+                        <ImageIcon className="w-3 h-3" />
+                        {location.media.length}
+                      </div>
+                    )}
+                  </h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="secondary" className="bg-lime-500/20 text-lime-300 border-lime-500/50 text-xs">
+                      {getCategoryEmoji(location.category)} {getCategoryLabel(location.category)}
+                    </Badge>
+                    {location.locationName && (
+                      <span className="text-xs text-gray-400">
+                        📍 {truncateText(location.locationName, 30)}
+                      </span>
+                    )}
+                  </div>
+                </div>
 
                 {/* Description Excerpt */}
                 <p className="text-gray-300 text-sm mb-3 leading-relaxed">

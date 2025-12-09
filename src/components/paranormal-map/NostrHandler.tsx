@@ -3,8 +3,9 @@ import { useNostr } from '@nostrify/react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { ParanormalLocation } from '@/types/paranormal';
+import { encode as encodeGeohash } from 'ngeohash';
 
-const PARANORMAL_LOCATION_KIND = 30023;
+const PARANORMAL_LOCATION_KIND = 32921;
 
 export function useNostrHandler() {
   const { nostr } = useNostr();
@@ -29,22 +30,50 @@ export function useNostrHandler() {
       throw new Error('Nostr connection not available');
     }
 
+    const timestamp = Math.floor(Date.now() / 1000);
     const locationData: ParanormalLocation = {
       ...data,
-      timestamp: Math.floor(Date.now() / 1000),
+      timestamp,
       user_pubkey: user.pubkey,
     };
 
+    // Generate geohash for privacy-preserving location (precision 6 ≈ ±610m)
+    const geohash = encodeGeohash(data.latitude, data.longitude, 6);
+
+    // Build tags array
+    const tags: string[][] = [
+      ['d', `location-${timestamp}-${Math.random().toString(36).substring(2, 9)}`],
+      ['title', data.title],
+      ['g', geohash],
+      ['lat', data.latitude.toString()],
+      ['lon', data.longitude.toString()],
+      ['t', 'paranormal'],
+      ['published_at', timestamp.toString()],
+      ['alt', `Paranormal location pin: ${data.title}`],
+    ];
+
+    // Add category tags if provided
+    if (data.category) {
+      tags.push(['t', data.category]);
+    }
+
+    // Add location name if provided
+    if (data.locationName) {
+      tags.push(['location', data.locationName]);
+    }
+
+    // Add image tags if media is provided
+    if (data.media && data.media.length > 0) {
+      data.media.forEach((url) => {
+        tags.push(['image', url]);
+      });
+    }
+
     const event = {
       kind: PARANORMAL_LOCATION_KIND,
-      content: JSON.stringify(locationData),
-      tags: [
-        ['d', `paranormal-location-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`],
-        ['t', 'paranormal'],
-        ['t', 'location'],
-        ['alt', 'Paranormal location submission - Long-form content'],
-      ],
-      created_at: Math.floor(Date.now() / 1000),
+      content: data.description,
+      tags,
+      created_at: timestamp,
     };
 
     try {
@@ -89,13 +118,10 @@ export function useNostrHandler() {
 
       console.log('🗺️ Nostr object available, making query...');
 
-      // Remove since parameter to get ALL events, not just recent ones
       const signal = AbortSignal.timeout(8000);
-      const filters = [{ kinds: [PARANORMAL_LOCATION_KIND], limit: 100 }];
+      const filters = [{ kinds: [PARANORMAL_LOCATION_KIND], limit: 200 }];
 
       console.log('🗺️ Query filters:', filters);
-      console.log('🗺️ About to call nostr.query...');
-      console.log('🗺️ Nostr query method available:', typeof nostr.query);
 
       let events: any[] = [];
       try {
@@ -111,64 +137,71 @@ export function useNostrHandler() {
         id: e.id,
         kind: e.kind,
         content: e.content.substring(0, 50) + '...',
-        created_at: e.created_at
+        created_at: e.created_at,
+        tags: e.tags
       })));
-
-      console.log('Received events:', events.length);
 
       const locations: ParanormalLocation[] = [];
 
       for (const event of events) {
         try {
-          // Skip if content is empty or not a string
-          if (!event.content || typeof event.content !== 'string') {
-            console.warn('Skipping event with invalid content:', event.id);
-            continue;
-          }
+          // Extract data from tags
+          const getTag = (name: string): string | undefined => {
+            return event.tags.find((t: string[]) => t[0] === name)?.[1];
+          };
 
-          // Check if content looks like JSON (starts with {)
-          if (!event.content.trim().startsWith('{')) {
-            console.warn('Skipping event with non-JSON content:', event.id);
-            continue;
-          }
+          const getAllTags = (name: string): string[] => {
+            return event.tags.filter((t: string[]) => t[0] === name).map((t: string[]) => t[1]);
+          };
 
-          const locationData = JSON.parse(event.content);
+          const title = getTag('title');
+          const lat = getTag('lat');
+          const lon = getTag('lon');
+          const publishedAt = getTag('published_at');
+          const description = event.content;
 
           // Validate required fields
-          if (!locationData || typeof locationData !== 'object') {
-            console.warn('Skipping event with invalid parsed data:', event.id);
+          if (!title || !lat || !lon || !publishedAt || !description) {
+            console.warn('Skipping event missing required tags or content:', event.id);
             continue;
           }
 
-          // Validate required fields exist
-          const requiredFields = ['title', 'description', 'latitude', 'longitude', 'timestamp'];
-          const hasAllFields = requiredFields.every(field => field in locationData);
+          const latitude = parseFloat(lat);
+          const longitude = parseFloat(lon);
+          const timestamp = parseInt(publishedAt);
 
-          if (!hasAllFields) {
-            console.warn('Skipping event missing required fields:', event.id);
+          // Validate numeric conversions
+          if (isNaN(latitude) || isNaN(longitude) || isNaN(timestamp)) {
+            console.warn('Skipping event with invalid numeric values:', event.id);
             continue;
           }
 
-          // Validate data types
-          if (
-            typeof locationData.title !== 'string' ||
-            typeof locationData.description !== 'string' ||
-            typeof locationData.latitude !== 'number' ||
-            typeof locationData.longitude !== 'number' ||
-            typeof locationData.timestamp !== 'number'
-          ) {
-            console.warn('Skipping event with invalid field types:', event.id);
-            continue;
-          }
+          // Extract optional fields
+          const locationName = getTag('location');
+          const geohash = getTag('g');
+          const categories = getAllTags('t').filter(t => t !== 'paranormal');
+          const category = categories.length > 0 ? categories[0] : undefined;
+          const mediaUrls = getAllTags('image');
 
-          // All validation passed, add to locations
-          locations.push({
-            ...locationData,
+          // Build location object
+          const location: ParanormalLocation = {
             id: event.id,
-          });
+            title,
+            description,
+            latitude,
+            longitude,
+            timestamp,
+            user_pubkey: event.pubkey,
+            category,
+            locationName,
+            geohash,
+            media: mediaUrls.length > 0 ? mediaUrls : undefined,
+          };
+
+          locations.push(location);
         } catch (error) {
-          console.warn('Failed to parse paranormal location data:', error);
-          console.warn('Event content that failed to parse:', events.find(e => e.id === event.id)?.content?.substring(0, 100) + '...');
+          console.warn('Failed to parse paranormal location event:', error);
+          console.warn('Event that failed to parse:', event.id);
         }
       }
 
