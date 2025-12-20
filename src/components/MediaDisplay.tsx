@@ -1906,7 +1906,7 @@ export function MediaDisplay({ media, className }: MediaDisplayProps) {
   };
 
   return (
-    <div className={cn("my-3 first:mt-0 last:mb-0", className)}>
+    <div className={cn("my-3 first:mt-0 last:mb-0", media.type === 'youtube' && "mb-6", className)}>
       {renderMedia()}
     </div>
   );
